@@ -221,19 +221,20 @@ class ReadmeTests(unittest.TestCase):
         self.assertIn("加上紋路", zh)
         self.assertIn("Add patterns", en)
         self.assertIn("色盲", zh)
-        self.assertIn("近一週", zh)
-        self.assertIn("Last quarter", en)
+        self.assertIn("本週／近一月／近一季／近半年／近一年／全部", zh)
+        self.assertIn("This week / Last month / Last quarter", en)
         self.assertIn("10–60 seconds", en)
         self.assertIn("10–60 秒", zh)
 
 
 class ClockRangeLabelTests(unittest.TestCase):
     def test_labels(self):
-        self.assertEqual(uh.STR["zh-TW"]["clock_ro"], {"wk": "近一週", "1m": "近一月", "3m": "近一季", "6m": "近半年", "1y": "近一年", "all": "全部"})
-        self.assertEqual(uh.STR["zh-CN"]["clock_ro"], {"wk": "近一周", "1m": "近一月", "3m": "近一季", "6m": "近半年", "1y": "近一年", "all": "全部"})
-        self.assertEqual(uh.STR["en"]["clock_ro"], {"wk": "Last week", "1m": "Last month", "3m": "Last quarter", "6m": "Last 6 months",
+        self.assertEqual(uh.STR["zh-TW"]["clock_ro"], {"wk": "本週", "1m": "近一月", "3m": "近一季", "6m": "近半年", "1y": "近一年", "all": "全部"})
+        self.assertEqual(uh.STR["zh-CN"]["clock_ro"], {"wk": "本周", "1m": "近一月", "3m": "近一季", "6m": "近半年", "1y": "近一年", "all": "全部"})
+        self.assertEqual(uh.STR["en"]["clock_ro"], {"wk": "This week", "1m": "Last month", "3m": "Last quarter", "6m": "Last 6 months",
                                                      "1y": "Last year", "all": "All"})
-        self.assertEqual(uh.STR["zh-TW"]["clock_rt"]["wk"], "近一週")
+        self.assertEqual(uh.STR["zh-TW"]["clock_rt"]["wk"], "本週")
+        self.assertEqual(uh.STR["en"]["clock_ro"]["wk"], "This week")
 
 
 if __name__ == "__main__":
