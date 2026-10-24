@@ -147,7 +147,7 @@ If the automatic read keeps failing, set `"pct_source": "manual"` in `usage_conf
 1. **Header Bar**: `WEEKLY USAGE // TELEMETRY` eyebrow, localized dashboard title (`Usage Dashboard` by default, customizable via `--title`), full weekly cycle window (`YYYY-MM-DD Sat 09:00 -> YYYY-MM-DD Sat 09:00`), and decorative segmented view tabs (`Cumulative | Daily | Week`).
 2. **Row 1 — Hero Card & 6 Telemetry Stat Cards**:
    - **Hero Card (left ~1/3)**: Ring gauge (capped visually at `100%` with a grey tick at today's target baseline `pace × day`, showing `Day N / 7` and `% left` in the center), large current `%` readout, burn rate (`burn rate X.X%/day`), auto-sized status pill (`▼ ON PACE` in the cool colour or `▲ AHEAD OF PACE` in orange), time-to-cap forecast (`Hits 100% ~Day X.X` when projected usage exceeds `100%`), and a padded bottom multi-segment progress bar (used quota + pale forecast-to-reset + remaining track + grey baseline tick).
-   - **6 Stat Cards (`2 × 3` grid)**: **vs Baseline** (`+/-%`), **Remaining** (`0%` and `+X% over cap` when `> 100%`), **Avg / Day**, **Projected (7d)**, **Reset In** (`Xd Yh`), and **Daily Budget Left** (`remaining / max(1, days_left)`).
+   - **6 Stat Cards (`2 × 3` grid)**: **vs Baseline** (`+/-%`), **Remaining** (`0%` and `+X% over cap` when `> 100%`), **Avg / Day**, **Projected (7d)**, **Reset In** (`Xd Yh` plus the explicit date, e.g. `Sat, Oct 31, 01:41`), and **Daily Budget Left** (`remaining / max(1, days_left)`).
 3. **Row 2 Left — Cumulative Usage vs. Baseline Line Chart**: 7 framed daily cells (`x = 0..7`, points at `N - 0.5`), grey baseline `pace × (x + 0.5)`, segment-by-segment cool/orange usage line, dashed forecast to Day 7 (`proj X%`), `100%` limit line, `> 100%` cap triangle markers with anti-collision label placement, and `No Data` indicators in missing cells.
 4. **Row 3 Left — Daily Usage Skyscraper Bar Chart**: Aligned with the 7 day-cells above, showing each day's increment (`pct - prev_pct`) in the cool colour (`<= pace × gap_days`) or orange (`> pace × gap_days`) against the dashed grey daily baseline (`14%`), with `(Nd)` gap tags on multi-day spans.
 5. **Row 2+3 Right — Daily Log Card**: 7 daily rows (`Day 1..Day 7`) with date (`MM-DD`), note/timestamp, cumulative `%`, daily increment (`+N%`), and a clipped mini progress bar per row.
@@ -198,6 +198,17 @@ black or aqua; every preset has its own notice colour.
   `<data_dir>/page_settings.json` without a config file) so refreshes draw the default charts the same way; hatched
   images are drawn on first use into `history/pal/<palette>-pat/` and cached like palettes. A theme file with
   `"patterns": true` also turns them on.
+
+**Display offset** (`display_offset`, menu **Display offset** next to **Add patterns**: −2 … +2, default +0). The Grok
+desktop app may show the weekly % about 1 point higher than `/usage` for the same moment, because the two round a
+fractional value differently. Pick **+1 (match desktop app)** to make the dashboard match the app. The offset is only
+added when values are shown or calculated (current %, Δ vs baseline, remaining, average, projection, over/under
+colouring, the weekly HUD and history charts, the ledger line); `samples.csv`, the week CSVs and `latest.json` stay
+raw, and differences between two readings (check-in start/end, the clock dial's hourly increases) are unchanged
+because the offset cancels. Shown values never go below 0, and a small `(+1)` next to the main % shows that an offset
+is on. The choice is saved in `usage_config.json` (or `<data_dir>/page_settings.json`) and in the browser
+(`usage.displayOffset`); changing it redraws the charts (the offset is part of the image cache key, e.g.
+`history/pal/orange-teal-o+1/`).
 
 - PNGs (`chart_hud.py`, history and clock charts) and web pages follow the palette. `over_color`, `under_color` and
   `baseline_color` in the config still override single colours.
@@ -303,7 +314,7 @@ python3 usage_record.py serve --privacy --theme themes/muted.json
 - **Idempotent Atomic Upsert**: Each run upserts today's cycle day (`1..7`) into `<data_dir>/week-<period_start>.csv` atomically via temporary file + `os.replace`, writes `<data_dir>/latest.json`, renders the PNG (unless `--no-render`), and auto-opens the PNG (unless `--no-open` or `"open": false`).
 - **Normal Mode JSON**:
   ```json
-  {"ok":true,"period_start":"2026-10-17","period_end":"2026-10-24","day":5,"days_total":7,"pct":73.0,"pct_source":"grok","pace":14.0,"baseline":70.0,"delta":3.0,"status":"ahead","projected_end_pct":102.2,"remaining_pct":27.0,"avg_per_day":14.6,"reset_at":"2026-10-24T09:00+02:00","reset_in_hours":69.7,"reset_in_text":"2d 21h","reset_source":"grok","recorded_at":"2026-10-21T04:00+02:00","csv":"usage-data/week-2026-10-17.csv","image":"usage-data/usage-week.png","summary_text":"Day 5/7: 73% used (baseline 70%, +3) - ahead of pace; projected 102%; resets in 2d 21h"}
+  {"ok":true,"period_start":"2026-10-17","period_end":"2026-10-24","day":5,"days_total":7,"pct":73.0,"pct_source":"grok","pace":14.0,"baseline":70.0,"delta":3.0,"status":"ahead","projected_end_pct":102.2,"remaining_pct":27.0,"avg_per_day":14.6,"reset_at":"2026-10-24T09:00+02:00","reset_in_hours":69.7,"reset_in_text":"2d 21h","reset_source":"grok","recorded_at":"2026-10-21T04:00+02:00","csv":"usage-data/week-2026-10-17.csv","image":"usage-data/usage-week.png","summary_text":"Day 5/7: 73% used (baseline 70%, +3) - ahead of pace; projected 102%; resets in 2d 21h (Sat, Oct 24, 09:00)"}
   ```
 - **`--format text`**: Prints only `summary_text` (or `text` in privacy mode) to `stdout`.
 
@@ -408,8 +419,8 @@ All commands accept `--config`, `--data-dir`, `--tz`, `--lang`, `--theme`, `--pa
 
 - 24-hour polar charts of the % increase per hour of day; 0:00 is at the top and hours run clockwise.
 - **Left: the last 24 hours**, one bar per hour. This is a magnitude scale, not an over/under state: colours run from the palette's cool colour (low) to orange (high), with a colour bar underneath.
-- **Right: the current reset week** by default. A **Range** menu above it switches to Last week / Last month / Last quarter / Last 6 months / Last year / All. In this chart **colour = period, length = % increase in that hour**:
-  - Last week: one colour per day (up to 8 days touched by the week); Last month: per reset week; Last quarter and Last 6 months: per month; Last year: per quarter; All: per quarter, or per year when that would be more than 8 quarters (latest 8 kept).
+- **Right: the current reset week** by default. A **Range** menu above it switches to This week / Last month / Last quarter / Last 6 months / Last year / All. This week = since the last reset; Last month / quarter / 6 months / year are rolling windows of the last 30 / 90 / 180 / 365 days counted back from now; All = every sample. In this chart **colour = period, length = % increase in that hour**:
+  - This week: one colour per day (up to 8 days touched by the week); Last month: per reset week; Last quarter and Last 6 months: per month; Last year: per quarter; All: per quarter, or per year when that would be more than 8 quarters (latest 8 kept).
   - For weeks / months / quarters / years the length is the average % increase in that hour over the period's days.
   - A legend under the dial lists the periods oldest first (e.g. `Sat 10/24 (today)` / `10/24 週六（今天）`, `Wk 1 10/03–10/09`); the current period is bold, periods without data are dimmed.
   - Period colours are a set of up to 8 distinct colours per palette (dark and light versions), starting with the palette's cool colour and leaving out hues close to its "over" colour; `orange-deepblue` uses the Okabe-Ito colours.
@@ -627,6 +638,17 @@ python3 usage_history.py ledger      # same check using the configured path; exi
 | `staleAfterHours`, `timezone` | Freshness limit and display offset (e.g. `UTC+2`). |
 | `alerts` | Active alerts `[{id, kind, title, message}]`; ids are per day, e.g. `spike:YYYY-MM-DD`. |
 
+### Next reset: explicit date, exactly as Grok Build shows it
+
+Wherever the next reset appears (history page status line, HUD **Reset In** card, viewer card, desktop
+notifications, `summary_text`, privacy/numeric mode) it is shown as an explicit local date and time, never as
+"next week" or a weekday alone: `Sat, Oct 31, 01:41` (zh-TW `10月31日（週六）01:41`, zh-CN `10月31日（周六）01:41`,
+numeric `10/31 01:41`). The countdown (`6d 7h`) stays next to it. When `/usage` printed `Resets: …`, that time is
+shown exactly as given (only converted to the local zone if it carried one), even if it looks past or odd; it is not
+rolled forward or corrected (`latest.json` `reset_at`, `state.json` and the ledger's `resetsAt` keep it too; week
+boundaries are still worked out from it as before). Only when `/usage` gave no reset is the fallback used
+(`--reset-anchor`, config `reset_anchor`, or the cached `state.json`); the ledger then says *reset unknown*.
+
 ### Unavailable, never fake
 
 - A failed read appends `timestamp,unavailable` to `samples.csv`; those rows are excluded from charts,
@@ -713,6 +735,7 @@ network.
 | `extra_spend_csv` | `null` | Optional CSV of extra paid usage with at least the columns `time,usd_used` (`usd_used` = monthly running total; other columns are ignored); shown per month in the history view. |
 | `palette` | `"orange-teal"` | Colour preset: `orange-teal`, `orange-blue`, `orange-deepblue` (old name `colorblind` still accepted), `amber-purple`, `pink-green`, `gold-sky`, `orange-purple`, `magenta-teal`, `yellow-indigo`, `peach-mint`, `tangerine-cyan`, `rose-lime`, `sunflower-navy`, `high-contrast`, `safety-ultramarine`, `tangerine-violet`, `amber-cobalt`. |
 | `patterns` | `false` | **Add patterns**: hatching, dashed over-line and ▲/▼ on charts and badges, for any palette. Set by the page checkbox too. |
+| `display_offset` | `0` | Whole number −2…+2 added to the shown weekly % (clamped; `1` matches the desktop app's rounding). Stored data stays raw. Set by the page menu too. |
 | `over_color`, `under_color`, `baseline_color` | `null` | Optional single-colour overrides for `chart_hud.py` (hex); `null` = take it from the palette. |
 | `render_all_palettes` | `false` | `true` = draw every palette's history/clock PNGs on every refresh (instant switching, slower refreshes). `false` = draw other palettes only when the page asks, then reuse them until the next refresh. |
 | `checkin_categories` | 14 defaults | Category ids in page order; `id:Label` sets a custom label. Unknown ids become `other`. |

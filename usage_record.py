@@ -72,6 +72,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
+if os.path.dirname(os.path.abspath(__file__)) not in sys.path:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import usage_dates  # noqa: E402  (explicit next-reset date, stdlib only)
+
 WEEKDAY_SPEC_RE = re.compile(
     r"^\s*([A-Za-z]+)\.?\s+(\d{1,2}):(\d{2})(?:\s*([AaPp][Mm]))?\s*$"
 )
@@ -341,6 +345,12 @@ def _normalize_source_mode(val: Optional[str], key_name: str, allow_grok_alias: 
         return s
     fail(3, f"Invalid {key_name} '{val}' (expected 'auto' or 'manual')")
     return "auto"
+
+
+def _display_offset(cfg_data, data_dir):
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import usage_offset
+    return usage_offset.from_settings(cfg_data, data_dir)
 
 
 def _ledger_hook(data_dir, cfg_data, tz, lang, pct, reset_at, source, error=None):
@@ -636,7 +646,7 @@ def main(argv: Optional[List[str]] = None):
             )
             if should_cache:
                 state_payload = {
-                    "reset_at": period_end_dt.isoformat(timespec="minutes"),
+                    "reset_at": grok_reset_dt.isoformat(timespec="minutes"),  # exactly as /usage showed it
                     "period_days": period_days,
                     "updated_at": now_dt.isoformat(timespec="minutes"),
                     "source": "a" if is_privacy else "grok",
@@ -716,6 +726,12 @@ def main(argv: Optional[List[str]] = None):
     period_start_str = period_start_dt.strftime("%Y-%m-%d")
     period_end_str = period_end_dt.strftime("%Y-%m-%d")
     reset_hm_str = period_end_dt.strftime("%H:%M")
+    # The next reset to show: /usage's 'Resets:' value exactly as given (only moved to the local zone when it carries
+    # one), never rolled forward or corrected even if it looks past or odd. Only without it: the fallback period end.
+    if actual_reset_source == "grok" and grok_reset_dt is not None:
+        shown_reset_dt = grok_reset_dt.astimezone(tz) if grok_reset_dt.tzinfo is not None else grok_reset_dt
+    else:
+        shown_reset_dt = period_end_dt
     reading_date_str = reading_dt.strftime("%Y-%m-%d")
     reading_ymd_compact = reading_dt.strftime("%Y%m%d")
     note_str = reading_dt.strftime("%H:%M")
@@ -761,6 +777,7 @@ def main(argv: Optional[List[str]] = None):
                 "title": None if is_privacy else resolve(args.title, "title"),
                 "tz": tz_for_render,
                 "reset_hm": reset_hm_str,
+                "reset_at": shown_reset_dt.isoformat(timespec="minutes"),
                 "bg_color": resolve(args.bg_color, "bg_color"),
                 "accent_color": resolve(args.accent_color, "accent_color"),
                 "baseline_color": resolve(args.baseline_color, "baseline_color"),
@@ -768,6 +785,7 @@ def main(argv: Optional[List[str]] = None):
                 "over_color": resolve(args.over_color, "over_color"),
                 "text_color": resolve(args.text_color, "text_color"),
                 "palette": resolve(getattr(args, "palette", None), "palette"),
+                "display_offset": _display_offset(cfg_file_data, data_dir),  # shown % only; the CSV row stays raw
             }
             chart_hud.render(rows, str(out_png), period_start_str, render_cfg)
             # Other palettes for the viewer's palette menu (<data_dir>/pal/<name>/<file>): usage_view.py draws one
@@ -803,14 +821,15 @@ def main(argv: Optional[List[str]] = None):
     projected_end_pct = round((pct_val / max(1, day_idx)) * period_days, 1)
     remaining_pct = round(max(0.0, 100.0 - pct_val), 4)
 
-    rem_sec = max(0, int((period_end_dt - reading_dt).total_seconds()))
+    cmp_reading = reading_dt if shown_reset_dt.tzinfo is not None else reading_dt.replace(tzinfo=None)
+    rem_sec = max(0, int((shown_reset_dt - cmp_reading).total_seconds()))
     reset_in_hours = round(rem_sec / 3600.0, 2)
     reset_in_text = format_duration(rem_sec)
 
     if is_privacy:
         priv_text = (
             f"D{day_idx}/{period_days} {pct_val:g} ({baseline_val:g}, {'▲' if delta_val > 0 else '▼'} {delta_val:+g}) "
-            f"proj {projected_end_pct:.0f} next {reset_in_text}"
+            f"proj {projected_end_pct:.0f} next {reset_in_text} @ {usage_dates.reset_date(shown_reset_dt, 'numeric')}"
         )
         summary_payload = {
             "ok": True,
@@ -826,7 +845,7 @@ def main(argv: Optional[List[str]] = None):
             "projected": projected_end_pct,
             "left": remaining_pct,
             "avg": avg_per_day,
-            "next": period_end_dt.isoformat(timespec="minutes"),
+            "next": shown_reset_dt.isoformat(timespec="minutes"),
             "next_in_h": reset_in_hours,
             "pct_source": "a" if actual_pct_source == "grok" else "m",
             "reset_source": "a" if actual_reset_source in ("grok", "cache") else "m",
@@ -841,7 +860,7 @@ def main(argv: Optional[List[str]] = None):
         summary_text = (
             f"Day {day_idx}/{period_days}: {pct_val:g}% used "
             f"(baseline {baseline_val:g}%, {'▲' if delta_val > 0 else '▼'} {delta_val:+g}) - {status_phrase}; "
-            f"projected {projected_end_pct:.0f}%; resets in {reset_in_text}"
+            f"projected {projected_end_pct:.0f}%; resets in {reset_in_text} ({usage_dates.reset_date(shown_reset_dt, 'en')})"
         )
         summary_payload = {
             "ok": True,
@@ -858,7 +877,7 @@ def main(argv: Optional[List[str]] = None):
             "projected_end_pct": projected_end_pct,
             "remaining_pct": remaining_pct,
             "avg_per_day": avg_per_day,
-            "reset_at": period_end_dt.isoformat(timespec="minutes"),
+            "reset_at": shown_reset_dt.isoformat(timespec="minutes"),
             "reset_in_hours": reset_in_hours,
             "reset_in_text": reset_in_text,
             "reset_source": actual_reset_source,

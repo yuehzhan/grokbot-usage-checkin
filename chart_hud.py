@@ -93,7 +93,9 @@ DEFAULT_CFG = {
     "title": None,
     "tz": "local",
     "reset_hm": "00:00",
+    "reset_at": None,  # exact next reset to show (ISO, e.g. the 'Resets:' value from /usage); else start + 7 days
     "patterns": None,  # non-colour cues (hatching, dashed over-line, ▲/▼); off unless asked for ("Add patterns")
+    "display_offset": 0,  # -2..+2 added to the shown weekly % (see usage_offset.py); the CSV stays raw
 }
 
 BASE_STRINGS = {
@@ -123,7 +125,7 @@ BASE_STRINGS = {
     "stat_proj": "Projected (7d)",
     "stat_proj_sub": "7d baseline: {base7}%",
     "stat_reset": "Reset In",
-    "stat_reset_sub": "{reset_wd} {reset_hm} ({tz_label})",
+    "stat_reset_sub": "{reset_date}",
     "countdown_short": "{days}d {hours}h",
     "countdown_hm": "{hours}h {mins:02d}m",
     "countdown_m": "{mins}m",
@@ -180,7 +182,7 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "stat_proj": "預估週末總量",
         "stat_proj_sub": "7天基準: {base7}%",
         "stat_reset": "距離重置",
-        "stat_reset_sub": "{reset_wd} {reset_hm}（{tz_label}）",
+        "stat_reset_sub": "{reset_date}",
         "countdown_short": "{days}天 {hours}小時",
         "countdown_hm": "{hours}小時 {mins:02d}分",
         "countdown_m": "{mins}分",
@@ -235,7 +237,7 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "stat_proj": "预计周末总量",
         "stat_proj_sub": "7天基准: {base7}%",
         "stat_reset": "重置倒计时",
-        "stat_reset_sub": "{reset_wd} {reset_hm}（{tz_label}）",
+        "stat_reset_sub": "{reset_date}",
         "countdown_short": "{days}天 {hours}小时",
         "countdown_hm": "{hours}小时 {mins:02d}分",
         "countdown_m": "{mins}分",
@@ -290,7 +292,7 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "stat_proj": "週末予測 (7日)",
         "stat_proj_sub": "7日基準: {base7}%",
         "stat_reset": "リセットまで",
-        "stat_reset_sub": "{reset_wd}曜 {reset_hm}（{tz_label}）",
+        "stat_reset_sub": "{reset_date}",
         "countdown_short": "{days}日 {hours}時間",
         "countdown_hm": "{hours}時間{mins:02d}分",
         "countdown_m": "{mins}分",
@@ -345,7 +347,7 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "stat_proj": "주말 예상 (7일)",
         "stat_proj_sub": "7일 기준: {base7}%",
         "stat_reset": "초기화까지",
-        "stat_reset_sub": "{reset_wd}요일 {reset_hm} ({tz_label})",
+        "stat_reset_sub": "{reset_date}",
         "countdown_short": "{days}일 {hours}시간",
         "countdown_hm": "{hours}시간 {mins:02d}분",
         "countdown_m": "{mins}분",
@@ -402,7 +404,7 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "stat_proj": "→ 7/7",
         "stat_proj_sub": "7×{pace}% = {base7}%",
         "stat_reset": "↻",
-        "stat_reset_sub": "@ {reset_hm}",
+        "stat_reset_sub": "@ {reset_date}",
         "countdown_short": "↻ {days}d {hours}h",
         "countdown_hm": "↻ {hours}h {mins:02d}m",
         "countdown_m": "↻ {mins}m",
@@ -629,7 +631,39 @@ def normalize_cfg(cfg=None, theme_path=None):
 
     pace_val = merged["pace"]
     merged["pace"] = int(pace_val) if float(pace_val).is_integer() else float(pace_val)
+    merged["display_offset"] = _offset_mod().clamp(merged.get("display_offset"))
     return merged
+
+
+def _sibling(name):
+    try:
+        return __import__(name)
+    except ImportError:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        return __import__(name)
+
+
+def _explicit_reset(value, tz):
+    """cfg['reset_at'] as a datetime shown as given (only moved to `tz` when it carries a zone), else None."""
+    if isinstance(value, datetime):
+        dt = value
+    else:
+        try:
+            dt = datetime.fromisoformat(str(value).strip().replace("Z", "+00:00")) if value else None
+        except ValueError:
+            dt = None
+    if dt is None:
+        return None
+    return dt.astimezone(tz) if (dt.tzinfo is not None and tz is not None) else dt
+
+
+def _offset_mod():
+    try:
+        import usage_offset
+    except ImportError:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import usage_offset
+    return usage_offset
 
 
 def parse_config():
@@ -647,6 +681,7 @@ def parse_config():
     p.add_argument("--bg-color", default=None)
     p.add_argument("--text-color", default=None)
     p.add_argument("--accent-color", default=None)
+    p.add_argument("--reset-at", default=None, help="Exact next reset to show (ISO); default: week start + 7 days")
     p.add_argument("--lang", default=None, help="Language: auto (default), en, zh-TW, zh-CN, ja, ko, numeric")
     p.add_argument("--privacy", action="store_true", default=None, help="Discreet privacy mode (word-free numeric render)")
     p.add_argument("--pace", type=float, default=None)
@@ -659,7 +694,7 @@ def parse_config():
         k: getattr(args, k)
         for k in (
             "palette", "baseline_color", "under_color", "over_color", "bg_color",
-            "text_color", "accent_color", "lang", "privacy", "pace", "title", "tz", "reset_hm",
+            "text_color", "accent_color", "lang", "privacy", "pace", "title", "tz", "reset_hm", "reset_at",
         )
     }
     cfg = normalize_cfg(cli_overrides, theme_path=args.theme)
@@ -769,6 +804,7 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
 
     fmt_ctx = {
         "reset_wd": t_info.get("reset_wd", ""),
+        "reset_date": t_info.get("reset_date", ""),
         "tz_label": t_info.get("tz_label_reset", t_info.get("tz_label", "")),
         "d": latest_day,
         "day": eta_day,
@@ -813,7 +849,11 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
 
     rx = (hx + 0.146) * FIG_W
     ax_hud.text(rx, (hy + 0.170) * FIG_H, str(L["hero_title"]), color=pal["text_dim"], fontsize=10.5 if is_num else 9.8, fontweight="bold", va="center")
-    ax_hud.text(rx, (hy + 0.130) * FIG_H, f"{latest_pct:.0f}%", color=hero_col, fontsize=28.5, fontweight="bold", va="center")
+    hero = ax_hud.text(rx, (hy + 0.130) * FIG_H, f"{latest_pct:.0f}%", color=hero_col, fontsize=28.5, fontweight="bold", va="center")
+    otag = _offset_mod().tag(cfg.get("display_offset"))
+    if otag:  # small neutral marker: the shown % includes the display offset
+        ax_hud.annotate(otag, xy=(1, 0.5), xycoords=hero, xytext=(5, 0), textcoords="offset points",
+                        color=pal["text_dim"], fontsize=10, fontweight="bold", va="center", ha="left")
     ax_hud.text(rx, (hy + 0.095) * FIG_H, sfmt(L["burn_rate"], **fmt_ctx), color=pal["text_dim"], fontsize=9.8, fontweight="bold", va="center")
 
     pill_txt = str(L["ahead_pace"] if over else L["on_pace"])
@@ -852,7 +892,7 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
     ax_hud.plot([bx_tick, bx_tick], [pb_y - 2.5, pb_y + pb_h + 2.5], color=pal["orange"], lw=2.2, zorder=6)
 
     budget_val_str = f"{daily_budget:.1f}%" if is_num else f"{daily_budget:.1f}%/d"
-    reset_sub_str = f"@ {t_info['reset_hm']}" if is_num else sfmt(L["stat_reset_sub"], **fmt_ctx)
+    reset_sub_str = f"@ {t_info['reset_date']}" if is_num else sfmt(L["stat_reset_sub"], **fmt_ctx)
 
     stats = [
         (
@@ -1383,7 +1423,8 @@ def render(rows, out_png, week_start, cfg=None):
     wstart = week_start if week_start else (sorted_rows[0]["date"] if sorted_rows else "2026-01-01")
 
     days = [int(r["day"]) for r in sorted_rows]
-    pcts = [float(r["pct"]) for r in sorted_rows]
+    off = cfg["display_offset"]
+    pcts = [_offset_mod().apply(float(r["pct"]), off) for r in sorted_rows]  # shown values; rows stay raw
     xs = [d - 0.5 for d in days]
     ys_plot = [min(max(p, 0.0), Y_CAP) for p in pcts]
 
@@ -1416,6 +1457,7 @@ def render(rows, out_png, week_start, cfg=None):
     is_num = bool(cfg.get("privacy")) or (eff_lang == "numeric")
     tz_label = tz_offset_label(now_dt, tz_spec, is_num)
     reset_wd = ""
+    reset_dt = None
     weekdays_list = L.get("weekdays") if isinstance(L.get("weekdays"), list) else BASE_STRINGS["weekdays"]
     try:
         start_dt = datetime.strptime(wstart, "%Y-%m-%d").replace(hour=r_hour, minute=r_min, tzinfo=tz)
@@ -1450,6 +1492,19 @@ def render(rows, out_png, week_start, cfg=None):
         countdown_short = format_duration(0, L=L)
         days_rem_stat = max(1, 7 - latest_day)
 
+    # The next reset to show: the exact value given (e.g. /usage 'Resets:'), never rolled or corrected; else start + 7 days.
+    shown_reset = _explicit_reset(cfg.get("reset_at"), tz)
+    if shown_reset is not None:
+        cmp_now = now_dt if shown_reset.tzinfo is not None else now_dt.replace(tzinfo=None)
+        rem_sec = max(0, int((shown_reset - cmp_now).total_seconds()))
+        countdown_short = format_duration(rem_sec, L=L)
+        if rem_sec > 0:
+            days_rem_stat = max(1, int(np.ceil(rem_sec / 86400.0)))
+        reset_wd = weekdays_list[shown_reset.weekday()]
+    else:
+        shown_reset = reset_dt
+    reset_date = _sibling("usage_dates").reset_date(shown_reset, "numeric" if is_num else eff_lang) if shown_reset else ""
+
     t_info = {
         "short_range_str": short_range_str,
         "range_str": range_str,
@@ -1459,6 +1514,7 @@ def render(rows, out_png, week_start, cfg=None):
         "now_str": now_str,
         "reset_hm": reset_hm,
         "reset_wd": reset_wd,
+        "reset_date": reset_date,
         "tz_label": tz_label,
         "tz_label_reset": tz_label_reset,
     }

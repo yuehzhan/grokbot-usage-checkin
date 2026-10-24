@@ -38,6 +38,8 @@ from usage_record import resolve_refresh_settings
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import local_guard  # noqa: E402
 import usage_palette  # noqa: E402
+import usage_offset  # noqa: E402
+import usage_dates  # noqa: E402
 
 # Manual refresh cooldown; overridden by config "manual_refresh_cooldown_seconds" (default 60).
 COOLDOWN_SECONDS = 60.0
@@ -354,6 +356,9 @@ def render_html_page(state: ViewerState) -> str:
     pal_now = usage_palette.get(state.palette)
     pal_json = json.dumps({"default": state.palette, "table": usage_palette.js_table(), "alias": {"colorblind": "orange-deepblue"},
                            "patterns": bool(state.cfg_data.get("patterns"))})
+    offset = usage_offset.from_settings(state.cfg_data, state.data_dir)
+    rd_js = usage_dates.JS
+    off_json = json.dumps({"off": offset, "tag": usage_offset.tag(offset)})
     pal_opts = "".join(
         f'<option value="{n}"{" selected" if n == state.palette else ""}>{(str(i + 1) + (" " + usage_palette.STAR if usage_palette.cvd_safe(n) else "") if priv else usage_palette.label(n, "en"))}</option>'
         for i, n in enumerate(usage_palette.names()))
@@ -480,6 +485,7 @@ def render_html_page(state: ViewerState) -> str:
     font-weight: 600;
     margin-bottom: 4px;
   }}
+  .otag {{ font-size: 0.55em; font-weight: 400; opacity: 0.7; }}
   .stat-value {{
     font-size: 1.32rem;
     font-weight: 700;
@@ -545,6 +551,17 @@ def render_html_page(state: ViewerState) -> str:
   const IS_PRIV = {is_priv_js};
   const TOKEN = (document.querySelector('meta[name="usage-token"]') || {{}}).content || "";
   const PAL = {pal_json};
+  {rd_js}
+  // next reset as an explicit local date (exactly the time in latest.json, e.g. /usage 'Resets:')
+  function resetDate(iso) {{
+    if (!iso) return "";
+    const d = new Date(iso); if (isNaN(d)) return "";
+    const m = /([+-])(\\d\\d):(\\d\\d)$/.exec(iso);
+    const w = m ? new Date(d.getTime() + (m[1] == "-" ? -1 : 1) * (+m[2] * 60 + +m[3]) * 60000)
+                : new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+    return RD(w, IS_PRIV ? "numeric" : "en");
+  }}
+  const OFFS = {off_json};  // display offset: added to the shown weekly % (latest.json stays raw)
   let palette = PAL.default;
   try {{ palette = localStorage.getItem("usage.palette") || PAL.default; }} catch (e) {{}}
   palette = PAL.alias[palette] || palette;
@@ -619,22 +636,33 @@ def render_html_page(state: ViewerState) -> str:
 
     const day = d.day != null ? d.day : "--";
     const days = (d.days != null ? d.days : d.days_total) || 7;
-    const pct = d.value != null ? d.value : d.pct;
+    const r1 = function(v) {{ return Math.round(v * 10) / 10; }};
+    const rawPct = d.value != null ? d.value : d.pct;
     const base = d.target != null ? d.target : d.baseline;
-    const delta = d.delta;
-    const rem = d.left != null ? d.left : d.remaining_pct;
-    const avg = d.avg != null ? d.avg : d.avg_per_day;
-    const proj = d.projected != null ? d.projected : d.projected_end_pct;
+    const pct = rawPct != null ? r1(Math.max(0, +rawPct + OFFS.off)) : rawPct;
+    const sh = (rawPct != null && pct != null) ? pct - rawPct : 0;  // what the offset actually added (0 floor)
+    const dayN = +(d.day != null ? d.day : 0) || 1;
+    const delta = d.delta != null ? r1(+d.delta + sh) : d.delta;
+    const rem0 = d.left != null ? d.left : d.remaining_pct;
+    const rem = (rem0 != null && pct != null) ? r1(Math.max(0, 100 - pct)) : rem0;
+    const avg0 = d.avg != null ? d.avg : d.avg_per_day;
+    const avg = avg0 != null ? r1(+avg0 + sh / dayN) : avg0;
+    const proj0 = d.projected != null ? d.projected : d.projected_end_pct;
     const pace = (d.step != null ? d.step : d.pace) || 14;
+    const proj = proj0 != null ? r1(+proj0 + sh * ((d.days != null ? d.days : d.days_total) || 7) / dayN) : proj0;
+    const otag = OFFS.tag ? ' <span class="otag">' + OFFS.tag + '</span>' : '';
     const over = delta != null ? delta > 0 : false;
     const projOver = proj != null ? proj > (pace * days) : false;
     const nextH = d.next_in_h != null ? d.next_in_h : d.reset_in_hours;
     const nextTxt = d.reset_in_text || (nextH != null ? fmtDurationSec(nextH * 3600) : "--");
-    const privNextTxt = (nextTxt && nextTxt !== "--" && !String(nextTxt).startsWith("\\u21bb")) ? ("\\u21bb " + nextTxt) : nextTxt;
+    const privNextTxt0 = (nextTxt && nextTxt !== "--" && !String(nextTxt).startsWith("\\u21bb")) ? ("\\u21bb " + nextTxt) : nextTxt;
+    const nextDate = resetDate(d.next != null ? d.next : d.reset_at);
+    const privNextTxt = privNextTxt0 + (nextDate ? ' <span class="otag">@ ' + nextDate + '</span>' : '');
+    const nextFull = nextTxt + (nextDate ? ' <span class="otag">' + nextDate + '</span>' : '');
 
     const cards = IS_PRIV ? [
       {{ lbl: "D", val: day + "/" + days, cls: "val-neutral" }},
-      {{ lbl: "\\u2211 %", val: pct != null ? pct + "%" : "--", cls: over ? "val-over" : "val-under" }},
+      {{ lbl: "\\u2211 %", val: pct != null ? pct + "%" + otag : "--", cls: over ? "val-over" : "val-under" }},
       {{ lbl: "\\u0394", val: delta != null ? arrow(delta) + " " + (delta >= 0 ? "+" + delta : delta) + "%" : "--", cls: (over ? "val-over" : "val-under") + " arr" }},
       {{ lbl: "100% \\u2212", val: rem != null ? rem + "%" : "--", cls: (pct > 100) ? "val-over" : "val-under" }},
       {{ lbl: "\\u00d8", val: avg != null ? avg + "%" : "--", cls: (avg > pace) ? "val-over" : "val-under" }},
@@ -642,12 +670,12 @@ def render_html_page(state: ViewerState) -> str:
       {{ lbl: "\\u21bb", val: privNextTxt, cls: "val-neutral" }}
     ] : [
       {{ lbl: "Day", val: day + " / " + days, cls: "val-neutral" }},
-      {{ lbl: "Cumulative", val: pct != null ? pct + "%" : "--", cls: over ? "val-over" : "val-under" }},
+      {{ lbl: "Cumulative", val: pct != null ? pct + "%" + otag : "--", cls: over ? "val-over" : "val-under" }},
       {{ lbl: "vs Baseline (" + (base != null ? base + "%" : "--") + ")", val: delta != null ? arrow(delta) + " " + (delta >= 0 ? "+" + delta : delta) + "%" : "--", cls: (over ? "val-over" : "val-under") + " arr" }},
       {{ lbl: "Remaining", val: rem != null ? rem + "%" : "--", cls: (pct > 100) ? "val-over" : "val-under" }},
       {{ lbl: "Avg / Day", val: avg != null ? avg + "%" : "--", cls: (avg > pace) ? "val-over" : "val-under" }},
       {{ lbl: "Projected (7d)", val: proj != null ? proj + "%" : "--", cls: projOver ? "val-over" : "val-under" }},
-      {{ lbl: "Reset In", val: nextTxt, cls: "val-neutral" }}
+      {{ lbl: "Reset In", val: nextFull, cls: "val-neutral" }}
     ];
 
     function arrow(v) {{ return v > 0 ? "\\u25b2" : "\\u25bc"; }}

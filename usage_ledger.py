@@ -35,6 +35,7 @@ from datetime import datetime, timedelta
 
 if os.path.dirname(os.path.abspath(__file__)) not in sys.path:
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import usage_dates  # noqa: E402
 import usage_lock  # noqa: E402
 
 try:
@@ -53,19 +54,23 @@ TEXT = {
     "en": {"title": "Usage alert", "spike": "+{p:g} pts in 24h, now {pct:g}% · {reset}",
            "budget": "Weekly usage {pct:g}% (≥ {th:g}%) · {reset}",
            "unavail": "Usage unavailable {n}× in a row · {last}",
-           "resets": "resets {wd} {hm} ({z})", "reset_unknown": "reset unknown",
+           "resets": "resets {date} ({z})", "reset_unknown": "reset unknown",
            "last": "last good {pct:g}% at {t}", "no_last": "no good reading yet",
-           "wd": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]},
+           "wd": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], "dl": "en"},
     "zh-TW": {"title": "用量提醒", "spike": "24 小時內上升 {p:g} 點，目前 {pct:g}%・{reset}",
               "budget": "每週用量 {pct:g}%（≥ {th:g}%）・{reset}",
               "unavail": "連續 {n} 次無法取得用量・{last}",
-              "resets": "重置 {wd} {hm}（{z}）", "reset_unknown": "重置時間未知",
+              "resets": "重置 {date}（{z}）", "reset_unknown": "重置時間未知",
               "last": "最後成功 {pct:g}%（{t}）", "no_last": "尚無成功紀錄",
-              "wd": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]},
+              "wd": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"], "dl": "zh-TW"},
     "numeric": {"title": "▲", "spike": "Δ24h +{p:g} → {pct:g}% · {reset}", "budget": "{pct:g}% ≥ {th:g}% · {reset}",
-                "unavail": "∅ ×{n} · {last}", "resets": "↻ {wd} {hm}", "reset_unknown": "↻ ?",
-                "last": "✓ {pct:g}% @ {t}", "no_last": "✓ —", "wd": ["1", "2", "3", "4", "5", "6", "7"]},
+                "unavail": "∅ ×{n} · {last}", "resets": "↻ {date}", "reset_unknown": "↻ ?",
+                "last": "✓ {pct:g}% @ {t}", "no_last": "✓ —", "wd": ["1", "2", "3", "4", "5", "6", "7"], "dl": "numeric"},
 }
+TEXT["zh-CN"] = dict(TEXT["zh-TW"], title="用量提醒", spike="24 小时内上升 {p:g} 点，目前 {pct:g}%・{reset}",
+                     budget="每周用量 {pct:g}%（≥ {th:g}%）・{reset}", unavail="连续 {n} 次无法获取用量・{last}",
+                     resets="重置 {date}（{z}）", reset_unknown="重置时间未知", last="最后成功 {pct:g}%（{t}）",
+                     no_last="尚无成功记录", wd=["周一", "周二", "周三", "周四", "周五", "周六", "周日"], dl="zh-CN")
 
 
 def offset_label(dt):
@@ -171,8 +176,9 @@ def compute_spike(samples, now, pct, period_start, threshold, window_h=24.0, max
 def _reset_text(T, reset, tz, privacy):
     if not reset:
         return T["reset_unknown"]
-    r = reset.astimezone(tz) if tz else reset
-    return T["resets"].format(wd=T["wd"][r.weekday()], hm=f"{r:%H:%M}", z=offset_label(r))
+    r = reset.astimezone(tz) if (tz and reset.tzinfo) else reset  # the given time as-is, only shown in local time
+    return T["resets"].format(date=usage_dates.reset_date(r, T.get("dl", "en")), wd=T["wd"][r.weekday()],
+                              hm=f"{r:%H:%M}", z=offset_label(r) if r.tzinfo else "")
 
 
 def update(path, *, pct, reset_at=None, period_start=None, source="sampler", error=None, samples=(),
@@ -303,7 +309,7 @@ def record_hud(data_dir, cfg, pct, reset_at=None, source="sampler", error=None, 
         ps = _hud_period_start(data_dir, now, int(cfg.get("period_days", 7) or 7))
     elif reset_at is not None:
         ps = reset_at - timedelta(days=int(cfg.get("period_days", 7) or 7))
-    lg = "numeric" if lang == "numeric" else ("zh-TW" if str(lang).startswith("zh") else "en")
+    lg = "numeric" if lang == "numeric" else (usage_dates.lang_key(lang) if str(lang).startswith("zh") else "en")
     return update(hud_ledger_path(data_dir, cfg), pct=pct, reset_at=reset_at, period_start=ps, source=source, error=error,
                   samples=samples, cfg={k: cfg.get(k) for k in ALERT_KEYS}, lang=lg, tz=tz, now=now,
                   alerts_log=os.path.join(str(data_dir), "alerts.log"),

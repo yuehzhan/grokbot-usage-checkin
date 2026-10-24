@@ -32,6 +32,8 @@ sys.path.insert(0, str(HERE))
 import local_guard  # noqa: E402  (token / Host / Origin checks for the viewer)
 import usage_lock  # noqa: E402  (one shared write lock per data dir)
 import usage_palette  # noqa: E402  (orange = over, cool colour = under, grey baseline)
+import usage_dates  # noqa: E402  (explicit next-reset date, e.g. Sat, Oct 31, 01:41)
+import usage_offset  # noqa: E402  (display offset -2..+2 for the shown weekly %; stored values stay raw)
 import usage_categories  # noqa: E402  (check-in categories; unknown -> other)
 import usage_checkins  # noqa: E402  (check-in points and start/end sessions)
 import usage_checkins_ui  # noqa: E402  (check-in tab: HTML/CSS/JS)
@@ -54,8 +56,8 @@ STR = {
         "spend_title": "Extra spend per month (cumulative max within month)", "no_spend": "No extra spend recorded",
         "footer": "generated {t} ({z})  ·  pace {p:g}%/day  ·  * = week not complete",
         "clock_eyebrow": "USAGE CLOCK // PER HOUR", "clock_1d": "Usage Clock — last 24 hours", "clock_r": "Usage Clock — {r}",
-        "clock_rt": {"wk": "last week", "1m": "last month", "3m": "last quarter", "6m": "last 6 months", "1y": "last year", "all": "all"},
-        "clock_ro": {"wk": "Last week", "1m": "Last month", "3m": "Last quarter", "6m": "Last 6 months", "1y": "Last year", "all": "All"}, "clock_rl": "Range",
+        "clock_rt": {"wk": "this week", "1m": "last month", "3m": "last quarter", "6m": "last 6 months", "1y": "last year", "all": "all"},
+        "clock_ro": {"wk": "This week", "1m": "Last month", "3m": "Last quarter", "6m": "Last 6 months", "1y": "Last year", "all": "All"}, "clock_rl": "Range",
         "clock_lo": {"ov": "Overlay", "sd": "Side by side"}, "clock_ll": "Layout", "clock_fo": {"t": "Translucent", "s": "Solid"}, "clock_fl": "Fill",
         "clock_wd": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], "clock_day": "{wd} {md}", "clock_wkl": "Wk {i} {a}–{b}",
         "clock_mon": "{mon} {y}", "clock_q": "Q{q} {y}", "clock_today": "{l} (today)", "clock_curp": "{l} (now)",
@@ -83,8 +85,8 @@ STR = {
         "empty": "資料不足 — 此範圍尚無紀錄", "spend_title": "每月額外付費（取當月最高累計）", "no_spend": "此範圍無額外付費紀錄",
         "footer": "產生於 {t}（{z}）· 基準 {p:g}%/天 · * = 該週未滿",
         "clock_eyebrow": "USAGE CLOCK // 每小時用量", "clock_1d": "用量時鐘 — 近 24 小時", "clock_r": "用量時鐘 — {r}",
-        "clock_rt": {"wk": "近一週", "1m": "近一月", "3m": "近一季", "6m": "近半年", "1y": "近一年", "all": "全部"},
-        "clock_ro": {"wk": "近一週", "1m": "近一月", "3m": "近一季", "6m": "近半年", "1y": "近一年", "all": "全部"}, "clock_rl": "範圍",
+        "clock_rt": {"wk": "本週", "1m": "近一月", "3m": "近一季", "6m": "近半年", "1y": "近一年", "all": "全部"},
+        "clock_ro": {"wk": "本週", "1m": "近一月", "3m": "近一季", "6m": "近半年", "1y": "近一年", "all": "全部"}, "clock_rl": "範圍",
         "clock_lo": {"ov": "疊加", "sd": "並排"}, "clock_ll": "排列", "clock_fo": {"t": "半透明", "s": "實心"}, "clock_fl": "填色",
         "clock_wd": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"], "clock_day": "{md} {wd}", "clock_wkl": "第{i}週 {a}–{b}",
         "clock_mon": "{y}年{m}月", "clock_q": "{y} Q{q}", "clock_today": "{l}（今天）", "clock_curp": "{l}（目前）",
@@ -107,8 +109,8 @@ STR = {
 STR["zh-CN"] = dict(STR["zh-TW"], **{
     "refreshing": "⟳ 更新中… {s} 秒", "ph_read": "正在从 Grok Build 读取用量…", "ph_draw": "正在生成图表…",
     "clock_tab": "时钟", "clock_1d": "用量时钟 — 近 24 小时", "clock_r": "用量时钟 — {r}",
-    "clock_rt": {"wk": "近一周", "1m": "近一月", "3m": "近一季", "6m": "近半年", "1y": "近一年", "all": "全部"},
-    "clock_ro": {"wk": "近一周", "1m": "近一月", "3m": "近一季", "6m": "近半年", "1y": "近一年", "all": "全部"}, "clock_rl": "范围",
+    "clock_rt": {"wk": "本周", "1m": "近一月", "3m": "近一季", "6m": "近半年", "1y": "近一年", "all": "全部"},
+    "clock_ro": {"wk": "本周", "1m": "近一月", "3m": "近一季", "6m": "近半年", "1y": "近一年", "all": "全部"}, "clock_rl": "范围",
     "clock_lo": {"ov": "叠加", "sd": "并排"}, "clock_ll": "排列", "clock_fo": {"t": "半透明", "s": "实心"}, "clock_fl": "填色",
     "clock_wd": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"], "clock_wkl": "第{i}周 {a}–{b}", "clock_curp": "{l}（当前）",
     "clock_sub": "每小时用量增加（{z}），0 时在上、顺时针。左图：近 24 小时。右图：颜色 = 不同天（或周／月／季），对照下方图例；长度 = 该小时用量增加",
@@ -192,12 +194,25 @@ class Ctx:
         if pv is None:
             pv = _read_page_setting(self.data_dir, "patterns")
         self.patterns = bool(pv) or bool(_theme_file(self.theme_path).get("patterns"))
+        # display offset added to the shown weekly % (config "display_offset", or page_settings.json), -2..+2
+        ov = cfg.get("display_offset")
+        if ov is None:
+            ov = _read_page_setting(self.data_dir, "display_offset")
+        self.display_offset = usage_offset.clamp(ov)
         self.theme = self.theme_for(self.pal_key)
 
     @property
     def pal_key(self):
-        """Folder / cache key of the configured palette: 'orange-teal' or 'orange-teal-pat' with patterns."""
-        return usage_palette.key(self.palette, self.patterns)
+        """Folder / cache key of the configured palette: 'orange-teal', 'orange-teal-pat' with patterns, plus
+        '-o+1' etc. when a display offset is set (so images drawn with another offset are never reused)."""
+        return self.dir_key(self.palette, self.patterns)
+
+    def dir_key(self, name, patterns=False):
+        return usage_palette.key(name, patterns) + usage_offset.suffix(self.display_offset)
+
+    def show(self, pct):
+        """Weekly % as shown: raw + display offset (never below 0)."""
+        return usage_offset.apply(pct, self.display_offset)
 
     def ck_strings(self):
         if self.lang == "numeric":
@@ -212,7 +227,7 @@ class Ctx:
         return self.categories.label(cid, self.lang)
 
     def theme_for(self, palette):
-        name, pat = usage_palette.split_key(palette)
+        name, pat = usage_palette.split_key(strip_offset(palette))
         t = self._theme(self.theme_path, name)
         t["patterns"] = bool(t["patterns"]) or pat
         return t
@@ -288,6 +303,20 @@ class Ctx:
         return dt.astimezone(self.tz)
 
 
+def strip_offset(k):
+    """'gold-sky-pat-o+1' -> 'gold-sky-pat' (image folder key without its display-offset part)."""
+    k = str(k or "")
+    for o in (-2, -1, 1, 2):
+        sfx = usage_offset.suffix(o)
+        if k.endswith(sfx):
+            return k[: -len(sfx)]
+    return k
+
+
+def is_dir_key(k):
+    return usage_palette.is_key(strip_offset(k))
+
+
 def _blend(c1, c2, t):
     from matplotlib.colors import to_rgb, to_hex
     a, b = to_rgb(c1), to_rgb(c2)
@@ -341,6 +370,24 @@ class FileLock:
 
 
 # ------------------------------------------------------------------ data
+def shown_reset(ctx, now=None):
+    """The next reset to show, exactly as /usage (or a typed-in reset) gave it, or None (then the HUD shows the
+    current week's start + period). Never rolled forward or corrected, even if it looks past or odd; only a value
+    older than one period (/usage has not given one since) falls back to the computed time."""
+    try:
+        st = json.loads((ctx.data_dir / "state.json").read_text(encoding="utf-8"))
+        r = datetime.fromisoformat(str(st["reset_at"]))
+        upd = datetime.fromisoformat(str(st.get("updated_at") or st["reset_at"]))
+    except Exception:
+        return None
+    now = now or datetime.now(ctx.tz)
+    if upd.tzinfo is None:
+        upd = upd.replace(tzinfo=ctx.tz)
+    if now - upd > timedelta(days=ctx.period_days):
+        return None
+    return r.isoformat(timespec="minutes")
+
+
 def reset_ref(ctx):
     """Reset reference: <data_dir>/state.json (from Grok Build) > config reset_anchor > None."""
     try:
@@ -367,6 +414,7 @@ def reset_ref(ctx):
 
 
 def load_weeks(ctx):
+    """Week CSVs for the history tabs, with the display offset applied to every value (files are not changed)."""
     ref = reset_ref(ctx)
     pd = timedelta(days=ctx.period_days)
     weeks = []
@@ -388,7 +436,7 @@ def load_weeks(ctx):
                     note = (r.get("note") or "").strip()
                     if len(note) >= 4 and note[:5].replace(":", "").isdigit() and ":" in note[:5]:
                         hh, mm = note[:5].split(":"); dt = dt.replace(hour=int(hh), minute=int(mm))
-                    days.append((int(r["day"]), ctx.disp(dt).replace(tzinfo=None), float(r["pct"])))
+                    days.append((int(r["day"]), ctx.disp(dt).replace(tzinfo=None), ctx.show(float(r["pct"]))))  # CSV stays raw
                 except Exception:
                     continue
         except Exception as exc:
@@ -792,7 +840,7 @@ def _cycle_palettes(ctx):
     """Palette keys drawn on every refresh: the configured one (all presets with render_all_palettes), with the
     configured patterns choice; the other combinations are drawn lazily (render_palette)."""
     if ctx.render_all_palettes:
-        return [usage_palette.key(n, ctx.patterns) for n in usage_palette.names()]
+        return [ctx.dir_key(n, ctx.patterns) for n in usage_palette.names()]
     return [ctx.pal_key]
 
 
@@ -850,6 +898,7 @@ def _clock_inputs(ctx):
 # Clock tab: left = last 24 hours, right = a range picked on the page. "wk" (the current reset week) is drawn on
 # every refresh; the others only when the page asks (POST /api/palette/render {"clock": key}), then cached.
 CLOCK_RANGES = ("wk", "1m", "3m", "6m", "1y", "all")
+CLOCK_DAYS = {"1m": 30, "3m": 90, "6m": 180, "1y": 365}  # rolling ranges; "wk" = since the last reset
 
 
 def _clock_since(ctx, key, now):
@@ -862,7 +911,7 @@ def _clock_since(ctx, key, now):
             return now - timedelta(days=ctx.period_days)
     if key == "all":
         return None
-    return _months_back(now, {"1m": 1, "3m": 3, "6m": 6, "1y": 12}[key])
+    return now - timedelta(days=CLOCK_DAYS[key])  # rolling window counted back from now
 
 
 def _clock_title(ctx, key):
@@ -928,12 +977,13 @@ def render_current_week(ctx, nowa, names=None):
         import chart_hud
         for name, d in _palette_dirs(ctx, names):
             d.mkdir(parents=True, exist_ok=True)
-            base, pat = usage_palette.split_key(name)
+            base, pat = usage_palette.split_key(strip_offset(name))
             chart_hud.render(rows, str(d / "week-current.png"), f"{ws.astimezone(ctx.tz):%Y-%m-%d}",
                              {"lang": "numeric" if ctx.privacy else ctx.lang, "privacy": ctx.privacy, "pace": ctx.pace,
                               "palette": base, "reset_hm": f"{ws.astimezone(ctx.tz):%H:%M}",
                               "accent_color": _theme_explicit_value(ctx.theme_path, "accent"),
-                              "patterns": pat or bool(_theme_file(ctx.theme_path).get("patterns"))})
+                              "patterns": pat or bool(_theme_file(ctx.theme_path).get("patterns")),
+                              "display_offset": ctx.display_offset, "reset_at": shown_reset(ctx)})
         if publish:
             _publish_default(ctx, ["week-current.png"])
         return True
@@ -974,7 +1024,7 @@ def render_palette(ctx, name, clock=None, mode=None, patterns=False):
     while the files match the latest render."""
     if name not in usage_palette.names():
         return {"ok": False, "error": "unknown palette"}
-    name = usage_palette.key(name, patterns)
+    name = ctx.dir_key(name, patterns)
     if clock is not None and clock not in CLOCK_RANGES:
         return {"ok": False, "error": "unknown clock range"}
     if mode is not None and mode not in CLOCK_MODES:
@@ -1004,7 +1054,7 @@ def render_palette(ctx, name, clock=None, mode=None, patterns=False):
 # Ledger status bar + browser notifications (Web Notifications API; permission is asked from a button,
 # never on load). When served, polls /api/ledger every 3 minutes; each alert id (one per day) fires once
 # (seen ids kept in localStorage).
-LEDGER_JS = "(function(){var $=id=>document.getElementById(id),served=/^https?:$/.test(location.protocol),led=null,S=JSON.parse($('ledgerstr').textContent);\ntry{led=JSON.parse($('ledgerdata').textContent);}catch(e){}\nfunction f(t,o){return String(t).replace(/\\{(\\w+)\\}/g,function(_,k){return o[k]!=null?o[k]:'';});}\nfunction el(t,x,c){var e=document.createElement(t);if(x!=null)e.textContent=x;if(c)e.className=c;return e;}\nfunction parts(iso){if(!iso)return null;var d=new Date(iso);if(isNaN(d))return null;var m=/([+-])(\\d\\d):(\\d\\d)$/.exec(iso);\nvar off=m?(m[1]=='-'?-1:1)*(+m[2]*60+ +m[3]):0,w=new Date(d.getTime()+off*60000),p=n=>String(n).padStart(2,'0');\nreturn {wd:S.wd[(w.getUTCDay()+6)%7],t:p(w.getUTCMonth()+1)+'-'+p(w.getUTCDate())+' '+p(w.getUTCHours())+':'+p(w.getUTCMinutes()),\nhm:p(w.getUTCHours())+':'+p(w.getUTCMinutes()),z:m?'UTC'+m[1]+(+m[2])+(+m[3]?':'+m[3]:''):'UTC'};}\nfunction render(L){var box=$('ledger');box.textContent='';if(!L){box.appendChild(el('div',S.none,'info'));return;}\nvar a=parts(L.asOf),at=a?a.t+(S.showz?' ('+a.z+')':''):'?',r=parts(L.resetsAt);\nif(L.status!=='ok'){var w=el('div',null,'warn'),lg=L.lastGood,lp=lg&&parts(lg.asOf);w.appendChild(el('b',S.unavailable));\nw.appendChild(document.createTextNode(' · '+f(S.tried,{t:at})+(L.error&&!S.privacy?' · '+f(S.reason,{e:L.error}):'')+' · '+\n(lg&&lg.weeklyPercentUsed!=null?f(S.last_good,{p:lg.weeklyPercentUsed,t:lp?lp.t:'?'}):S.no_last)+' · '+S.reset_unknown));box.appendChild(w);}\nelse{var i=el('div',null,'info');i.appendChild(el('b',f(S.now,{p:L.weeklyPercentUsed})));\ni.appendChild(document.createTextNode(' · '+(r?f(S.reset,{wd:r.wd,hm:r.hm,z:r.z}):S.reset_unknown)+' · '+f(S.read_at,{t:at})));box.appendChild(i);}\nvar bs=el('div',null,'badges');\nif(L.spike&&L.spike.flag){var s=parts(L.spike.since);bs.appendChild(el('span',f(S.spike,{p:L.spike.points,t:s?s.t:'?'}),'badge'));}\nif(L.overBudget&&L.overBudget.flag)bs.appendChild(el('span',f(S.budget,{p:L.weeklyPercentUsed,th:L.overBudget.threshold}),'badge'));\nif(L.status!=='ok'&&L.consecutiveFailures)bs.appendChild(el('span',f(S.fails,{n:L.consecutiveFailures}),'badge note'));\nvar age=a?(Date.now()-new Date(L.asOf).getTime())/3600000:null;\nif(age!=null&&age>(L.staleAfterHours||6))bs.appendChild(el('span',f(S.stale,{h:Math.floor(age)}),'badge note'));\nif(bs.children.length)box.appendChild(bs);}\nrender(led);\nvar nb=$('notifybtn'),KEY='usage.alertsSeen';\nfunction seen(){try{return JSON.parse(localStorage.getItem(KEY)||'[]');}catch(e){return [];}}\nfunction fire(L){if(!L||!L.alerts||!('Notification' in window)||Notification.permission!=='granted')return;\nvar s=seen(),ch=false;L.alerts.forEach(function(x){if(s.indexOf(x.id)>=0)return;try{new Notification(x.title,{body:x.message,tag:x.id});}catch(e){}s.push(x.id);ch=true;});\nif(ch){try{localStorage.setItem(KEY,JSON.stringify(s.slice(-60)));}catch(e){}}}\nfunction poll(){fetch('/api/ledger',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(L=>{if(L){led=L;render(L);fire(L);}}).catch(()=>{});}\nif(served){if('Notification' in window&&Notification.permission==='default'){nb.hidden=false;\nnb.onclick=function(){Notification.requestPermission().then(function(p){nb.hidden=(p!=='default');if(p==='granted')fire(led);});};}\nfire(led);poll();setInterval(poll,180000);}})();\n"
+LEDGER_JS = "(function(){var $=id=>document.getElementById(id),served=/^https?:$/.test(location.protocol),led=null,S=JSON.parse($('ledgerstr').textContent),OFF=S.off||0,adj=function(p){return p==null?p:Math.max(0,Math.round((+p+OFF)*10)/10);};\ntry{led=JSON.parse($('ledgerdata').textContent);}catch(e){}\nfunction f(t,o){return String(t).replace(/\\{(\\w+)\\}/g,function(_,k){return o[k]!=null?o[k]:'';});}\nfunction el(t,x,c){var e=document.createElement(t);if(x!=null)e.textContent=x;if(c)e.className=c;return e;}\nfunction parts(iso){if(!iso)return null;var d=new Date(iso);if(isNaN(d))return null;var m=/([+-])(\\d\\d):(\\d\\d)$/.exec(iso);\nvar off=m?(m[1]=='-'?-1:1)*(+m[2]*60+ +m[3]):0,w=new Date(d.getTime()+off*60000),p=n=>String(n).padStart(2,'0');\nreturn {wd:S.wd[(w.getUTCDay()+6)%7],t:p(w.getUTCMonth()+1)+'-'+p(w.getUTCDate())+' '+p(w.getUTCHours())+':'+p(w.getUTCMinutes()),\nhm:p(w.getUTCHours())+':'+p(w.getUTCMinutes()),date:RD(w,S.dl),z:m?'UTC'+m[1]+(+m[2])+(+m[3]?':'+m[3]:''):'UTC'};}\nfunction render(L){var box=$('ledger');box.textContent='';if(!L){box.appendChild(el('div',S.none,'info'));return;}\nvar a=parts(L.asOf),at=a?a.t+(S.showz?' ('+a.z+')':''):'?',r=parts(L.resetsAt);\nif(L.status!=='ok'){var w=el('div',null,'warn'),lg=L.lastGood,lp=lg&&parts(lg.asOf);w.appendChild(el('b',S.unavailable));\nw.appendChild(document.createTextNode(' · '+f(S.tried,{t:at})+(L.error&&!S.privacy?' · '+f(S.reason,{e:L.error}):'')+' · '+\n(lg&&lg.weeklyPercentUsed!=null?f(S.last_good,{p:adj(lg.weeklyPercentUsed),t:lp?lp.t:'?'}):S.no_last)+' · '+S.reset_unknown));box.appendChild(w);}\nelse{var i=el('div',null,'info');i.appendChild(el('b',f(S.now,{p:adj(L.weeklyPercentUsed)})));if(S.otag)i.appendChild(el('span',' '+S.otag,'otag'));\ni.appendChild(document.createTextNode(' · '+(r?f(S.reset,{wd:r.wd,hm:r.hm,date:r.date,z:r.z}):S.reset_unknown)+' · '+f(S.read_at,{t:at})));box.appendChild(i);}\nvar bs=el('div',null,'badges');\nif(L.spike&&L.spike.flag){var s=parts(L.spike.since);bs.appendChild(el('span',f(S.spike,{p:L.spike.points,t:s?s.t:'?'}),'badge'));}\nif(L.overBudget&&L.overBudget.flag)bs.appendChild(el('span',f(S.budget,{p:adj(L.weeklyPercentUsed),th:L.overBudget.threshold}),'badge'));\nif(L.status!=='ok'&&L.consecutiveFailures)bs.appendChild(el('span',f(S.fails,{n:L.consecutiveFailures}),'badge note'));\nvar age=a?(Date.now()-new Date(L.asOf).getTime())/3600000:null;\nif(age!=null&&age>(L.staleAfterHours||6))bs.appendChild(el('span',f(S.stale,{h:Math.floor(age)}),'badge note'));\nif(bs.children.length)box.appendChild(bs);}\nrender(led);\nvar nb=$('notifybtn'),KEY='usage.alertsSeen';\nfunction seen(){try{return JSON.parse(localStorage.getItem(KEY)||'[]');}catch(e){return [];}}\nfunction fire(L){if(!L||!L.alerts||!('Notification' in window)||Notification.permission!=='granted')return;\nvar s=seen(),ch=false;L.alerts.forEach(function(x){if(s.indexOf(x.id)>=0)return;try{new Notification(x.title,{body:x.message,tag:x.id});}catch(e){}s.push(x.id);ch=true;});\nif(ch){try{localStorage.setItem(KEY,JSON.stringify(s.slice(-60)));}catch(e){}}}\nfunction poll(){fetch('/api/ledger',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(L=>{if(L){led=L;render(L);fire(L);}}).catch(()=>{});}\nif(served){if('Notification' in window&&Notification.permission==='default'){nb.hidden=false;\nnb.onclick=function(){Notification.requestPermission().then(function(p){nb.hidden=(p!=='default');if(p==='granted')fire(led);});};}\nfire(led);poll();setInterval(poll,180000);}})();\n"
 MANUAL_STR = {  # "Enter manually" form (POST /api/manual); shown only when served by usage_history.py serve
     "en": {"btn": "Enter manually", "pct": "Weekly %", "reset": "Next reset (optional)",
            "reset_ph": "Sat 09:00 / Oct 31, 09:00 / 2026-10-31 09:00", "save": "Save",
@@ -1017,22 +1067,30 @@ MANUAL_STR = {  # "Enter manually" form (POST /api/manual); shown only when serv
     "numeric": {"btn": "✎", "pct": "%", "reset": "↻", "reset_ph": "", "save": "✓", "hint": "", "pct_note": ""},
 }
 
+LEDGER_JS = LEDGER_JS.replace("function parts(", usage_dates.JS + "\nfunction parts(", 1)
+
 LEDGER_STR = {
-    "en": {"wd": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], "now": "Now {p}%", "reset": "resets {wd} {hm} ({z})",
+    "en": {"wd": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], "now": "Now {p}%", "reset": "resets {date} ({z})", "dl": "en",
            "reset_unknown": "reset unknown", "read_at": "read {t}", "unavailable": "⚠ Usage unavailable", "tried": "tried {t}",
            "reason": "reason: {e}", "last_good": "last good {p}% ({t})", "no_last": "no good reading yet",
            "spike": "▲ +{p} pts in 24h (since {t})", "budget": "● {p}% (≥ {th}%)", "fails": "{n} failed reads in a row",
            "stale": "data is {h}h old", "none": "No ledger yet (run a sample once)", "notify": "Enable desktop notifications", "showz": True},
-    "zh-TW": {"wd": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"], "now": "目前 {p}%", "reset": "重置 {wd} {hm}（{z}）",
+    "zh-TW": {"wd": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"], "now": "目前 {p}%", "reset": "重置 {date}（{z}）", "dl": "zh-TW",
               "reset_unknown": "重置時間未知", "read_at": "讀取於 {t}", "unavailable": "⚠ 無法取得目前用量", "tried": "嘗試於 {t}",
               "reason": "原因：{e}", "last_good": "最後成功 {p}%（{t}）", "no_last": "尚無成功紀錄",
               "spike": "▲ 24 小時暴增 +{p} 點（自 {t}）", "budget": "● 已達 {p}%（門檻 {th}%）", "fails": "連續 {n} 次無法取得",
               "stale": "資料已 {h} 小時未更新", "none": "尚無 ledger（取樣一次後出現）", "notify": "開啟桌面通知", "showz": True},
-    "numeric": {"wd": ["1", "2", "3", "4", "5", "6", "7"], "now": "{p}%", "reset": "↻ {hm}", "reset_unknown": "↻ ?", "read_at": "@ {t}",
+    "numeric": {"wd": ["1", "2", "3", "4", "5", "6", "7"], "now": "{p}%", "reset": "↻ {date}", "dl": "numeric", "reset_unknown": "↻ ?", "read_at": "@ {t}",
                 "unavailable": "∅", "tried": "@ {t}", "reason": "", "last_good": "✓ {p}% @ {t}", "no_last": "✓ —",
                 "spike": "▲ +{p} / 24h", "budget": "● {p}% ≥ {th}%", "fails": "∅ ×{n}", "stale": "⌛ {h}h", "none": "∅",
                 "notify": "🔔", "showz": False, "privacy": True},
 }
+LEDGER_STR["zh-CN"] = dict(LEDGER_STR["zh-TW"], wd=["周一", "周二", "周三", "周四", "周五", "周六", "周日"], dl="zh-CN",
+                           now="目前 {p}%", reset="重置 {date}（{z}）", reset_unknown="重置时间未知", read_at="读取于 {t}",
+                           unavailable="⚠ 无法获取当前用量", tried="尝试于 {t}", reason="原因：{e}", last_good="最后成功 {p}%（{t}）",
+                           no_last="尚无成功记录", spike="▲ 24 小时暴增 +{p} 点（自 {t}）", budget="● 已达 {p}%（阈值 {th}%）",
+                           fails="连续 {n} 次无法获取", stale="数据已 {h} 小时未更新", none="尚无 ledger（取样一次后出现）",
+                           notify="开启桌面通知")
 
 
 UPDATE_STR = {  # "Check for updates" / "Update" (POST /api/update/check, /api/update/apply); served page only
@@ -1081,6 +1139,15 @@ UPDATE_AUTO_FIRST_DELAY = 60  # automatic check: first look a minute after start
 # the server to draw that palette (POST /api/palette/render, cached), preloads its images from history/pal/<name>/,
 # then switches the CSS colour variables (--over/--under/--accent/--bd...) and the images together. The choice is
 # remembered per browser (localStorage 'usage.palette'). Opened as a file, only palettes already on disk can be shown.
+# Display offset menu: remembered in the browser (usage.displayOffset) and saved in the config by
+# POST /api/display-offset, which redraws the charts; the page then reloads. Without a server it is read-only.
+OFFSET_JS = r"""(function(){var s=document.getElementById('offsel');if(!s)return;var served=/^https?:$/.test(location.protocol),
+T=(document.querySelector('meta[name="usage-token"]')||{}).content||'',K='usage.displayOffset';
+try{localStorage.setItem(K,s.value);}catch(e){}
+if(!served){s.disabled=true;return;}
+s.onchange=function(){var v=parseInt(s.value,10);s.disabled=true;try{localStorage.setItem(K,String(v));}catch(e){}
+fetch('/api/display-offset',{method:'POST',headers:{'X-Usage-Token':T,'Content-Type':'application/json'},body:JSON.stringify({offset:v})})
+.then(function(r){return r.json();}).then(function(j){if(j&&j.ok)location.reload();else s.disabled=false;}).catch(function(){s.disabled=false;});};})();"""
 PALETTE_JS = r"""(function(){var $=function(i){return document.getElementById(i);},P=JSON.parse($('paldata').textContent),KEY='usage.palette',PKEY='usage.patterns',pchk=$('patchk'),CK={r:'usage.clockRange',l:'usage.clockLayout',f:'usage.clockFill'},D={r:'wk',l:'ov',f:'t'},
 served=/^https?:$/.test(location.protocol),btn=$('palbtn'),msg=$('palmsg'),V=P.light?'light':'dark',cur=P.base,pat=!!P.pat,CR={r:'wk',l:'ov',f:'t'},seq=0,
 TKN=(document.querySelector('meta[name="usage-token"]')||{}).content||'',clk=$('clkimg'),
@@ -1092,7 +1159,7 @@ function vars(n){var c=P.table[n][V],o={};['over','under','baseline','notice'].f
 var a=P.fixed.accent?P.accent:(P.fixed.under?P.under:c.under);o['--accent']=a;o['--bd']=mix(P.bg,a,0.25);o['--on-accent']=lum(a)>0.4?'#0B0F14':'#FFFFFF';return o;}
 function mode(c){return c.l==='sd'?'sd':'o'+c.f;}function same(a,b){return a.r===b.r&&a.l===b.l&&a.f===b.f;}
 function fileOf(i,c){return i===clk?'clock-'+c.r+'-'+mode(c)+'.png':i.dataset.f0;}
-function key(n,p){return p?n+'-pat':n;}
+function key(n,p){return (p?n+'-pat':n)+P.osfx;}
 function src(i,k,r,v){var f=fileOf(i,r);return (k===P.default&&f===i.dataset.f0)?i.dataset.orig:'pal/'+k+'/'+f+(v?'?v='+encodeURIComponent(v):'');}
 function pre(u){return new Promise(function(res){var im=new Image();im.onload=function(){(im.decode?im.decode():Promise.resolve()).then(function(){res(true);},function(){res(true);});};
 im.onerror=function(){res(false);};im.src=u;});}
@@ -1254,7 +1321,7 @@ PAL_STR = {"en": {"busy": "Drawing charts…", "fail": "Could not draw this pale
 def write_html(ctx, sums, now, nowa, zl, gen=""):
     L, T = ctx.L, ctx.theme
     MS = MANUAL_STR["numeric"] if ctx.privacy else (MANUAL_STR["zh-TW"] if ctx.lang.startswith("zh") else MANUAL_STR["en"])
-    LS = LEDGER_STR["numeric"] if ctx.privacy else (LEDGER_STR["zh-TW"] if ctx.lang.startswith("zh") else LEDGER_STR["en"])
+    LS = LEDGER_STR["numeric"] if ctx.privacy else (LEDGER_STR[usage_dates.lang_key(ctx.lang)] if ctx.lang.startswith("zh") else LEDGER_STR["en"])
     US = UPDATE_STR["numeric"] if ctx.privacy else (UPDATE_STR["zh-TW"] if ctx.lang.startswith("zh") else UPDATE_STR["en"])
     try:
         ledger = json.loads(Path(ctx.ledger_path).read_text(encoding="utf-8"))
@@ -1262,7 +1329,7 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
     except Exception:
         ledger = None
     ledjson = json.dumps(ledger, ensure_ascii=False).replace("<", "\\u003c")
-    lsjson = json.dumps(LS, ensure_ascii=False).replace("<", "\\u003c")
+    lsjson = json.dumps(dict(LS, off=ctx.display_offset, otag=usage_offset.tag(ctx.display_offset)), ensure_ascii=False).replace("<", "\\u003c")
     usjson = json.dumps(US, ensure_ascii=False).replace("<", "\\u003c")
     b64 = lambda p: base64.b64encode(p.read_bytes()).decode() if p.exists() else ""
     tabs, panes = [], []
@@ -1308,7 +1375,7 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
     # palette switcher: config default, overridden per browser (localStorage 'usage.palette')
     fixed = {k: bool(v) for k, v in _theme_explicit(ctx.theme_path).items()}
     plang = "numeric" if ctx.privacy else ("zh-TW" if ctx.lang == "zh-TW" else ("zh-CN" if ctx.lang.startswith("zh") else "en"))
-    paldata = json.dumps({"default": ctx.pal_key, "base": ctx.palette, "pat": ctx.patterns, "light": T["is_light"],
+    paldata = json.dumps({"default": ctx.pal_key, "base": ctx.palette, "pat": ctx.patterns, "osfx": usage_offset.suffix(ctx.display_offset), "light": T["is_light"],
                           "table": usage_palette.js_table(), "alias": {"colorblind": "orange-deepblue"}, "fixed": fixed,
                           "bg": bg, "accent": ac, "under": T["under_color"], "gen": gen, "pf": bool(_theme_file(ctx.theme_path).get("patterns")), "s": PAL_STR[plang]},
                          ensure_ascii=False).replace("<", "\\u003c")
@@ -1325,6 +1392,9 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
     pal_label = {"numeric": "◐", "zh-TW": "配色", "zh-CN": "配色"}.get(plang, "Colours")
     star_note = "" if plang == "numeric" else usage_palette.STAR_NOTE[plang]
     pat_label = {"numeric": "▨", "zh-TW": "加上紋路", "zh-CN": "加上纹路"}.get(plang, "Add patterns")
+    off_label = {"numeric": "±", "zh-TW": "顯示校正", "zh-CN": "显示校正"}.get(plang, "Display offset")
+    off_opts = "".join(f"<option value='{o}'{' selected' if o == ctx.display_offset else ''}>{html.escape(usage_offset.option_text(o, plang))}</option>"
+                       for o in range(usage_offset.MIN, usage_offset.MAX + 1))
     onac, hl = _on_colour(ac), _blend(bg, tx, 0.14)
     doc = f"""<!doctype html><html lang="{'zh-Hant' if ctx.lang == 'zh-TW' else 'en'}" data-patterns="{'1' if T.get('patterns') else ''}"><head><meta charset="utf-8"><title>{html.escape(title or '↻')}</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"><style>
@@ -1364,13 +1434,14 @@ html[data-patterns="1"] .badge:not(.note)::before{{content:"▲ "}} .pal{{color:
 .dot{{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none;box-shadow:0 0 0 1px rgba(128,128,128,.55)}} #palmsg{{color:{dim};font-size:12px}}
 #pallist{{min-width:max(100%,17em);max-height:min(88vh,760px)}}
 .plist li.pnote{{cursor:default;color:{dim};font-size:12px;line-height:1.45;border-top:1px solid var(--bd);border-radius:0;margin-top:4px;padding:7px 8px 4px;white-space:normal;position:sticky;bottom:-4px;background:{card}}}
-.ptog{{display:inline-flex;align-items:center;gap:5px;cursor:pointer}} .ptog input{{margin:0}}
+.ptog{{display:inline-flex;align-items:center;gap:5px;cursor:pointer}} .ptog input{{margin:0}} .offsel{{padding:3px 6px}} .otag{{color:{dim};font-size:.85em;font-weight:400}}
 {usage_checkins_ui.CSS}
 </style></head><body><div class="wrap"><div class="top">{html.escape(L['eyebrow'])}</div><h1>{html.escape(title)}</h1>
 <div class="bar"><nav>{''.join(tabs)}</nav><div class="upd"><span id="last">{html.escape(L['last'].format(t=f'{now:%H:%M}', z=zl))}</span>
 <span class="pal psel" id="psel"><span id="pall">{html.escape(pal_label)}</span><button type="button" class="pbtn" id="palbtn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="pall palcur"><span id="palcur">{palcur}</span></button>
 <ul class="plist" id="pallist" role="listbox" tabindex="-1" aria-labelledby="pall" hidden>{''.join(palrows)}{f"<li role='none' class='pnote' id='palnote'>{html.escape(star_note)}</li>" if star_note else ""}</ul><span id="palmsg" role="status"></span></span>
 <label class="pal ptog" id="patl"><input type="checkbox" id="patchk"{" checked" if ctx.patterns else ""}> {html.escape(pat_label)}</label>
+<label class="pal" id="offl">{html.escape(off_label)} <select id="offsel" class="offsel">{off_opts}</select></label><script>{OFFSET_JS}</script>
 <button class="btn" id="manualbtn" hidden>{html.escape(MS['btn'])}</button><button class="btn" id="notifybtn" hidden>{html.escape(LS['notify'])}</button><button class="btn primary" id="refresh" hidden>{html.escape(L['refresh'])}</button><span id="rmsg" role="status" aria-live="polite"></span>
 <button class="btn" id="updbtn" hidden>{html.escape(US['btn'])}</button><label class="pal" id="updautol" hidden><input type="checkbox" id="updauto"> {html.escape(US['auto'])}</label></div></div>
 <div id="urow" class="urow" hidden><span id="umsg"></span><button class="btn updgo" id="updgo" hidden>{html.escape(US['go'])}</button></div>
@@ -1735,7 +1806,25 @@ def serve(ctx, allow_remote=False):
         return 200, {"ok": True, "checkin": r}
 
     WRITE_PATHS = ("/api/checkin", "/api/refresh", "/api/manual", "/api/update/check", "/api/update/apply", "/api/update/settings",
-                   "/api/palette/render", "/api/patterns")
+                   "/api/palette/render", "/api/patterns", "/api/display-offset")
+
+    def offset_setting(d):
+        """POST /api/display-offset {"offset": -2..2}: saved as "display_offset" in usage_config.json (or
+        <data_dir>/page_settings.json); the charts and page are redrawn with it before this returns."""
+        v = d.get("offset")
+        if isinstance(v, bool) or not isinstance(v, int) or not usage_offset.MIN <= v <= usage_offset.MAX:
+            return 400, {"ok": False, "error": "offset must be an integer from -2 to 2"}
+        try:
+            with usage_lock.write_lock(ctx.data_dir):
+                where = save_page_setting(ctx.cfg_path, ctx.data_dir, "display_offset", v)
+            if ctx.cfg_path and Path(where) == Path(ctx.cfg_path):
+                ctx.cfg = dict(ctx.cfg, display_offset=v)
+            with draw_lock:
+                ctx.display_offset = v
+        except Exception as exc:
+            return 500, {"ok": False, "error": "write failed" if ctx.privacy else f"could not save the setting: {exc}"}
+        regen()
+        return 200, {"ok": True, "display_offset": v}
 
     def patterns_setting(d):
         """POST /api/patterns {"on": true|false}: the page's "Add patterns" switch, saved as "patterns" in
@@ -1898,7 +1987,7 @@ def serve(ctx, allow_remote=False):
                 page = local_guard.inject_token(p.read_text(encoding="utf-8"), token)
                 return self._send(200, page.encode("utf-8"), "text/html; charset=utf-8")
             parts = u.path[1:].split("/")
-            if u.path.endswith(".png") and (len(parts) == 1 or (len(parts) == 3 and parts[0] == "pal" and usage_palette.is_key(parts[1]))) \
+            if u.path.endswith(".png") and (len(parts) == 1 or (len(parts) == 3 and parts[0] == "pal" and is_dir_key(parts[1]))) \
                     and all(x and x not in (".", "..") for x in parts):
                 p = ctx.hist_dir.joinpath(*parts)
                 # versioned palette images (?v=<render id>) may be cached: the page preloads them before swapping
@@ -1958,6 +2047,15 @@ def serve(ctx, allow_remote=False):
                 if not isinstance(d, dict):
                     return self._send(400, {"ok": False, "error": "bad json"})
                 return self._send(*palette_render(d))
+            if u.path == "/api/display-offset":
+                try:
+                    n = int(self.headers.get("Content-Length") or 0); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
+                    d = json.loads(raw or "{}")
+                except Exception:
+                    return self._send(400, {"ok": False, "error": "bad json"})
+                if not isinstance(d, dict):
+                    return self._send(400, {"ok": False, "error": "bad json"})
+                return self._send(*offset_setting(d))
             if u.path == "/api/patterns":
                 try:
                     n = int(self.headers.get("Content-Length") or 0); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
