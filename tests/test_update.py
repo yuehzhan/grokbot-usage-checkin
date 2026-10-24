@@ -180,6 +180,112 @@ class CheckTests(unittest.TestCase):
         self.assertEqual(Path(self.app, "app.py").read_text(encoding="utf-8"), "my edit\n")
 
 
+@unittest.skipIf(shutil.which("git") is None, "git not installed")
+class LineEndingTests(unittest.TestCase):
+    """A .ps1 blob committed with CRLF while .gitattributes says ``*.ps1 text eol=crlf`` (what a web upload does):
+    git lists it as modified right after clone. That must not block updates; a real edit still must."""
+
+    def setUp(self):
+        self.dir = Path(scratch())
+        self.remote = self.dir / "remote.git"
+        g(self.dir, "init", "-q", "--bare", str(self.remote))
+        g(self.remote, "symbolic-ref", "HEAD", "refs/heads/main")
+        self.dev, self.app = self.dir / "dev", self.dir / "app"
+        g(self.dir, "clone", "-q", str(self.remote), str(self.dev))
+        g(self.dev, "checkout", "-q", "-b", "main")
+        (self.dev / "start.ps1").write_bytes(b"Write-Host hi\r\nexit 0\r\n")
+        (self.dev / "app.py").write_text("v1\n", encoding="utf-8")
+        g(self.dev, "add", ".")
+        g(self.dev, "commit", "-q", "-m", "first version (CRLF blob)")
+        (self.dev / ".gitattributes").write_text("* text=auto\n*.ps1 text eol=crlf\n", encoding="utf-8")
+        g(self.dev, "add", ".gitattributes")
+        g(self.dev, "commit", "-q", "-m", "attributes")
+        g(self.dev, "push", "-q", "origin", "main")
+        g(self.dir, "clone", "-q", str(self.remote), str(self.app))
+        (self.app / "usage_config.json").write_text('{"lang": "en"}', encoding="utf-8")  # untracked, must survive
+        st = (self.app / "start.ps1").stat()
+        os.utime(self.app / "start.ps1", (st.st_atime + 5, st.st_mtime + 5))  # make git look at the content
+        self.assertIn("start.ps1", g(self.app, "diff", "--name-only", "HEAD"))  # phantom-modified
+
+    def tearDown(self):
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    def publish(self, fix_ps1=True):
+        if fix_ps1:
+            (self.dev / "start.ps1").write_bytes(b"Write-Host hi\nexit 0\n")
+        (self.dev / "app.py").write_text("v2\n", encoding="utf-8")
+        g(self.dev, "add", "-A")
+        g(self.dev, "commit", "-q", "-m", "second version")
+        g(self.dev, "push", "-q", "origin", "main")
+        return g(self.dev, "rev-parse", "HEAD")
+
+    def update(self, pull_ok=None):
+        data = self.app / "usage-data"
+        data.mkdir(exist_ok=True)
+
+        def runner(argv, timeout, say, cwd):
+            if "pull" in argv:
+                return self_update._run_step(argv, timeout, say, cwd) if pull_ok is None else pull_ok
+            return True
+        with mock.patch.object(self_update, "use_windows_scripts", return_value=False):
+            ok = self_update.run(self.app, data, delay=0, runner=runner)
+        return ok, (data / "update.log").read_text(encoding="utf-8")
+
+    def assert_updated(self, head):
+        self.assertEqual(g(self.app, "rev-parse", "HEAD"), head)
+        self.assertEqual((self.app / "app.py").read_text(encoding="utf-8"), "v2\n")
+        self.assertEqual((self.app / "usage_config.json").read_text(encoding="utf-8"), '{"lang": "en"}')
+        attrs = self.app / ".git" / "info" / "attributes"
+        self.assertNotIn("self_update", attrs.read_text(encoding="utf-8") if attrs.exists() else "")
+        self.assertEqual(g(self.app, "stash", "list"), "")
+        self.assertEqual(g(self.app, "rev-list", "--count", "origin/main..HEAD"), "0")  # no commits made
+
+    def test_check_ignores_line_endings(self):
+        self.publish()
+        r = self_update.check(self.app)
+        self.assertEqual(r["state"], self_update.BEHIND)
+        self.assertTrue(r["can_update"])
+        self.assertEqual(r["eol_only"], ["start.ps1"])
+        self.assertEqual(self_update.changed_files(self.app), ([], ["start.ps1"]))
+
+    def test_real_edit_still_blocks(self):
+        self.publish()
+        (self.app / "start.ps1").write_bytes(b"Write-Host mine\r\nexit 0\r\n")
+        r = self_update.check(self.app)
+        self.assertEqual(r["state"], self_update.LOCAL_CHANGES)
+        self.assertIn("start.ps1", r["detail"])
+        ok, log = self.update()
+        self.assertFalse(ok)
+        self.assertEqual((self.app / "start.ps1").read_bytes(), b"Write-Host mine\r\nexit 0\r\n")
+
+    def test_updater_fast_forwards_when_upstream_fixes_the_file(self):
+        head = self.publish(fix_ps1=True)
+        self_update.check(self.app)
+        ok, log = self.update()
+        self.assertTrue(ok, log)
+        self.assert_updated(head)
+        self.assertEqual((self.app / "start.ps1").read_bytes().replace(b"\r\n", b"\n"), b"Write-Host hi\nexit 0\n")
+        self.assertEqual(g(self.app, "status", "--porcelain", "--untracked-files=no"), "")
+        self.assertIn("line endings only", log)
+        self.assertIn("restored", log)
+
+    def test_updater_fast_forwards_when_upstream_still_has_crlf(self):
+        head = self.publish(fix_ps1=False)
+        self_update.check(self.app)
+        ok, log = self.update()
+        self.assertTrue(ok, log)
+        self.assert_updated(head)
+
+    def test_reset_keep_fallback_when_pull_refused(self):
+        head = self.publish(fix_ps1=True)
+        self_update.check(self.app)
+        ok, log = self.update(pull_ok=False)
+        self.assertTrue(ok, log)
+        self.assertIn("git reset --keep origin/main", log)
+        self.assertIn("reset --keep worked", log)
+        self.assert_updated(head)
+
+
 class PlanTests(unittest.TestCase):
     def test_only_fast_forward(self):
         for win in (True, False):
