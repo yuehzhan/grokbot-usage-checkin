@@ -40,7 +40,7 @@ CHECKIN_PALETTE = ["#4D8DFF", "#FFE45C", "#FF8AD8", "#8C9EFF", "#B8F55A", "#C9A0
 
 STR = {
     "en": {
-        "eyebrow": "Usage · Check-in · Search", "title": "Grok Bot Usage & Check-in", "png_title": "Usage History", "r1m": "1 Month", "r3m": "Quarter",
+        "eyebrow": "Usage · Check-in · Search", "title": "Grok Bot Usage & Check-in", "png_title": "Usage History", "rwk": "This Week", "week_empty": "No reading this week yet: enter the weekly % above.", "r1m": "1 Month", "r3m": "Quarter",
         "r6m": "Half Year", "r1y": "1 Year", "clock_tab": "Clock", "checkin_tab": "Check-ins",
         "weeks": "Weeks", "avg_peak": "Avg weekly peak", "hit100": "Weeks at 100%", "extra": "Extra spend",
         "over_n": "{n} over pace", "pace_sub": "pace {p:g}%/day -> {w:g}%/week", "cap_sub": "hit the weekly cap",
@@ -64,7 +64,7 @@ STR = {
         "hour_fmt": "{h}",
     },
     "zh-TW": {
-        "eyebrow": "用量・打卡・搜尋", "title": "Grok Bot Usage & Check-in", "png_title": "用量歷史", "r1m": "一個月", "r3m": "一季", "r6m": "半年", "r1y": "一年",
+        "eyebrow": "用量・打卡・搜尋", "title": "Grok Bot Usage & Check-in", "png_title": "用量歷史", "rwk": "本週", "week_empty": "本週還沒有紀錄：在上方輸入本週用量 % 後就會出現。", "r1m": "一個月", "r3m": "一季", "r6m": "半年", "r1y": "一年",
         "clock_tab": "時鐘", "checkin_tab": "打卡", "weeks": "週數", "avg_peak": "平均週峰值", "hit100": "達 100% 週數",
         "extra": "額外付費", "over_n": "超出基準 {n} 週", "pace_sub": "基準 {p:g}%/天 → 每週 {w:g}%", "cap_sub": "該週用滿上限",
         "extra_sub": "{n} 個月有付費紀錄", "main": "每週峰值用量 vs 基準，與每日累計用量", "leg_over": "週峰值 超出基準",
@@ -88,7 +88,7 @@ STR = {
 }
 # privacy / numeric: word-free symbols only (no service, product, timezone or city names)
 STR["numeric"] = dict(STR["en"], **{
-    "eyebrow": "", "title": "", "r1m": "1M", "r3m": "3M", "r6m": "6M", "r1y": "1Y", "clock_tab": "◷", "checkin_tab": "✓",
+    "eyebrow": "", "title": "", "rwk": "W", "week_empty": "∅", "r1m": "1M", "r3m": "3M", "r6m": "6M", "r1y": "1Y", "clock_tab": "◷", "checkin_tab": "✓",
     "weeks": "#", "avg_peak": "Ø ▲", "hit100": "▲100", "extra": "∑ $", "over_n": "▲ {n}", "pace_sub": "{p:g}/d → {w:g}",
     "cap_sub": "▲100", "extra_sub": "{n}", "main": "", "leg_over": "▲", "leg_under": "▼", "leg_pace": "{p:g}/d", "leg_daily": "∑",
     "sparse": "{n}/{m}", "sparse_short": "{n}/{m}", "empty": "∅", "spend_title": "$", "no_spend": "∅", "footer": "{t}",
@@ -671,6 +671,31 @@ def render_clock(ctx):
     return {"ok": True, "samples": len(s), "files": [str(ctx.hist_dir / "clock-7d.png"), str(ctx.hist_dir / "clock-all.png")]}
 
 
+def render_current_week(ctx, nowa):
+    """'This week' tab: the current week's daily cumulative chart (chart_hud) in every palette preset."""
+    out = ctx.hist_dir / "week-current.png"
+    try:
+        ws = _period_start(ctx, nowa)
+        f = ctx.data_dir / f"week-{ws.astimezone(ctx.tz):%Y-%m-%d}.csv"
+        rows = [r for r in csv.DictReader(f.open(encoding="utf-8"))] if f.exists() else []
+        if not rows:
+            for d in [out] + [dd / "week-current.png" for _, dd in _palette_dirs(ctx)]:
+                if d.exists():
+                    d.unlink()
+            return False
+        import chart_hud
+        for name, d in _palette_dirs(ctx):
+            d.mkdir(parents=True, exist_ok=True)
+            chart_hud.render(rows, str(d / "week-current.png"), f"{ws.astimezone(ctx.tz):%Y-%m-%d}",
+                             {"lang": "numeric" if ctx.privacy else ctx.lang, "privacy": ctx.privacy, "pace": ctx.pace,
+                              "palette": name, "reset_hm": f"{ws.astimezone(ctx.tz):%H:%M}"})
+        _publish_default(ctx, ["week-current.png"])
+        return True
+    except Exception as exc:
+        print(f"Warning: current week chart failed: {exc}", file=sys.stderr)
+        return False
+
+
 def render_history(ctx):
     ctx.hist_dir.mkdir(parents=True, exist_ok=True)
     nowa = ctx.now(); zl = ctx.zlabel(nowa); now = nowa.replace(tzinfo=None, second=0, microsecond=0)
@@ -681,6 +706,7 @@ def render_history(ctx):
         for S in sums:
             _with_palette(ctx, name, lambda: draw_range(ctx, S, d / f"history-{S['key']}.png", now, zl))
     _publish_default(ctx, [f"history-{S['key']}.png" for S in sums])
+    render_current_week(ctx, nowa)
     write_html(ctx, sums, now, nowa, zl)
     return {"ok": True, "html": str(ctx.hist_dir / "index.html"),
             "ranges": {S["key"]: {"weeks": S["n"], "sparse": S["sparse"]} for S in sums}}
@@ -757,14 +783,18 @@ def write_html(ctx, sums, now, nowa, zl):
     lsjson = json.dumps(LS, ensure_ascii=False).replace("<", "\\u003c")
     b64 = lambda p: base64.b64encode(p.read_bytes()).decode() if p.exists() else ""
     tabs, panes = [], []
+    wk = ctx.hist_dir / "week-current.png"
+    tabs.append(f"<button data-k='wk' class='on'>{html.escape(L['rwk'])}</button>")
+    panes.append(f"<section id='p-wk' class='on'>" + (f"<img alt='' data-f='week-current.png' src='data:image/png;base64,{b64(wk)}'>"
+                 if wk.exists() else f"<div class='warn'>{html.escape(L['week_empty'])}</div>") + "</section>")
     for i, S in enumerate(sums):
         rows = "".join(f"<tr><td>{w['start']:%Y-%m-%d}</td><td>{w['last']}/{ctx.period_days}</td><td class='{'over' if w['over'] else 'under'}'>"
                        f"{usage_palette.UP if w['over'] else usage_palette.DOWN} {w['peak']:.0f}%</td><td>{w['pace_ref']:.0f}%</td><td>{L['yes'] if w['hit100'] else '—'}</td></tr>" for w in reversed(S["weeks"])) \
             or f"<tr><td colspan=5>{html.escape(L['empty'])}</td></tr>"
         sp = "".join(f"<tr><td>{k}</td><td>${v:.2f}</td></tr>" for k, v in S["spend"].items()) or f"<tr><td colspan=2>{html.escape(L['no_spend'])}</td></tr>"
         warn = f"<div class='warn'>{html.escape(L['sparse'].format(n=S['n'], m=S['minw']))}</div>" if S["sparse"] else ""
-        tabs.append(f"<button data-k='{S['key']}' class='{'on' if i == 0 else ''}'>{html.escape(S['label'])}</button>")
-        panes.append(f"<section id='p-{S['key']}' class='{'on' if i == 0 else ''}'>{warn}<img alt='' data-f='history-{S['key']}.png' src='data:image/png;base64,{b64(ctx.hist_dir / ('history-' + S['key'] + '.png'))}'>"
+        tabs.append(f"<button data-k='{S['key']}' >{html.escape(S['label'])}</button>")
+        panes.append(f"<section id='p-{S['key']}'>{warn}<img alt='' data-f='history-{S['key']}.png' src='data:image/png;base64,{b64(ctx.hist_dir / ('history-' + S['key'] + '.png'))}'>"
                      f"<div class='tables'><table><caption>{html.escape(L['weekly_detail'])}</caption><tr><th>{L['week']}</th><th>{L['days']}</th><th>{L['peak']}</th>"
                      f"<th>{L['pace']}</th><th>{L['at100']}</th></tr>{rows}</table><table><caption>{html.escape(L['spend_title'])}</caption>"
                      f"<tr><th>{L['month']}</th><th>{L['amount']}</th></tr>{sp}</table></div></section>")
@@ -861,6 +891,47 @@ def save_manual_reset(ctx, reset_at):
         os.replace(tmp, p)
 
 
+def _period_start(ctx, ts, reset_at=None):
+    """Start of the usage week containing `ts` (aware). Uses the reading's reset time, else the saved/configured
+    reset reference; with no reset known, continues the latest week file or starts a week at that day's 00:00."""
+    pd = timedelta(days=ctx.period_days)
+    ref = reset_at or reset_ref(ctx)
+    if ref is not None:
+        if ref.tzinfo is None:
+            ref = ref.replace(tzinfo=ctx.tz)
+        return ref + ((ts - ref) // pd) * pd
+    for f in sorted(ctx.data_dir.glob("week-*.csv"), reverse=True):
+        try:
+            d0 = datetime.strptime(f.stem[5:], "%Y-%m-%d").replace(tzinfo=ctx.tz)
+        except ValueError:
+            continue
+        if d0 <= ts < d0 + pd:
+            return d0
+        break
+    return ts.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def upsert_week_row(ctx, ts, pct, reset_at=None):
+    """Write a successful reading into <data_dir>/week-<start>.csv (one row per day, latest reading wins),
+    the same file format usage_record.py writes, so manual and sampler readings reach the history charts.
+    Call with usage_lock.write_lock held."""
+    ws = _period_start(ctx, ts, reset_at)
+    day = max(1, min(ctx.period_days, int((ts - ws).total_seconds() // 86400) + 1))
+    path = ctx.data_dir / f"week-{ws.astimezone(ctx.tz):%Y-%m-%d}.csv"
+    rows = []
+    if path.exists():
+        with path.open(encoding="utf-8", newline="") as fp:
+            rows = [r for r in csv.DictReader(fp) if r.get("day")]
+    v = float(pct)
+    new = {"day": str(day), "date": f"{ts.astimezone(ctx.tz):%Y-%m-%d}", "pct": str(int(v)) if v.is_integer() else f"{v:g}",
+           "note": f"{ts.astimezone(ctx.tz):%H:%M}"}
+    rows = sorted([r for r in rows if int(r["day"]) != day] + [new], key=lambda r: int(r["day"]))
+    tmp = path.with_suffix(".csv.tmp")
+    tmp.write_text("day,date,pct,note\n" + "".join(f"{r['day']},{r['date']},{r['pct']},{r['note']}\n" for r in rows),
+                   encoding="utf-8")
+    os.replace(tmp, path)
+
+
 def take_sample(ctx, pct=None, source="sampler", fail_reason=None, reset_at=None):
     """One reading -> samples.csv + shared ledger (usage_ledger.py).
     `pct` given = a manual reading (no Grok Build launch); `reset_at` (aware datetime) optionally
@@ -900,6 +971,11 @@ def take_sample(ctx, pct=None, source="sampler", fail_reason=None, reset_at=None
                 if new:
                     w.writerow(["timestamp", "pct"])
                 w.writerow([ts.isoformat(timespec="seconds"), f"{float(pct):g}" if pct is not None else "unavailable"])
+            if pct is not None:
+                try:
+                    upsert_week_row(ctx, ts, pct, reset_at)
+                except Exception as exc:
+                    print(f"Warning: week file write failed: {exc}", file=sys.stderr)
             try:
                 import usage_ledger
                 led = usage_ledger.record_hud(ctx.data_dir, ctx.cfg, pct, reset_at, source=source, error=err, tz=ctx.tz,
