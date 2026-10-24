@@ -25,13 +25,20 @@ python3 service.py start        # 背景啟動網頁與每小時取樣；停止�
 需要 Windows 10（1809 以上）或 11，以及 [Python 3.10 以上](https://www.python.org/downloads/windows/)
 （安裝時勾選「Add python.exe to PATH」）。不需要系統管理員權限。
 
-1. 在 GitHub 按 **Code → Download ZIP**，解壓縮到例如 `文件\grokbot-usage-checkin`。
-2. 在該資料夾開 PowerShell，執行：
+1. 還沒裝 Python 和 Git 的話先安裝（已有的跳過），裝完關掉 PowerShell 再重開：
    ```powershell
-   Get-ChildItem *.ps1 | Unblock-File          # 從網路下載的 ZIP，Windows 會先封鎖腳本
+   winget install -e --id Python.Python.3.12
+   winget install -e --id Git.Git
+   ```
+2. 下載並啟動：
+   ```powershell
+   git clone https://github.com/yuehzhan/grokbot-usage-checkin.git
+   cd grokbot-usage-checkin
    powershell -ExecutionPolicy Bypass -File .\install.ps1    # 想一律手動輸入 % 就加 -Manual
    powershell -ExecutionPolicy Bypass -File .\start.ps1      # 背景啟動並打開網頁
    ```
+   沒有 Git 的話，也可以按 **Code → Download ZIP** 解壓縮，在該資料夾先執行 `Get-ChildItem *.ps1 | Unblock-File`
+   （從網路下載的 ZIP，Windows 會封鎖腳本）。
 3. 停止：`powershell -ExecutionPolicy Bypass -File .\stop.ps1`
 4. （選用）登入 Windows 時自動啟動：`.\register-task.ps1`；取消：`.\register-task.ps1 -Uninstall`
 

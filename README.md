@@ -32,13 +32,20 @@ Grok Build must be installed and signed in once on that computer (see *Recommend
 Needs Windows 10 (1809+) or 11 and [Python 3.10+](https://www.python.org/downloads/windows/) (tick "Add python.exe
 to PATH"). No administrator rights. Everything stays on your PC; the page listens on `127.0.0.1` only.
 
-1. Download the ZIP from GitHub (**Code → Download ZIP**), extract it, e.g. to `Documents\grokbot-usage-checkin`.
-2. Open PowerShell in that folder and run:
+1. Install Python and Git if you don't have them (skip what you already have), then close and reopen PowerShell:
    ```powershell
-   Get-ChildItem *.ps1 | Unblock-File          # files from a downloaded ZIP are blocked by Windows
+   winget install -e --id Python.Python.3.12
+   winget install -e --id Git.Git
+   ```
+2. Clone and start it:
+   ```powershell
+   git clone https://github.com/yuehzhan/grokbot-usage-checkin.git
+   cd grokbot-usage-checkin
    powershell -ExecutionPolicy Bypass -File .\install.ps1    # add -Manual to always type the % yourself
    powershell -ExecutionPolicy Bypass -File .\start.ps1      # starts in the background and opens the page
    ```
+   No Git? Use **Code → Download ZIP** instead, extract it, and first run `Get-ChildItem *.ps1 | Unblock-File`
+   in that folder (Windows blocks scripts from downloaded ZIPs).
 3. Stop it with `powershell -ExecutionPolicy Bypass -File .\stop.ps1`.
 4. Optional, start at sign-in: `.\register-task.ps1` (undo: `.\register-task.ps1 -Uninstall`).
 
