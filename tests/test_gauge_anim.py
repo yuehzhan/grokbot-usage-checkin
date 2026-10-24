@@ -186,6 +186,20 @@ class ToolbarTests(unittest.TestCase):
             self.assertTrue(i_set < page.index(k) < i_act, k)
         for k in ('id="animl"', 'id="manualbtn"', 'id="notifybtn"', 'id="refresh"', 'id="updbtn"', 'id="updautol"'):
             self.assertGreater(page.index(k), i_act, k)
+        # Roll back sits right after Check for updates, inside the same no-wrap unit, before the auto-check switch
+        order = [page.index(k) for k in ('id="refresh"', 'id="ugrp"', 'id="updbtn"', 'id="updback"', 'id="updautol"', 'id="ghlink"')]
+        self.assertEqual(order, sorted(order))
+        grp = page[page.index('<span class="ugrp" id="ugrp">'):page.index('id="updautol"')]
+        self.assertIn('id="updback" hidden', grp)  # still hidden until a previous version exists
+        self.assertIn("</button></span>", grp)
+        self.assertEqual(page.count('id="updback"'), 1)
+        self.assertNotIn('id="updback"', page[page.index('id="urow"'):])
+        self.assertIn(".upd .ugrp{display:inline-flex", page)
+        # Auto-check switch and GitHub icon: one no-wrap unit, icon right after the switch
+        ag = page[page.index('<span class="agrp" id="agrp">'):]
+        ag = ag[:ag.index("</span>", ag.index("</a>"))]
+        self.assertLess(ag.index('id="updautol"'), ag.index('id="ghlink"'))
+        self.assertIn(".upd .agrp{display:inline-flex", page)
         for k in (".upd .trow{display:flex;flex-wrap:wrap", ".upd .trow>*{flex:0 0 auto;white-space:nowrap}",
                   ".upd [hidden]{display:none!important}"):
             self.assertIn(k, page, k)
@@ -273,3 +287,124 @@ class AnimServerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RunOutBeforeResetTests(unittest.TestCase):
+    """Day 1 of 7 at 74% (74%/day): the quota runs out about 0.35 days after the reading, well before the reset."""
+    ROWS1 = [{"day": "1", "date": "2026-01-01", "pct": "74", "note": ""}]
+
+    def test_model(self):
+        ro = chart_hud.run_out(1, 74.0)
+        self.assertTrue(ro["exhausts"])
+        self.assertAlmostEqual(ro["proj_7d"], 518.0)
+        self.assertAlmostEqual(ro["left"], 26 / 74)
+        self.assertAlmostEqual(ro["cross_x"], 0.5 + 26 / 74)  # day ~1.35
+        self.assertFalse(chart_hud.run_out(3, 42.0)["exhausts"])
+        self.assertIsNone(chart_hud.run_out(3, 42.0)["cross_x"])
+        self.assertEqual(chart_hud.left_ctx(26 / 74)["hours"], 8)
+        L = dict(chart_hud.BASE_STRINGS, **chart_hud.TRANSLATIONS["zh-TW"])
+        self.assertEqual(chart_hud.run_out_text(L, "proj_exhaust_chart", 26 / 74), "約 8 小時後耗盡")
+        self.assertEqual(chart_hud.run_out_text(L, "proj_exhaust_chart", 1.5), "約 1.5 天後耗盡")  # a day or more: days
+        self.assertEqual(chart_hud.run_out_text(chart_hud.BASE_STRINGS, "proj_exhaust_chart", 26 / 74), "out in about 8 h")
+        for lang in ("zh-CN", "ja", "ko", "numeric"):
+            for k in ("exhaust_main_h", "proj_exhaust_val_h", "proj_exhaust_val_short_h", "proj_exhaust_chart_h", "stat_proj_exhaust"):
+                self.assertIn(k, chart_hud.TRANSLATIONS[lang], (lang, k))
+
+    def _render(self, lang):
+        import matplotlib.axes
+        d = scratch()
+        lines, real = [], matplotlib.axes.Axes.plot
+
+        def spy(self, *a, **k):
+            r = real(self, *a, **k)
+            if k.get("gid") == "proj_line":
+                lines.append(r[0])
+            return r
+        try:
+            with mock.patch.object(matplotlib.axes.Axes, "plot", spy):
+                seen, meta = spy_render(self.ROWS1, os.path.join(d, "r.png"), {"lang": lang})
+        finally:
+            shutil.rmtree(d)
+        return seen, meta, lines
+
+    def test_chart_crosses_cap_where_the_card_says(self):
+        for lang, title, val, chart in (("zh-TW", "預估耗盡時間", "8 小時", "約 8 小時後耗盡"),
+                                        ("en", "Projected run-out", "8 h", "out in about 8 h")):
+            seen, meta, lines = self._render(lang)
+            # single source of truth: the chart's crossing x is the card's run-out estimate
+            self.assertAlmostEqual(meta["card_left_days"], 26 / 74)
+            self.assertAlmostEqual(meta["proj_cross_x"], 0.5 + meta["card_left_days"])
+            self.assertEqual(len(lines), 1)
+            xd, yd = lines[0].get_xdata(), lines[0].get_ydata()
+            self.assertAlmostEqual(xd[0], 0.5)
+            self.assertAlmostEqual(yd[0], 74.0)
+            self.assertAlmostEqual(xd[-1], meta["proj_cross_x"])  # stops at the cap, not at day 7
+            self.assertAlmostEqual(yd[-1], 100.0)
+            self.assertAlmostEqual((yd[-1] - yd[0]) / (xd[-1] - xd[0]), 74.0)  # the real slope: 74%/day
+            texts = [t for t, _ in seen]
+            self.assertIn(title, texts, lang)
+            self.assertNotIn(chart_hud.TRANSLATIONS.get(lang, chart_hud.BASE_STRINGS).get("stat_proj", chart_hud.BASE_STRINGS["stat_proj"]), texts)
+            self.assertIn(val, [t for t, g in seen if g == "stat_val_3"][0], lang)
+            self.assertTrue(any(val in t for t, g in seen if g == "hero_exhaust"), lang)
+            self.assertNotIn(" 0.4 ", " ".join(texts))  # under a day: hours, not 0.4 days
+
+    def test_label_sits_at_the_crossing(self):
+        import matplotlib.axes
+        d = scratch()
+        made, real = [], matplotlib.axes.Axes.annotate
+
+        def spy(self, *a, **k):
+            r = real(self, *a, **k)
+            made.append((k.get("gid"), k.get("xy")))
+            return r
+        try:
+            with mock.patch.object(matplotlib.axes.Axes, "annotate", spy):
+                chart_hud.render(self.ROWS1, os.path.join(d, "l.png"), "2026-01-01", {"lang": "zh-TW"})
+        finally:
+            shutil.rmtree(d)
+        xy = [xy for g, xy in made if g == "proj_label"]
+        self.assertEqual(len(xy), 1)
+        self.assertAlmostEqual(xy[0][0], 0.5 + 26 / 74)
+        self.assertAlmostEqual(xy[0][1], 100.0)
+
+    def test_not_exhausting_keeps_projected_total(self):
+        d = scratch()
+        try:
+            seen, meta = spy_render([{"day": "3", "date": "2026-01-03", "pct": "30", "note": ""}], os.path.join(d, "n.png"), {"lang": "zh-TW"})
+        finally:
+            shutil.rmtree(d)
+        texts = [t for t, _ in seen]
+        self.assertIn("預估週末總量", texts)
+        self.assertNotIn("預估耗盡時間", texts)
+        self.assertIn("70%", [t for t, g in seen if g == "stat_val_3"])
+        self.assertNotIn("proj_cross_x", meta)
+
+
+class TrimmedDecimalsTests(unittest.TestCase):
+    """Derived rates and averages: one decimal only when it is not a whole number (74.0% -> 74%, 10.8% stays)."""
+
+    def test_helpers(self):
+        self.assertEqual(chart_hud.trim_num(74.0), "74")
+        self.assertEqual(chart_hud.trim_num(10.8), "10.8")
+        self.assertEqual(chart_hud.trim_num(10.04), "10")
+        self.assertEqual(chart_hud.trim_num(-0.01), "0")
+        zh = dict(chart_hud.BASE_STRINGS, **chart_hud.TRANSLATIONS["zh-TW"])
+        self.assertEqual(chart_hud.sfmt(zh["burn_rate"], rate=74.0), "消耗速率 74%/天")
+        self.assertEqual(chart_hud.sfmt(zh["burn_rate"], rate=14.2), "消耗速率 14.2%/天")
+        self.assertEqual(chart_hud.sfmt(chart_hud.BASE_STRINGS["burn_rate"], rate=74.0), "burn rate 74%/day")
+        self.assertEqual(chart_hud.sfmt("{a:+.0f} {n:d} {s}", a=3.4, n=4, s="x"), "+3 4 x")  # other specs unchanged
+        self.assertEqual(chart_hud.sfmt("{a:+.1f}", a=2.0), "+2")
+
+    def test_cards_drop_trailing_zero(self):
+        d = scratch()
+        try:
+            for lang, rate in (("zh-TW", "消耗速率 74%/天"), ("en", "burn rate 74%/day")):
+                seen, _ = spy_render([{"day": "1", "date": "2026-01-01", "pct": "74", "note": ""}], os.path.join(d, f"{lang}.png"), {"lang": lang})
+                texts = [t for t, _ in seen]
+                self.assertIn("74%", [t for t, g in seen if g == "stat_val_2"], lang)  # 平均每日用量 like 剩餘可用額度: 74%, not 74.0%
+                self.assertIn(rate, texts, lang)
+                self.assertFalse([t for t in texts if re.search(r"\d\.0(?:%|d\b| 天|/)", t)], lang)
+            seen, _ = spy_render(ROWS, os.path.join(d, "x.png"), {"lang": "en"})
+            self.assertIn("20.7%", [t for t, g in seen if g == "stat_val_2"])  # 62 / 3: the decimal stays
+        finally:
+            shutil.rmtree(d)

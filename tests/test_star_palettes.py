@@ -48,8 +48,9 @@ def ctx(data, palette=None, theme=None, config=None, privacy=False, lang="en"):
 
 class StarFlagTests(unittest.TestCase):
     def test_names_alias_and_flags(self):
-        self.assertEqual(len(up.names()), 17)
-        self.assertEqual(up.names()[-3:], ["safety-ultramarine", "tangerine-violet", "amber-cobalt"])
+        self.assertEqual(len(up.names()), 21)
+        self.assertEqual(set(up.names()[-10:-5]), STARRED)  # one contiguous ★ block right before the solid colours
+        self.assertEqual(tuple(up.names()[-5:]), up.MONO)
         for old in ("colorblind", "Colorblind", "okabe-ito", "colour-blind"):
             self.assertEqual(up.normalize(old), "orange-deepblue", old)
         self.assertEqual({n for n in up.names() if up.cvd_safe(n)}, STARRED)
@@ -236,6 +237,119 @@ class ClockRangeLabelTests(unittest.TestCase):
         self.assertEqual(uh.STR["zh-TW"]["clock_rt"]["wk"], "本週")
         self.assertEqual(uh.STR["en"]["clock_ro"]["wk"], "This week")
 
+
+class ColourNameLabelTests(unittest.TestCase):
+    def test_high_contrast_named_by_its_colours(self):
+        self.assertEqual(up.label("high-contrast", "en"), "Bright yellow / deep sky blue")
+        self.assertEqual(up.label("high-contrast", "zh-TW"), "亮黃／深天藍")
+        self.assertEqual(up.label("high-contrast", "zh-CN"), "亮黄／深天蓝")
+        for lang in ("en", "zh-TW", "zh-CN", "ja", "ko"):
+            labs = [up.label(k, lang) for k in up.names()]
+            self.assertEqual(len(labs), len(set(labs)), lang)  # no two presets share a label
+            self.assertFalse([x for x in labs if re.search(r"(?i)contrast|對比|对比", x)], lang)
+        # legacy: not in the menu, but the old key (and the colour-named alias) keep working
+        self.assertNotIn("high-contrast", up.names())
+        self.assertNotIn("high-contrast", up.js_table())
+        self.assertTrue(up.known("high-contrast"))
+        self.assertEqual(up.get("high-contrast")["over"], "#FFFF00")
+        self.assertEqual(uh._palette_arg("high-contrast"), "high-contrast")  # --palette still takes it
+        self.assertEqual(uh._palette_arg("custom"), "custom")
+        self.assertEqual(uh._palette_arg("CUSTOM-336699FFCC00"), "custom-336699ffcc00")
+        with self.assertRaises(argparse.ArgumentTypeError):
+            uh._palette_arg("nope")
+        self.assertTrue(uh.palette_name_ok("high-contrast") and not uh.palette_name_ok("nope"))
+        for k in ("high-contrast", "High Contrast", "high_contrast", "yellow-deepsky"):
+            self.assertEqual(up.normalize(k), "high-contrast", k)
+        self.assertEqual(up.get("yellow-deepsky"), up.get("high-contrast"))
+
+
+class MonoAndCustomTests(unittest.TestCase):
+    def test_single_colour_presets(self):
+        import colorsys
+        want = {"teal-mono": ("全青綠", "全青绿", "All teal"), "pink-mono": ("全粉紅", "全粉红", "All pink"),
+                "purple-mono": ("全紫", "全紫", "All purple"), "blue-mono": ("全藍", "全蓝", "All blue"),
+                "green-mono": ("全綠", "全绿", "All green")}
+        self.assertEqual(set(up.MONO), set(want))
+        for k in ("teal-mono", "all-teal", "Teal Mono", "mono_teal"):
+            self.assertEqual(up.normalize(k), "teal-mono", k)
+
+        def hls(h):
+            return colorsys.rgb_to_hls(*(int(h[i:i + 2], 16) / 255 for i in (1, 3, 5)))
+        hues = {}
+        for n, (tw, cn, en) in want.items():
+            self.assertEqual((up.label(n, "zh-TW"), up.label(n, "zh-CN"), up.label(n, "en")), (tw, cn, en))
+            self.assertFalse(up.cvd_safe(n))
+            for light, bg in ((False, "#0B0F14"), (True, "#F4F4F0")):
+                p = up.get(n, light)
+                ho, lo, _ = hls(p["over"])
+                hu, lu, _ = hls(p["under"])
+                d = abs(ho - hu) * 360
+                self.assertLess(min(d, 360 - d), 12, (n, light))  # one hue
+                self.assertGreater(lo, lu + 0.1, (n, light))  # over = the lighter / brighter shade
+                self.assertGreaterEqual(contrast(p["over"], p["under"]), 3.0, (n, light))
+                self.assertGreaterEqual(contrast(p["over"], bg), 3.0, (n, light))
+                self.assertGreaterEqual(contrast(p["under"], bg), 3.0, (n, light))
+                self.assertEqual(len({p["over"], p["under"], p["notice"], p["baseline"]}), 4, (n, light))
+                self.assertFalse(up._near(p["notice"], p["under"], 30), (n, light))  # notice is another hue
+            h = hls(up.get(n)["under"])[0] * 360
+            self.assertFalse(h < 25 or h > 345, n)  # never red; no brown / grey / black / aqua shades either
+            self.assertNotIn(up.get(n)["over"], ("#00FFFF", "#808080"))
+            hues[n] = h
+        self.assertEqual(len(set(round(h / 15) for h in hues.values())), len(hues))  # teal and green stay apart
+        self.assertEqual(up.split_key("pink-mono-pat"), ("pink-mono", True))
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "tm.png"
+            chart_hud.render(ROWS, str(out), "2026-01-01", {"lang": "zh-TW", "palette": "teal-mono", "pace": 14, "patterns": True})
+            self.assertGreater(out.stat().st_size, 10000)
+
+    def test_custom_colours(self):
+        self.assertEqual(up.custom_key("#23C4AE", "#FFA51F"), "custom-23c4aeffa51f")
+        self.assertEqual(up.parse_custom("custom-23c4aeffa51f"), ("#23C4AE", "#FFA51F"))
+        for bad in ("custom", "custom-23c4ae", "custom-23c4aeffa51g", "teal-mono", None):
+            self.assertIsNone(up.parse_custom(bad), bad)
+        with self.assertRaises(ValueError):
+            up.custom_key("23C4AE", "#FFA51F")
+        k = up.resolve("custom", {"under": "#336699", "over": "#FFCC00"})
+        self.assertEqual(k, "custom-336699ffcc00")
+        self.assertEqual(up.normalize(k), k)
+        self.assertEqual(up.get(k)["over"], "#FFCC00")
+        self.assertEqual(up.resolve("custom", {"under": "blue", "over": "#FFCC00"}), "custom-23c4aeffa51f")  # invalid -> default
+        self.assertEqual(up.resolve("custom", None), "custom-23c4aeffa51f")
+        self.assertEqual(up.resolve("gold-sky", {"under": "#336699", "over": "#FFCC00"}), "gold-sky")
+        self.assertEqual(up.split_key(k + "-pat"), (k, True))
+        self.assertTrue(up.is_key(k + "-pat") and up.is_key(k))
+        self.assertNotIn(k, up.names())
+        self.assertEqual(up.label(k, "zh-TW"), "自訂顏色…")
+        self.assertEqual(up.label("custom", "en"), "Custom…")
+        # too dark / too light picks are adjusted to 3:1 on each background
+        for under, over in (("#050505", "#101418"), ("#FFFFFF", "#FAFAF0"), ("#336699", "#336699")):
+            for light, bg in ((False, "#0B0F14"), (True, "#F4F4F0")):
+                p = up.get(up.custom_key(under, over), light)
+                self.assertGreaterEqual(contrast(p["over"], bg), 2.95, (under, over, light))
+                self.assertGreaterEqual(contrast(p["under"], bg), 2.95, (under, over, light))
+        self.assertTrue(up.similar("#336699", "#336699"))
+        self.assertTrue(up.similar("#336699", "#3A6EA0"))
+        self.assertFalse(up.similar("#336699", "#FFCC00"))
+        cfg = chart_hud.normalize_cfg({"palette": "custom", "custom_colors": {"under": "#336699", "over": "#FFCC00"}})
+        self.assertEqual(cfg["custom_colors"]["over"], "#FFCC00")
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "c.png"
+            chart_hud.render(ROWS, str(out), "2026-01-01", dict(cfg, lang="en", pace=14))
+            self.assertGreater(out.stat().st_size, 10000)
+
+    def test_ctx_reads_custom_colours_from_config(self):
+        with tempfile.TemporaryDirectory() as d:
+            cfgp = Path(d) / "c.json"
+            cfgp.write_text(json.dumps({"palette": "custom", "custom_colors": {"under": "#336699", "over": "#FFCC00"}}), encoding="utf-8")
+            c = ctx(Path(d), config=str(cfgp))
+            self.assertEqual(c.palette, "custom-336699ffcc00")
+            self.assertEqual(c.theme["over_color"], "#FFCC00")
+
+    def test_amber_purple_renamed(self):
+        self.assertEqual(up.label("amber-purple", "zh-TW"), "金橘／紫")
+        self.assertEqual(up.label("amber-purple", "zh-CN"), "金橙／紫")
+        self.assertEqual(up.label("amber-purple", "en"), "Golden orange / purple")
+        self.assertEqual(up.label("amber-cobalt", "zh-TW"), "琥珀橘／鈷藍 ★")
 
 if __name__ == "__main__":
     unittest.main()

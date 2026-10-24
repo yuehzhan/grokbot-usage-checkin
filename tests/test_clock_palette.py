@@ -151,6 +151,21 @@ class LazyPaletteServerTests(unittest.TestCase):
         stop_server(cls.proc)
         shutil.rmtree(cls.dir)
 
+    def test_custom_colours_render(self):
+        code, j = self._render({"name": "custom-336699ffcc00"}, token=False)
+        self.assertEqual(code, 403)  # same token / Origin checks as every write
+        for bad in ("custom", "custom-33669", "custom-33669gffcc00", "custom-336699ffcc00x"):
+            self.assertEqual(self._render({"name": bad})[0], 400, bad)
+        code, j = self._render({"name": "custom-336699ffcc00", "patterns": True})
+        self.assertEqual(code, 200, j)
+        self.assertEqual(j["name"], "custom-336699ffcc00-pat")
+        self.assertEqual(j["colors"]["dark"]["over"], "#FFCC00")
+        self.assertTrue(os.path.exists(os.path.join(self.hist, "pal", "custom-336699ffcc00-pat", "clock-wk-ot.png")))
+        self.assertEqual(self._render({"name": "high-contrast"})[0], 200)  # legacy key still draws
+        code, j = self._render({"name": "teal-mono"})
+        self.assertEqual(code, 200)
+        self.assertNotIn("colors", j)
+
     def _render(self, body, token=True):
         h = {"Origin": self.url.rstrip("/"), "Content-Type": "application/json"}
         if token:
@@ -165,9 +180,16 @@ class LazyPaletteServerTests(unittest.TestCase):
         code, raw = request(self.url)
         page = raw.decode("utf-8")
         self.assertEqual(code, 200)
-        for i in ("pallist", "clklist", "clolist", "clflist", "clkimg", "po-high-contrast", "clk-all", "clo-sd", "clf-s"):
+        for i in ("pallist", "clklist", "clolist", "clflist", "clkimg", "po-amber-cobalt", "clk-all", "clo-sd", "clf-s"):
             self.assertRegex(page, f"id=['\"]{i}['\"]", i)
-        self.assertEqual(len(re.findall(r"id=['\"]po-", page)), len(up.names()))
+        self.assertEqual(len(re.findall(r"id=['\"]po-", page)), len(up.names()) + 1)  # + "Custom…"
+        # two-colour presets, then the ★ note, then the "Solid colours" header and its presets, then Custom… last
+        lst = re.search(r"id=['\"]pallist['\"].*?</ul>", page, re.S).group(0)
+        order = [lst.index(x) for x in ("po-amber-cobalt", "palnote", "palgrp", "po-teal-mono", "po-green-mono", "po-custom")]
+        self.assertEqual(order, sorted(order))
+        self.assertIn(">Solid colours<", lst)
+        self.assertNotIn("po-high-contrast", lst)  # legacy preset: not offered
+        self.assertRegex(page, r"id='cpick' hidden")  # colour pickers only shown for Custom…
         style = re.search(r"<style>(.*?)</style>", page, re.S).group(1)
         self.assertIn("--accent:", style)
         rest = re.sub(r":root\{[^}]*\}", "", style)

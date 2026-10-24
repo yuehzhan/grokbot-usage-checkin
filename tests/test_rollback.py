@@ -44,6 +44,11 @@ class VersionNotesTests(unittest.TestCase):
             entries = self_update.parse_changelog(read_text(os.path.join(ROOT, name)))
             self.assertEqual(entries[0][0], self_update.parse_version(v), name)  # newest first, matches VERSION
             self.assertEqual([e[0] for e in entries], sorted([e[0] for e in entries], reverse=True))
+        prev = ".".join(map(str, self_update.parse_changelog(read_text(os.path.join(ROOT, "CHANGELOG.md")))[1][0]))
+        for name, cjk, head in (("CHANGELOG.md", False, f"v{v} ("), ("CHANGELOG.zh-TW.md", True, f"v{v}（")):
+            t = self_update.notes_between(read_text(os.path.join(ROOT, name)), prev, cjk=cjk)  # what an update shows
+            self.assertTrue(t.startswith(head), (name, t[:40]))
+            self.assertEqual(t.count("\nv"), 0, name)  # only the newest entry
 
     def test_notes_between(self):
         t = self_update.notes_between(LOG, "1.1.0")
