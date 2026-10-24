@@ -249,6 +249,11 @@ def _flags_child():
 def start(cfg, data_dir, with_sampler=True, open_browser=False, wait=60):
     st = status(cfg, data_dir)
     if st["running"]:
+        # Still open the page: the shortcut / start.ps1 should always show it,
+        # even when the logon task (or an earlier start) already launched it.
+        if st.get("url") and open_browser:
+            import webbrowser
+            webbrowser.open(st["url"])
         return dict(st, ok=True, note="already running")
     cleanup(data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
