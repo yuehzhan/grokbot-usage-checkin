@@ -45,7 +45,10 @@ class PeriodColourTests(unittest.TestCase):
                 self.assertEqual(len(cols), 8, n)
                 self.assertEqual(len({c.upper() for c in cols}), 8, n)
                 self.assertNotIn(up.get(n, light)["over"].upper(), [c.upper() for c in cols], n)
-                self.assertEqual(cols[0], up.get(n, light)["under"])
+                if n == "colorblind":  # clock periods stay pure Okabe-Ito; the dark under blue is a lighter #3C8FD6
+                    self.assertIn(cols[0], ("#56B4E9", "#0072B2"))
+                else:
+                    self.assertEqual(cols[0], up.get(n, light)["under"])
         okabe_ito = {"#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "#000000"}
         self.assertTrue(set(up.period_colors("colorblind")[:6]) <= okabe_ito)
 

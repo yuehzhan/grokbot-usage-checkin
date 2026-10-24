@@ -23,7 +23,10 @@ class PaletteTests(unittest.TestCase):
                 self.assertTrue(up.LABELS[n][lang], (n, lang))
         self.assertEqual(up.normalize("nonsense"), "orange-teal")
         self.assertEqual(up.normalize("Okabe-Ito"), "colorblind")
-        self.assertEqual(up.get("colorblind")["under"], "#56B4E9")
+        cb, cbl = up.get("colorblind"), up.get("colorblind", True)
+        self.assertEqual((cb["over"], cb["under"], cb["notice"]), ("#E69F00", "#3C8FD6", "#CC79A7"))
+        self.assertEqual(cbl["under"], "#0072B2")
+        self.assertNotIn("#D55E00", (cb["over"], cbl["over"]))  # never vermillion / red for "over"
         for n in up.names():
             for light in (False, True):
                 p = up.get(n, light)
