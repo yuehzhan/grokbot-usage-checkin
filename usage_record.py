@@ -425,7 +425,7 @@ def main(argv: Optional[List[str]] = None):
     p.add_argument("--under-color", default=None)
     p.add_argument("--over-color", default=None)
     p.add_argument("--text-color", default=None)
-    p.add_argument("--palette", default=None, help="Colour preset (17, see README): orange-teal (default), orange-blue, orange-deepblue, amber-purple, ...")
+    p.add_argument("--palette", default=None, help="Colour preset (22, see README): orange-teal (default), orange-blue, ..., teal-mono, ...; or custom (config custom_colors)")
     p.add_argument("--no-cache", action="store_true", help="Do not write auto-detected reset_at to <data_dir>/state.json")
     p.add_argument("--no-render", action="store_true", help="Update CSV and summary JSON only without rendering PNG")
     p.add_argument("--no-open", action="store_true", help="Do not auto-open rendered PNG")
@@ -785,6 +785,7 @@ def main(argv: Optional[List[str]] = None):
                 "over_color": resolve(args.over_color, "over_color"),
                 "text_color": resolve(args.text_color, "text_color"),
                 "palette": resolve(getattr(args, "palette", None), "palette"),
+                "custom_colors": cfg_file_data.get("custom_colors"),  # used with "palette": "custom"
                 "display_offset": _display_offset(cfg_file_data, data_dir),  # shown % only; the CSV row stays raw
             }
             chart_hud.render(rows, str(out_png), period_start_str, render_cfg)

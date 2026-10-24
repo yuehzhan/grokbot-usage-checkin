@@ -99,7 +99,7 @@ class ViewerState:
         except (TypeError, ValueError):
             self.cooldown_seconds = COOLDOWN_SECONDS
         self.debug_pct = bool(getattr(args, "debug_pct_override", False)) or cfg_data.get("debug_pct_override") is True
-        self.palette = usage_palette.normalize(getattr(args, "palette", None) or cfg_data.get("palette"))
+        self.palette = usage_palette.resolve(getattr(args, "palette", None) or cfg_data.get("palette"), cfg_data.get("custom_colors"))
         self.token = local_guard.new_token()
         self.extra_hosts: List[str] = [str(h) for h in (cfg_data.get("view_allowed_hosts") or [])]
 
@@ -354,14 +354,19 @@ def render_html_page(state: ViewerState) -> str:
     initial_json = json.dumps(latest, ensure_ascii=False).replace("<", "\\u003c")
     is_priv_js = "true" if priv else "false"
     pal_now = usage_palette.get(state.palette)
-    pal_json = json.dumps({"default": state.palette, "table": usage_palette.js_table(), "alias": {"colorblind": "orange-deepblue"},
+    table = usage_palette.js_table()
+    if state.palette not in table:  # configured custom / legacy palette: not in the menu list, still the page default
+        table[state.palette] = {v: usage_palette.get(state.palette, v == "light") for v in ("dark", "light")}
+    pal_json = json.dumps({"default": state.palette, "table": table, "alias": {"colorblind": "orange-deepblue"},
                            "patterns": bool(state.cfg_data.get("patterns"))})
     offset = usage_offset.from_settings(state.cfg_data, state.data_dir)
     rd_js = usage_dates.JS
     off_json = json.dumps({"off": offset, "tag": usage_offset.tag(offset)})
     pal_opts = "".join(
         f'<option value="{n}"{" selected" if n == state.palette else ""}>{(str(i + 1) + (" " + usage_palette.STAR if usage_palette.cvd_safe(n) else "") if priv else usage_palette.label(n, "en"))}</option>'
-        for i, n in enumerate(usage_palette.names()))
+        for i, n in enumerate(usage_palette.names())) + (
+        "" if state.palette in usage_palette.names() else
+        f'<option value="{state.palette}" selected>{"✎" if priv else usage_palette.label(state.palette, "en")}</option>')
     pal_lbl = "◐" if priv else "Colours"
 
     return f"""<!DOCTYPE html>
@@ -966,7 +971,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--over-color", default=None)
     p.add_argument("--text-color", default=None)
     p.add_argument("--no-cache", action="store_true")
-    p.add_argument("--palette", default=None, help="Colour preset (17, see README): orange-teal (default), orange-blue, orange-deepblue, amber-purple, ...")
+    p.add_argument("--palette", default=None, help="Colour preset (22, see README): orange-teal (default), orange-blue, ..., teal-mono, ...; or custom (config custom_colors)")
     p.add_argument("--debug-pct-override", action="store_true",
                    help="Testing only: let POST /api/refresh accept a pct value")
     return p

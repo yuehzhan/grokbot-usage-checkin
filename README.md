@@ -179,10 +179,10 @@ If the automatic read keeps failing, set `"pct_source": "manual"` in `usage_conf
 ### Panels
 1. **Header Bar**: `WEEKLY USAGE // TELEMETRY` eyebrow, localized dashboard title (`Usage Dashboard` by default, customizable via `--title`), full weekly cycle window (`YYYY-MM-DD Sat 09:00 -> YYYY-MM-DD Sat 09:00`), and decorative segmented view tabs (`Cumulative | Daily | Week`).
 2. **Row 1 — Hero Card & 6 Telemetry Stat Cards**:
-   - **Hero Card (left ~1/3)**: Ring gauge (capped visually at `100%` with a grey tick at today's target baseline `pace × day` and a small legend under the ring, e.g. `Baseline 42%`, showing `Day N / 7` and `% left` in the center), large current `%` readout, burn rate (`burn rate X.X%/day`), auto-sized status pill (`▼ ON PACE` in the cool colour or `▲ AHEAD OF PACE` in orange), time-to-cap forecast (when the 7-day projection exceeds `100%`: `Runs out early, ~N days left`, with N = remaining % ÷ current average %/day, one decimal), and a padded bottom multi-segment progress bar (used quota + pale forecast-to-reset + remaining track + grey baseline tick).
-   - **6 Stat Cards (`2 × 3` grid)**: **vs Baseline** in words, no arrow (`16% under baseline` + `(plenty left)`, `5% over baseline` + `(using it fast)`; zh-TW 「落後基準 16%（用量充裕）」 / 「超前基準 5%（消耗較快）」), **Remaining** (`0%` and `+X% over cap` when `> 100%`), **Avg / Day** and **Projected (7d)** (the ▲/▼ sits in a small tag beside the number, e.g. `8.7% [▼ slower]`, `61% [▼ within]`, `[▲ over]`; past `100%` the projection card shows `Quota ~N d left [▲ running out]` when that fits beside the tag, otherwise the shorter `~N d left [▲ running out]`, and its small second line reads `Quota runs out early · raw 145%`), **Reset In** (`Xd Yh` plus the explicit date, e.g. `Sat, Oct 31, 01:41`), and **Daily Budget Left** (`remaining / days_left`, sub line `over N d to reset (incl. today)`; zh-TW 「距重置 N 天（含今天）」, so it is not mistaken for the projection card's days until the quota runs out).
+   - **Hero Card (left ~1/3)**: Ring gauge (capped visually at `100%` with a grey tick at today's target baseline `pace × day` and a small legend under the ring, e.g. `Baseline 42%`, showing `Day N / 7` and `% left` in the center), large current `%` readout, burn rate (`burn rate X.X%/day`; rates and averages drop a trailing `.0`, so `74%` rather than `74.0%`), auto-sized status pill (`▼ ON PACE` in the cool colour or `▲ AHEAD OF PACE` in orange), time-to-cap forecast (when the 7-day projection exceeds `100%`: `Runs out early, ~N days left`, with N = remaining % ÷ current average %/day, one decimal; under one day it is given in hours, e.g. `about 8 h left`), and a padded bottom multi-segment progress bar (used quota + pale forecast-to-reset + remaining track + grey baseline tick).
+   - **6 Stat Cards (`2 × 3` grid)**: **vs Baseline** in words, no arrow (`16% under baseline` + `(plenty left)`, `5% over baseline` + `(using it fast)`; zh-TW 「落後基準 16%（用量充裕）」 / 「超前基準 5%（消耗較快）」), **Remaining** (`0%` and `+X% over cap` when `> 100%`), **Avg / Day** and **Projected (7d)** (the ▲/▼ sits in a small tag beside the number, e.g. `8.7% [▼ slower]`, `61% [▼ within]`, `[▲ over]`; past `100%` the projection card is titled **Projected run-out** and shows `Quota ~N d left [▲ running out]` when that fits beside the tag, otherwise the shorter `~N d left [▲ running out]`, and its small second line reads `Quota runs out early · raw 145%`), **Reset In** (`Xd Yh` plus the explicit date, e.g. `Sat, Oct 31, 01:41`), and **Daily Budget Left** (`remaining / days_left`, sub line `over N d to reset (incl. today)`; zh-TW 「距重置 N 天（含今天）」, so it is not mistaken for the projection card's days until the quota runs out).
    - **One day index**: today's day number and the days left both come from the reset time. While the cycle runs, `days_left = ceil(time to reset ÷ 24 h)` (today included) and `Day N / 7` uses `N = 8 − days_left`, so the two always add up to 8 (e.g. `Day 3 / 7`, reset in `4d 1h`, `over 5d to reset (incl. today)`). Outside the cycle (or without a reset time) the day of the latest reading is used. The baseline (`pace × day`) and the vs-Baseline card stay on the day of the latest reading, which their sub line names (`Day 2 baseline: 28%`).
-3. **Row 2 Left — Cumulative Usage vs. Baseline Line Chart**: 7 framed daily cells (`x = 0..7`, points at `N - 0.5`), grey baseline `pace × (x + 0.5)`, segment-by-segment cool/orange usage line, dashed forecast to Day 7 (`proj X%`, or `out in ~N d` once it passes `100%`), `100%` limit line, `> 100%` cap triangle markers with anti-collision label placement, and `No Data` indicators in missing cells.
+3. **Row 2 Left — Cumulative Usage vs. Baseline Line Chart**: 7 framed daily cells (`x = 0..7`, points at `N - 0.5`), grey baseline `pace × (x + 0.5)`, segment-by-segment cool/orange usage line, dashed forecast to Day 7 (`proj X%`; once the projection passes `100%` the dashed line keeps the same rate as the cards and stops where it crosses the `100%` line, with its marker and `out in ~N d` / `out in about N h` label at that point), `100%` limit line, `> 100%` cap triangle markers with anti-collision label placement, and `No Data` indicators in missing cells.
 4. **Row 3 Left — Daily Usage Skyscraper Bar Chart**: Aligned with the 7 day-cells above, showing each day's increment (`pct - prev_pct`) in the cool colour (`<= pace × gap_days`) or orange (`> pace × gap_days`) against the dashed grey daily baseline (`14%`), with `(Nd)` gap tags on multi-day spans.
 5. **Row 2+3 Right — Daily Log Card**: 7 daily rows (`Day 1..Day 7`) with date (`MM-DD`), note/timestamp, cumulative `%`, daily increment (plain `+N%`, coloured; ▲/▼ are added only with **Add patterns**), and a clipped mini progress bar per row. Every value is the shown value (display offset included).
 6. **Footer**: Generation timestamp, target daily pace, and weekly cap summary.
@@ -198,8 +198,7 @@ If the automatic read keeps failing, set `"pct_source": "manual"` in `usage_conf
 | :--- | :--- | :--- | :--- | :--- |
 | `orange-teal` (default) | Orange / teal | `#FFA51F` / `#C96A00` | `#23C4AE` / `#0B8A7E` | `#B48CFF` / `#7A4FC9` |
 | `orange-blue` | Orange / blue | `#FFA51F` / `#C96A00` | `#4D8DFF` / `#1F5FD1` | `#B48CFF` / `#7A4FC9` |
-| `orange-deepblue` ★ (was `colorblind`) | Orange / deep blue ★ | `#E69F00` / `#B87F00` | `#3171C4` / `#1D3972` | `#CC79A7` / `#A8558A` |
-| `amber-purple` | Amber / purple | `#FFB000` / `#B37A00` | `#9B7BFF` / `#6A4BD6` | `#F28CC8` / `#B0487F` |
+| `amber-purple` | Golden orange / purple | `#FFB000` / `#B37A00` | `#9B7BFF` / `#6A4BD6` | `#F28CC8` / `#B0487F` |
 | `pink-green` | Pink / green | `#FF5FA2` / `#C2306E` | `#3DDC84` / `#138A4C` | `#B48CFF` / `#7A4FC9` |
 | `gold-sky` | Gold / sky blue | `#FFD23F` / `#9A7400` | `#5EC8FF` / `#0A78B8` | `#C59BFF` / `#7A4FC9` |
 | `orange-purple` | Orange / purple | `#FF8C1A` / `#C25E00` | `#B07CFF` / `#7A45D6` | `#7FD8C8` / `#1F8A7A` |
@@ -208,15 +207,40 @@ If the automatic read keeps failing, set `"pct_source": "manual"` in `usage_conf
 | `peach-mint` | Peach / mint | `#FFB38A` / `#C0602F` | `#7FE0B0` / `#1E8A5A` | `#B48CFF` / `#7A4FC9` |
 | `tangerine-cyan` | Tangerine / cyan | `#FF8A3D` / `#C55A12` | `#3FD0FF` / `#0A7FAF` | `#C59BFF` / `#7A4FC9` |
 | `rose-lime` | Rose / lime | `#FF6FB5` / `#C23A7E` | `#A8E063` / `#4E8A12` | `#9EC5FF` / `#3F64C2` |
+| `orange-deepblue` ★ (was `colorblind`) | Orange / deep blue ★ | `#E69F00` / `#B87F00` | `#3171C4` / `#1D3972` | `#CC79A7` / `#A8558A` |
 | `sunflower-navy` ★ | Sunflower / navy ★ | `#FFC93C` / `#9C7200` | `#3A6BD9` / `#00219E` | `#E59BFF` / `#A8558A` |
-| `high-contrast` | High contrast | `#FFFF00` / `#7A6E00` | `#00BFFF` / `#005F99` | `#FF9BFF` / `#9A2FA0` |
 | `safety-ultramarine` ★ | Safety orange / ultramarine ★ | `#FF832B` / `#EB6100` | `#2A68DE` / `#002599` | `#B48CFF` / `#7A4FC9` |
 | `tangerine-violet` ★ | Tangerine / violet ★ | `#FF9100` / `#CC7400` | `#6C5CE7` / `#3814B8` | `#F28CC8` / `#B0487F` |
 | `amber-cobalt` ★ | Amber orange / cobalt ★ | `#EE7733` / `#EB5500` | `#0077BB` / `#003A66` | `#C59BFF` / `#7A4FC9` |
+| `teal-mono` | All teal | `#8FF5E4` / `#109C8B` | `#178A7D` / `#07443E` | `#B48CFF` / `#7A4FC9` |
+| `pink-mono` | All pink | `#FFB8DC` / `#D63F8E` | `#B84381` / `#58163D` | `#9EC5FF` / `#3F64C2` |
+| `purple-mono` | All purple | `#D9CCFF` / `#8E63F0` | `#7C5CD6` / `#361D84` | `#F28CC8` / `#B0487F` |
+| `blue-mono` | All blue | `#B3D7FF` / `#2D7BEF` | `#2F6BD6` / `#0B2D75` | `#C59BFF` / `#7A4FC9` |
+| `green-mono` | All green | `#A8F0BC` / `#1E9A45` | `#288C48` / `#0A431F` | `#B48CFF` / `#7A4FC9` |
+| `custom` | Custom… | your *over* colour | your *under* colour | picked automatically |
 
 Each cell is *dark background / light background*. The baseline line is the same neutral grey in every preset
-(`#9AA4AE` / `#6B7480`). "Over" is always a warm colour (orange, amber, gold, pink or yellow), never red, brown, grey,
+(`#9AA4AE` / `#6B7480`). "Over" is always a warm colour (orange, gold, pink or yellow), never red, brown, grey,
 black or aqua; every preset has its own notice colour.
+
+**Solid colours** (their own section in the menu, below the ★ note: `teal-mono`, `pink-mono`, `purple-mono`, `blue-mono`, `green-mono`):
+one hue for both states — over is the bright light shade, under the deep muted shade (at least 3:1 apart on both
+backgrounds), so they differ by lightness only. The ▲ / ▼ tags still mark the state, and *Add patterns* adds hatching
+on "over". `all-teal` is also accepted for `teal-mono`.
+
+The menu lists the two-colour presets with the ★ ones as one block at the end, then the ★ note, then the solid
+colours and *Custom…*. `high-contrast` (yellow `#FFFF00` / sky blue `#00BFFF`) is no longer in the menu; it is a legacy
+key that configs, theme files and `--palette` still accept and draw. A browser that had it saved falls back to the
+configured palette.
+
+**Custom…** (the very last item in the menu) shows two colour pickers, *Under baseline* and *Over baseline*. The charts are
+redrawn in your two colours (each nudged lighter or darker when needed so it stays readable on the dark / light
+background; the notice colour is picked automatically). The choice is remembered in the browser
+(`usage.customColors`). If the two colours are very close, a short note says the ▲ / ▼ tags and *Add patterns* still
+tell them apart. In the config: `"palette": "custom", "custom_colors": {"under": "#336699", "over": "#FFCC00"}`
+(`#RRGGBB` only; anything else falls back to orange / teal). The same works for the PNG renderer and
+`--palette custom`, and `--palette custom-336699ffcc00` (under, then over) sets both on the command line.
+Custom colours are yours to choose, so the "never red" rule above covers the presets only.
 
 - **★ palettes** — `orange-deepblue`, `sunflower-navy`, `safety-ultramarine`, `tangerine-violet` and `amber-cobalt` —
   were checked with colour-blindness (colour vision deficiency) simulation using [DaltonLens](https://daltonlens.org/)
@@ -598,6 +622,10 @@ The page's check-in tab has category chips (a 4th pick is blocked), Start / End 
 Done or Interrupted plus an optional reason), the search box with dates, the day-grouped list and the per-category
 summary. The last name used is remembered in `localStorage`.
 
+<img src="docs/media/checkin-search-en.gif" alt="Typing a keyword into the check-in search narrows the list and updates the match count" width="720">
+
+*Check-in search demo with made-up sample data.*
+
 ### Check-in categories and "break" (放風)
 
 A **break** (放風) is a stretch of time when your Grok Bot takes no tasks and decides for itself what to do, such as browsing, reading something it's curious about, tidying its own notes, or a small creative project. You agree on the time in advance (for example a few tens of minutes a week), and it checks in at the start and end, so you can see how long it took and how much usage it used.
@@ -793,7 +821,8 @@ network.
 | `stale_after_hours` | `6` | Ledger age after which readers should refresh first. |
 | `desktop_notify` | `true` | Show OS desktop toasts for new alerts (`false` = log only). |
 | `extra_spend_csv` | `null` | Optional CSV of extra paid usage with at least the columns `time,usd_used` (`usd_used` = monthly running total; other columns are ignored); shown per month in the history view. |
-| `palette` | `"orange-teal"` | Colour preset: `orange-teal`, `orange-blue`, `orange-deepblue` (old name `colorblind` still accepted), `amber-purple`, `pink-green`, `gold-sky`, `orange-purple`, `magenta-teal`, `yellow-indigo`, `peach-mint`, `tangerine-cyan`, `rose-lime`, `sunflower-navy`, `high-contrast`, `safety-ultramarine`, `tangerine-violet`, `amber-cobalt`. |
+| `palette` | `"orange-teal"` | Colour preset: `orange-teal`, `orange-blue`, `orange-deepblue` (old name `colorblind` still accepted), `amber-purple`, `pink-green`, `gold-sky`, `orange-purple`, `magenta-teal`, `yellow-indigo`, `peach-mint`, `tangerine-cyan`, `rose-lime`, `sunflower-navy`, `safety-ultramarine`, `tangerine-violet`, `amber-cobalt`, solid colours `teal-mono`, `pink-mono`, `purple-mono`, `blue-mono`, `green-mono`, or `custom` (with `custom_colors`). |
+| `custom_colors` | (none) | With `"palette": "custom"`: `{"under": "#RRGGBB", "over": "#RRGGBB"}`. |
 | `patterns` | `false` | **Add patterns**: hatching, dashed over-line and ▲/▼ on charts and badges, for any palette. Set by the page checkbox too. |
 | `display_offset` | `0` | Whole number −2…+2 added to the shown weekly % (clamped; `1` matches the desktop app's rounding). Stored data stays raw. Set by the page menu too. |
 | `over_color`, `under_color`, `baseline_color` | `null` | Optional single-colour overrides for `chart_hud.py` (hex); `null` = take it from the palette. |

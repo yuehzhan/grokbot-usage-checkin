@@ -81,6 +81,7 @@ FONT_CANDIDATES = {
 # grey = the baseline line itself. Colours come from usage_palette.py unless set explicitly.
 DEFAULT_CFG = {
     "palette": "orange-teal",
+    "custom_colors": None,  # with "palette": "custom": {"under": "#RRGGBB", "over": "#RRGGBB"}
     "baseline_color": None,
     "under_color": None,
     "over_color": None,
@@ -127,6 +128,11 @@ BASE_STRINGS = {
     "proj_exhaust_val_short": "~{left:.1f}d left",
     "proj_exhaust_sub": "Quota runs out early · raw {proj:.0f}%",
     "proj_exhaust_chart": "out in ~{left:.1f}d",
+    "exhaust_main_h": "Runs out early, about {hours} h left",
+    "proj_exhaust_val_h": "Quota: about {hours} h left",
+    "proj_exhaust_val_short_h": "About {hours} h left",
+    "proj_exhaust_chart_h": "out in about {hours} h",
+    "stat_proj_exhaust": "Projected run-out",
     "ring_left": "{rem:.0f}% left",
     "on_pace": "ON PACE",
     "ahead_pace": "AHEAD OF PACE",
@@ -202,6 +208,11 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "proj_exhaust_val_short": "剩約 {left:.1f} 天",
         "proj_exhaust_sub": "額度提前耗盡 · 原始預估 {proj:.0f}%",
         "proj_exhaust_chart": "約 {left:.1f} 天後耗盡",
+        "exhaust_main_h": "預估額度提前耗盡，剩約 {hours} 小時",
+        "proj_exhaust_val_h": "額度剩約 {hours} 小時",
+        "proj_exhaust_val_short_h": "剩約 {hours} 小時",
+        "proj_exhaust_chart_h": "約 {hours} 小時後耗盡",
+        "stat_proj_exhaust": "預估耗盡時間",
         "ring_left": "剩餘 {rem:.0f}%",
         "on_pace": "符合基準配速",
         "ahead_pace": "超前基準配速",
@@ -275,6 +286,11 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "proj_exhaust_val_short": "剩约 {left:.1f} 天",
         "proj_exhaust_sub": "额度提前耗尽 · 原始预计 {proj:.0f}%",
         "proj_exhaust_chart": "约 {left:.1f} 天后耗尽",
+        "exhaust_main_h": "预计额度提前耗尽，剩约 {hours} 小时",
+        "proj_exhaust_val_h": "额度剩约 {hours} 小时",
+        "proj_exhaust_val_short_h": "剩约 {hours} 小时",
+        "proj_exhaust_chart_h": "约 {hours} 小时后耗尽",
+        "stat_proj_exhaust": "预计耗尽时间",
         "ring_left": "剩余 {rem:.0f}%",
         "on_pace": "符合基准",
         "ahead_pace": "超前基准",
@@ -348,6 +364,11 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "proj_exhaust_val_short": "残り約{left:.1f}日",
         "proj_exhaust_sub": "枠が早期に上限 · 予測値 {proj:.0f}%",
         "proj_exhaust_chart": "約{left:.1f}日で上限",
+        "exhaust_main_h": "枠が早めに尽きる見込み・残り約{hours}時間",
+        "proj_exhaust_val_h": "枠の残り約{hours}時間",
+        "proj_exhaust_val_short_h": "残り約{hours}時間",
+        "proj_exhaust_chart_h": "約{hours}時間で上限",
+        "stat_proj_exhaust": "上限到達の予測",
         "ring_left": "残り {rem:.0f}%",
         "on_pace": "基準ペース内",
         "ahead_pace": "基準ペース超過",
@@ -421,6 +442,11 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "proj_exhaust_val_short": "약 {left:.1f}일 남음",
         "proj_exhaust_sub": "한도 조기 소진 · 예측 {proj:.0f}%",
         "proj_exhaust_chart": "약 {left:.1f}일 후 소진",
+        "exhaust_main_h": "한도 조기 소진 예상, 약 {hours}시간 남음",
+        "proj_exhaust_val_h": "한도 약 {hours}시간 남음",
+        "proj_exhaust_val_short_h": "약 {hours}시간 남음",
+        "proj_exhaust_chart_h": "약 {hours}시간 후 소진",
+        "stat_proj_exhaust": "소진 예상 시점",
         "ring_left": "남음 {rem:.0f}%",
         "on_pace": "기준 속도 유지",
         "ahead_pace": "기준 속도 초과",
@@ -496,6 +522,11 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "proj_exhaust_val_short": "≈{left:.1f}d",
         "proj_exhaust_sub": "{proj:.0f}%",
         "proj_exhaust_chart": "100% ≈{left:.1f}d",
+        "exhaust_main_h": "→ 100% · ≈{hours}h",
+        "proj_exhaust_val_h": "≈{hours}h",
+        "proj_exhaust_val_short_h": "≈{hours}h",
+        "proj_exhaust_chart_h": "100% ≈{hours}h",
+        "stat_proj_exhaust": "→ 100%",
         "ring_left": "{rem:.0f}% ↓",
         "on_pace": "▼ ≤",
         "ahead_pace": "▲ >",
@@ -564,9 +595,38 @@ class _SafeFormatDict(dict):
         return _SafeFormatValue()
 
 
+def trim_num(x, nd=1):
+    """A derived rate or average with ``nd`` decimals, without a trailing ".0": 74.0 -> "74", 10.8 -> "10.8"."""
+    t = f"{float(x):.{nd}f}"
+    if "." in t and not t.split(".", 1)[1].strip("0"):
+        t = t.split(".", 1)[0]
+    return "0" if t == "-0" else t
+
+
+class _Num:
+    """A number in a template: ``{rate:.1f}`` keeps one decimal only when it is not a whole number
+    (``{x:.0f}``, ``{n:d}``, ``{v:+.0f}`` and the rest work as usual)."""
+    __slots__ = ("v",)
+
+    def __init__(self, v):
+        self.v = v
+
+    def __format__(self, spec):
+        m = re.fullmatch(r"([+ ]?)\.([1-9])f", spec or "")
+        if m:
+            t = trim_num(self.v, int(m.group(2)))
+            return (m.group(1) if not t.startswith("-") else "") + t
+        return format(self.v, spec)
+
+    def __str__(self):
+        return str(self.v)
+
+
 def sfmt(template: object, **kwargs) -> str:
-    """Safely format a locale template string without ever raising KeyError or ValueError."""
+    """Safely format a locale template string without ever raising KeyError or ValueError.
+    Fixed-decimal fields drop a trailing ".0" (see ``_Num``)."""
     s = str(template)
+    kwargs = {k: (_Num(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else v) for k, v in kwargs.items()}
     try:
         return s.format_map(_SafeFormatDict(kwargs))
     except Exception:
@@ -782,7 +842,7 @@ def parse_config():
     p.add_argument("--pct", type=float, default=None, help="Manual single reading or day override (%%)")
     p.add_argument("--day", type=int, default=None, help="Day number (1..7) for --pct")
     p.add_argument("--theme", default=None, help="Path to JSON theme file")
-    p.add_argument("--palette", default=None, help="Colour preset (17, see README): orange-teal (default), orange-blue, orange-deepblue, amber-purple, ...")
+    p.add_argument("--palette", default=None, help="Colour preset (22, see README): orange-teal (default), orange-blue, ..., teal-mono, ...; or custom (config custom_colors)")
     p.add_argument("--baseline-color", default=None)
     p.add_argument("--under-color", default=None)
     p.add_argument("--over-color", default=None)
@@ -846,6 +906,32 @@ def exhaust_days(latest_pct, avg_day):
     if avg_day <= 0:
         return None
     return max(0.0, 100.0 - latest_pct) / avg_day
+
+
+def run_out(latest_day, latest_pct):
+    """The one projection model shared by the stat cards and the cumulative chart: the average rate so far
+    (latest % / days elapsed), the 7-day projection, and, when it passes 100%, the days left until 100% and the
+    chart x where the dashed line crosses the cap (readings sit at x = day - 0.5)."""
+    d = max(1, int(latest_day))
+    avg = float(latest_pct) / d
+    proj = avg * 7.0
+    left = exhaust_days(latest_pct, avg)
+    out = avg > 0 and proj > 100.0
+    return {"avg_day": avg, "proj_7d": proj, "exhausts": out, "left": left if out else None,
+            "cross_x": (d - 0.5 + left) if out else None}
+
+
+def left_ctx(left):
+    """Format values for the run-out wording: under one day it is said in hours (「約 8 小時」 / "about 8 h")."""
+    left = max(0.0, float(left or 0.0))
+    return {"left": left, "hours": max(1, int(round(left * 24.0)))}
+
+
+def run_out_text(L, key, days_left, **ctx):
+    """``L[key]`` with the days left, or ``L[key + "_h"]`` (hours) when less than one day is left."""
+    lc = left_ctx(days_left)
+    k = f"{key}_h" if lc["left"] < 1.0 and L.get(f"{key}_h") else key
+    return sfmt(L[k], **dict(ctx, **lc))
 
 
 def cycle_days(rem_sec, latest_day, period_days=7):
@@ -1020,13 +1106,14 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
     rem_pct = max(0.0, 100.0 - latest_pct)
     over_cap = latest_pct > 100.0
     over_val = max(0.0, latest_pct - 100.0)
-    avg_day = latest_pct / max(1, latest_day)
-    proj_7d = avg_day * 7.0
+    ro = run_out(latest_day, latest_pct)  # same model as the chart's dashed projection
+    avg_day, proj_7d = ro["avg_day"], ro["proj_7d"]
     proj_over = proj_7d > base7
     d_rem = max(1, t_info["days_rem_stat"])
     daily_budget = rem_pct / d_rem
     eta_day = (100.0 / avg_day) if avg_day > 0 else 7.0
-    left_days = exhaust_days(latest_pct, avg_day)
+    left_days = ro["left"] if ro["exhausts"] else exhaust_days(latest_pct, avg_day)
+    t_info.setdefault("meta", {})["card_left_days"] = ro["left"]
 
     fmt_ctx = {
         "reset_wd": t_info.get("reset_wd", ""),
@@ -1118,7 +1205,7 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
     if avg_day > 0 and proj_7d > 100.0:
         # projection beyond 100%: say when the quota runs out instead of a 392%-style number
         key = "exhausted_now" if latest_pct >= 100.0 else "exhaust_main"
-        _fit_text(ax_hud.text(rx, (hy + 0.036) * FIG_H, sfmt(L[key], **fmt_ctx), color=pal["purple"], fontsize=9.2, fontweight="bold", va="center",
+        _fit_text(ax_hud.text(rx, (hy + 0.036) * FIG_H, run_out_text(L, key, left_days, **fmt_ctx), color=pal["purple"], fontsize=9.2, fontweight="bold", va="center",
                               gid="hero_exhaust"), (hx + hw - 0.010) * FIG_W - rx, fig, 7.0)
     else:
         ax_hud.text(rx, (hy + 0.036) * FIG_H, sfmt(L["within_cap"], **fmt_ctx), color=pal["green"], fontsize=9.2, fontweight="bold", va="center")
@@ -1142,7 +1229,7 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
     t_info.setdefault("meta", {}).update(_gauge_meta(fig, ax_gauge, hero, otag, pal, track_col, hero_col, data, cfg,
                                                      (pb_x0, pb_y, pb_w, pb_h, used_r, proj_r, base_r), latest_base, hx, hw))
 
-    budget_val_str = f"{daily_budget:.1f}%" if is_num else f"{daily_budget:.1f}%/d"
+    budget_val_str = f"{trim_num(daily_budget)}%" if is_num else f"{trim_num(daily_budget)}%/d"
     reset_sub_str = f"@ {t_info['reset_date']}" if is_num else sfmt(L["stat_reset_sub"], **fmt_ctx)
 
     vs_val, vs_note, _vs_state = vs_base_text(latest_diff, L, is_num)
@@ -1150,12 +1237,12 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
     if vs_note:
         cjk = any(ord(ch) > 0x2E80 for ch in vs_note)
         vs_sub = f"（{vs_note}）{vs_sub}" if cjk else f"({vs_note}) {vs_sub}"
-    exhaust = avg_day > 0 and proj_7d > 100.0
+    exhaust = ro["exhausts"]
     # the ▲/▼ of these two cards sits in a small tag beside the number, e.g. 「61%  ［▼未超標］」
     if exhaust:
-        proj_val = sfmt(L["proj_exhaust_val"], **fmt_ctx)
+        proj_val = run_out_text(L, "proj_exhaust_val", left_days, **fmt_ctx)
         # 「額度剩約 N 天」 when it fits beside the tag, else the short 「剩約 N 天」 (the small line still says 「額度提前耗盡」)
-        proj_alt = sfmt(L.get("proj_exhaust_val_short") or L["proj_exhaust_val"], **fmt_ctx)
+        proj_alt = run_out_text(L, "proj_exhaust_val_short" if L.get("proj_exhaust_val_short") else "proj_exhaust_val", left_days, **fmt_ctx)
         proj_sub = sfmt(L["proj_exhaust_sub"], **fmt_ctx)
         proj_tag = (stat_tag(L["tag_exhaust"]), pal["purple"])
     else:
@@ -1183,7 +1270,7 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
         ),
         (
             str(L["stat_avg"]),
-            f"{avg_day:.1f}%",
+            f"{trim_num(avg_day)}%",
             pal["purple"] if avg_day > pace else pal["green"],
             pal["purple"] if avg_day > pace else pal["green"],
             sfmt(L["stat_avg_sub"], **fmt_ctx),
@@ -1191,7 +1278,7 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
             avg_tag,
         ),
         (
-            str(L["stat_proj"]),
+            str(L.get("stat_proj_exhaust") or L["stat_proj"]) if exhaust else str(L["stat_proj"]),  # title matches the value
             proj_val,
             pal["purple"] if proj_over else pal["green"],
             pal["purple"] if proj_over else pal["green"],
@@ -1296,7 +1383,12 @@ def draw_cumulative_panel(fig, ax_hud, data, cfg, L, pal):
     ax.add_patch(Rectangle((0, 0), 7.0, Y_MAX, fill=False, edgecolor=pal["accent"], alpha=0.55, lw=1.4, zorder=5, clip_on=False))
 
     ax.axhline(100, color=pal["text"], alpha=0.65 if pal["is_light"] else 0.72, lw=1.4, ls="--", zorder=3)
-    ax.text(0.10, 101.8, str(L["limit_100"]), color=pal["text"], alpha=0.88, fontsize=10, fontweight="bold", va="bottom", zorder=6)
+    _ro = run_out(latest_day, latest_pct)
+    if _ro["exhausts"] and latest_day < 7 and latest_pct < 100.0 and _ro["cross_x"] < 4.5:
+        # the run-out label sits at the left part of the cap line: the 「上限 100%」 label moves to the right end
+        ax.text(6.92, 101.8, str(L["limit_100"]), color=pal["text"], alpha=0.88, fontsize=10, fontweight="bold", va="bottom", ha="right", zorder=6)
+    else:
+        ax.text(0.10, 101.8, str(L["limit_100"]), color=pal["text"], alpha=0.88, fontsize=10, fontweight="bold", va="bottom", zorder=6)
 
     bx = np.array([0.0, 7.0])
     by = pace * (bx + 0.5)
@@ -1365,25 +1457,33 @@ def draw_cumulative_panel(fig, ax_hud, data, cfg, L, pal):
             zorder=8,
         )
 
-    if days and latest_day < 7:
-        avg_day = latest_pct / max(1, latest_day)
-        proj_7d = avg_day * 7.0
+    ro = run_out(latest_day, latest_pct)
+    if days and latest_day < 7 and ro["exhausts"] and latest_pct < 100.0:
+        # runs out before the reset: the dashed line keeps the real slope and stops where it meets the 100% cap
+        cx_, left = ro["cross_x"], ro["left"]
+        proj_col = pal["purple"]
+        ax.plot([xs[-1], cx_], [ys_plot[-1], 100.0], color=proj_col, ls="--", lw=2.0, alpha=0.55, zorder=4, gid="proj_line")
+        ax.scatter([cx_], [100.0], facecolors=pal["card_fill"], edgecolors=proj_col, s=58, lw=1.6, alpha=0.90, zorder=6, gid="proj_point")
+        proj_txt = run_out_text(L, "proj_exhaust_chart", left, val=ro["proj_7d"], proj=ro["proj_7d"])
+        right = cx_ > 4.5  # near the right edge the label ends at the point, otherwise it starts there
+        ax.annotate(
+            proj_txt, xy=(cx_, 100.0), textcoords="offset points", xytext=(-8 if right else 8, 9),
+            color=proj_col, fontsize=9.5, fontweight="bold", ha="right" if right else "left", va="bottom", gid="proj_label",
+            bbox=dict(boxstyle="round,pad=0.16", facecolor=pal["card_fill"], edgecolor=proj_col, alpha=0.88, lw=0.8), zorder=7,
+        )
+        data.setdefault("chart_meta", {})["proj_cross_x"] = cx_
+    elif days and latest_day < 7:
+        avg_day, proj_7d = ro["avg_day"], ro["proj_7d"]
         proj_y = min(max(proj_7d, 0.0), Y_CAP)
         proj_col = pal["purple"] if proj_7d > base7 else pal["green"]
-        ax.plot([xs[-1], 6.5], [ys_plot[-1], proj_y], color=proj_col, ls="--", lw=2.0, alpha=0.55, zorder=4)
-        ax.scatter([6.5], [proj_y], facecolors=pal["card_fill"], edgecolors=proj_col, s=58, lw=1.6, alpha=0.90, zorder=6)
+        ax.plot([xs[-1], 6.5], [ys_plot[-1], proj_y], color=proj_col, ls="--", lw=2.0, alpha=0.55, zorder=4, gid="proj_line")
+        ax.scatter([6.5], [proj_y], facecolors=pal["card_fill"], edgecolors=proj_col, s=58, lw=1.6, alpha=0.90, zorder=6, gid="proj_point")
         proj_off = (0, 10) if (proj_7d > base7 and proj_y <= Y_CAP - 6.0) else (0, -11)
         proj_va = "bottom" if proj_off[1] > 0 else "top"
-        if avg_day > 0 and proj_7d > 100.0:
-            proj_txt = sfmt(L.get("proj_exhaust_chart", L["proj_label"]), val=proj_7d, proj=proj_7d, left=exhaust_days(latest_pct, avg_day) or 0.0)
-            proj_ha = "right"  # longer text: end at the point so it stays inside the panel
-        else:
-            proj_txt = sfmt(L["proj_label"], val=proj_7d, proj=proj_7d, pace=pace, base7=base7)
-            proj_ha = "center"
         ax.annotate(
-            proj_txt,
-            xy=(6.5, proj_y), textcoords="offset points", xytext=(proj_off[0] + (8 if proj_ha == "right" else 0), proj_off[1]),
-            color=proj_col, fontsize=9.5, fontweight="bold", ha=proj_ha, va=proj_va, gid="proj_label",
+            sfmt(L["proj_label"], val=proj_7d, proj=proj_7d, pace=pace, base7=base7),
+            xy=(6.5, proj_y), textcoords="offset points", xytext=proj_off,
+            color=proj_col, fontsize=9.5, fontweight="bold", ha="center", va=proj_va, gid="proj_label",
             bbox=dict(boxstyle="round,pad=0.16", facecolor=pal["card_fill"], edgecolor=proj_col, alpha=0.88, lw=0.8), zorder=7,
         )
 
@@ -1673,7 +1773,7 @@ def render(rows, out_png, week_start, cfg=None):
     except ImportError:
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         import usage_palette
-    pset = usage_palette.get(cfg.get("palette"), is_light)
+    pset = usage_palette.get(usage_palette.resolve(cfg.get("palette"), cfg.get("custom_colors")), is_light)
     # accent (frame, eyebrow, gauge ring) follows the palette's cool colour unless accent_color is set
     accent_col = cfg.get("accent_color") or cfg.get("under_color") or pset["under"]
     # historical key names kept: "purple" = OVER colour, "green" = UNDER colour, "orange" = BASELINE colour
@@ -1820,7 +1920,9 @@ def render(rows, out_png, week_start, cfg=None):
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(str(out_path), dpi=150, facecolor=bg)
     plt.close(fig)
-    return t_info.get("meta", {})
+    meta = t_info.get("meta", {})
+    meta.update(data.get("chart_meta", {}))
+    return meta
 
 
 def main():

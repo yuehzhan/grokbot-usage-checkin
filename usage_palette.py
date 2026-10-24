@@ -11,19 +11,23 @@ The colour rule is the same everywhere:
 Deltas are always printed with an arrow as well (``▲`` over, ``▼`` under / on pace) so the
 state never depends on colour alone. Over is never shown in red.
 
-Presets (``palette`` in the config, ``--palette`` on the CLI), 17 in all: orange-teal (default),
+Presets (``palette`` in the config, ``--palette`` on the CLI), 21 in the menu: orange-teal (default),
 orange-blue, orange-deepblue, amber-purple, pink-green, gold-sky, orange-purple, magenta-teal,
-yellow-indigo, peach-mint, tangerine-cyan, rose-lime, sunflower-navy, high-contrast, safety-ultramarine,
-tangerine-violet, amber-cobalt. ``CVD_SAFE`` marks the ones (★ in the menu) whose over / under / baseline stay
+yellow-indigo, peach-mint, tangerine-cyan, rose-lime, sunflower-navy, safety-ultramarine,
+tangerine-violet, amber-cobalt, and the solid-colour section teal-mono, pink-mono, purple-mono, blue-mono,
+green-mono; plus ``custom`` (two colours of your own). ``high-contrast`` is a legacy key: still accepted, not in the menu. ``CVD_SAFE`` marks the ones (★ in the menu) whose over / under / baseline stay
 clearly apart (CIEDE2000 >= 20) under simulated protanopia, deuteranopia, tritanopia, protanomaly and
 deuteranomaly (Machado 2009), for both the dark and the light variant.
+The solid-colour presets (MONO) use one hue for both states: over = bright light shade, under = deep muted shade,
+so they differ by lightness only and the ▲ / ▼ tags and the optional patterns carry the state as well.
 The cool ``under`` colour doubles as the page accent (``accent()``), so a switch recolours everything.
 """
 
 DEFAULT = "orange-teal"
 
 # each preset has a variant for dark and for light backgrounds. "over" is always a warm colour (orange,
-# amber, gold, yellow, peach, pink/magenta), never red, brown, grey, black or aqua; "under" is the cool
+# amber, gold, yellow, peach, pink/magenta) -- in the solid-colour presets the brighter, lighter shade --
+# never red, brown, grey, black or aqua; "under" is the cool
 # colour and also the page accent (frame, tabs, eyebrow text, focus rings); "notice" differs from both.
 _B, _BL = "#9AA4AE", "#6B7480"  # baseline (dark / light background)
 
@@ -53,7 +57,29 @@ PALETTES = {
     "safety-ultramarine": _p("#FF832B", "#2A68DE", "#B48CFF", "#EB6100", "#002599", "#7A4FC9"),
     "tangerine-violet": _p("#FF9100", "#6C5CE7", "#F28CC8", "#CC7400", "#3814B8", "#B0487F"),
     "amber-cobalt": _p("#EE7733", "#0077BB", "#C59BFF", "#EB5500", "#003A66", "#7A4FC9"),
+    # solid colours (MONO, their own section below the ★ note in the menu): over = bright light shade, under = deep muted shade
+    # of the same hue; they differ by lightness only (over / under contrast >= 3:1 on both backgrounds), so the
+    # ▲ / ▼ tags and the optional patterns carry the state as well. The notice colour is a different hue.
+    "teal-mono": _p("#8FF5E4", "#178A7D", "#B48CFF", "#109C8B", "#07443E", "#7A4FC9"),
+    "pink-mono": _p("#FFB8DC", "#B84381", "#9EC5FF", "#D63F8E", "#58163D", "#3F64C2"),
+    "purple-mono": _p("#D9CCFF", "#7C5CD6", "#F28CC8", "#8E63F0", "#361D84", "#B0487F"),
+    "blue-mono": _p("#B3D7FF", "#2F6BD6", "#C59BFF", "#2D7BEF", "#0B2D75", "#7A4FC9"),
+    "green-mono": _p("#A8F0BC", "#288C48", "#B48CFF", "#1E9A45", "#0A431F", "#7A4FC9"),
 }
+MONO = ("teal-mono", "pink-mono", "purple-mono", "blue-mono", "green-mono")
+MONO_GROUP = {"en": "Solid colours", "zh-TW": "純色", "zh-CN": "纯色", "ja": "単色"}
+
+# "custom": two colours picked by the user (page colour pickers, or config "palette": "custom" with
+# "custom_colors": {"under": "#RRGGBB", "over": "#RRGGBB"}). The key carries the colours --
+# custom-<under><over>, e.g. custom-23c4aeffa51f -- so every pair has its own image folder and nothing stale is
+# reused; derive() adjusts each for contrast on dark / light backgrounds and picks a notice colour of another hue.
+CUSTOM = "custom"
+CUSTOM_DEFAULT = {"under": "#23C4AE", "over": "#FFA51F"}
+CUSTOM_LABEL = {"en": "Custom…", "zh-TW": "自訂顏色…", "zh-CN": "自定义颜色…"}
+_CUSTOM_RE = __import__("re").compile(r"custom-([0-9a-f]{6})([0-9a-f]{6})")
+_HEX_RE = __import__("re").compile(r"#[0-9A-Fa-f]{6}")
+_BG = {"dark": "#0B0F14", "light": "#F4F4F0"}
+_NOTICES = (("#B48CFF", "#7A4FC9"), ("#F28CC8", "#B0487F"), ("#9EC5FF", "#3F64C2"), ("#7FD8C8", "#1F8A7A"))
 
 # over / under / grey baseline at least CIEDE2000 20 apart in normal vision and simulated protanopia,
 # deuteranopia, tritanopia, protanomaly 0.6 and deuteranomaly 0.6 (Machado 2009), dark and light variants
@@ -64,7 +90,7 @@ LABELS = {
     "orange-teal": {"en": "Orange / teal", "zh-TW": "橘／青綠", "zh-CN": "橙／青绿"},
     "orange-blue": {"en": "Orange / blue", "zh-TW": "橘／藍", "zh-CN": "橙／蓝"},
     "orange-deepblue": {"en": "Orange / deep blue", "zh-TW": "橘／深藍", "zh-CN": "橙／深蓝"},
-    "amber-purple": {"en": "Amber / purple", "zh-TW": "琥珀／紫", "zh-CN": "琥珀／紫"},
+    "amber-purple": {"en": "Golden orange / purple", "zh-TW": "金橘／紫", "zh-CN": "金橙／紫"},
     "pink-green": {"en": "Pink / green", "zh-TW": "桃紅／綠", "zh-CN": "桃红／绿"},
     "gold-sky": {"en": "Gold / sky blue", "zh-TW": "金／天藍", "zh-CN": "金／天蓝"},
     "orange-purple": {"en": "Orange / purple", "zh-TW": "橘／紫", "zh-CN": "橙／紫"},
@@ -74,10 +100,16 @@ LABELS = {
     "tangerine-cyan": {"en": "Tangerine / cyan", "zh-TW": "橘紅／青", "zh-CN": "橘红／青"},
     "rose-lime": {"en": "Rose / lime", "zh-TW": "玫瑰／萊姆", "zh-CN": "玫瑰／莱姆"},
     "sunflower-navy": {"en": "Sunflower / navy", "zh-TW": "向日葵／深藍", "zh-CN": "向日葵／深蓝"},
-    "high-contrast": {"en": "High contrast", "zh-TW": "高對比", "zh-CN": "高对比"},
+    # legacy (not in the menu since 1.2.0; old configs still draw with it), named by its colours
+    "high-contrast": {"en": "Bright yellow / deep sky blue", "zh-TW": "亮黃／深天藍", "zh-CN": "亮黄／深天蓝"},
     "safety-ultramarine": {"en": "Safety orange / ultramarine", "zh-TW": "安全橘／群青", "zh-CN": "安全橙／群青"},
     "tangerine-violet": {"en": "Tangerine / violet", "zh-TW": "亮橘／紫羅蘭", "zh-CN": "亮橙／紫罗兰"},
     "amber-cobalt": {"en": "Amber orange / cobalt", "zh-TW": "琥珀橘／鈷藍", "zh-CN": "琥珀橙／钴蓝"},
+    "teal-mono": {"en": "All teal", "zh-TW": "全青綠", "zh-CN": "全青绿"},
+    "pink-mono": {"en": "All pink", "zh-TW": "全粉紅", "zh-CN": "全粉红"},
+    "purple-mono": {"en": "All purple", "zh-TW": "全紫", "zh-CN": "全紫"},
+    "blue-mono": {"en": "All blue", "zh-TW": "全藍", "zh-CN": "全蓝"},
+    "green-mono": {"en": "All green", "zh-TW": "全綠", "zh-CN": "全绿"},
 }
 
 # one neutral line under the menu explaining the ★
@@ -89,8 +121,82 @@ def cvd_safe(name=None):
     return normalize(name) in CVD_SAFE
 
 
+def is_hex(c):
+    return isinstance(c, str) and bool(_HEX_RE.fullmatch(c.strip()))
+
+
+def custom_key(under, over):
+    """'custom-23c4aeffa51f' for under #23C4AE / over #FFA51F (ValueError unless both are #RRGGBB)."""
+    if not (is_hex(under) and is_hex(over)):
+        raise ValueError("custom colours must be #RRGGBB")
+    return "custom-" + under.strip()[1:].lower() + over.strip()[1:].lower()
+
+
+def parse_custom(k):
+    """(under, over) as '#RRGGBB' for a custom key, else None."""
+    m = _CUSTOM_RE.fullmatch(str(k or "").strip().lower())
+    return ("#" + m.group(1).upper(), "#" + m.group(2).upper()) if m else None
+
+
+def is_custom(k):
+    return parse_custom(k) is not None
+
+
+def resolve(name, custom_colors=None):
+    """Palette key for a config: 'custom' + custom_colors {"under", "over"} -> 'custom-<under><over>'; invalid or
+    missing custom colours fall back to CUSTOM_DEFAULT; anything else -> normalize(name)."""
+    if str(name or "").strip().lower() == CUSTOM:
+        cc = custom_colors if isinstance(custom_colors, dict) else {}
+        u, o = cc.get("under"), cc.get("over")
+        if not (is_hex(u) and is_hex(o)):
+            u, o = CUSTOM_DEFAULT["under"], CUSTOM_DEFAULT["over"]
+        return custom_key(u, o)
+    return normalize(name)
+
+
+def _lum(h):
+    c = [int(h[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+    c = [x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4 for x in c]
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+
+
+def contrast(a, b):
+    la, lb = sorted((_lum(a), _lum(b)), reverse=True)
+    return (la + 0.05) / (lb + 0.05)
+
+
+def _fit(c, bg, toward, need=3.0):
+    """c moved toward white (dark background) or black (light) until it has `need`:1 contrast with bg."""
+    t = 0.0
+    out = c.upper()
+    while contrast(out, bg) < need and t < 1:
+        t = min(1.0, t + 0.04)
+        out = blend(c, toward, t)
+    return out
+
+
+def derive(under, over):
+    """Dark / light variants for a custom pair: each colour kept as picked when readable, otherwise lightened
+    (dark background) or darkened (light) to 3:1; notice = the first stock notice colour of another hue."""
+    v = {}
+    for var, toward in (("dark", "#FFFFFF"), ("light", "#000000")):
+        v[var] = (_fit(over, _BG[var], toward), _fit(under, _BG[var], toward))
+    notice = next((n for n in _NOTICES if not _near(n[0], under, 30) and not _near(n[0], over, 30)), _NOTICES[0])
+    return _p(v["dark"][0], v["dark"][1], notice[0], v["light"][0], v["light"][1], notice[1])
+
+
+def similar(under, over):
+    """True when the two picked colours are hard to tell apart (contrast below 1.6:1 and close in hue or both
+    nearly grey): the page then notes that the ▲ / ▼ tags and patterns still show the state."""
+    if not (is_hex(under) and is_hex(over)):
+        return False
+    return contrast(under, over) < 1.6 and (_near(under, over, 40) or min(_hsv(under)[1], _hsv(over)[1]) < 0.2)
+
+
 def label(name, lang="en"):
     """Menu label: the plain name plus ' ★' for the CVD_SAFE presets."""
+    if is_custom(name) or str(name or "").strip().lower() == CUSTOM:
+        return CUSTOM_LABEL.get(lang) or CUSTOM_LABEL["en"]
     n = normalize(name)
     lab = LABELS[n].get(lang) or LABELS[n]["en"]
     return lab + (" " + STAR if n in CVD_SAFE else "")
@@ -113,33 +219,57 @@ def key(name, patterns=False):
 def split_key(k):
     """('orange-teal', True) for 'orange-teal-pat'; unknown names fall back to the default palette."""
     k = str(k or "")
-    pat = k.endswith(PAT_SUFFIX) and k[: -len(PAT_SUFFIX)] in PALETTES
-    return normalize(k[: -len(PAT_SUFFIX)] if pat else k), bool(pat)
+    base = k[: -len(PAT_SUFFIX)] if k.endswith(PAT_SUFFIX) else None
+    pat = base is not None and (base in PALETTES or is_custom(base))
+    return normalize(base if pat else k), bool(pat)
 
 
 def is_key(k):
     k = str(k or "")
-    return k in PALETTES or (k.endswith(PAT_SUFFIX) and k[: -len(PAT_SUFFIX)] in PALETTES)
+    base = k[: -len(PAT_SUFFIX)] if k.endswith(PAT_SUFFIX) else k
+    return base in PALETTES or is_custom(base)
+
+
+# kept for old configs, theme files and command lines, but no longer offered in the menu (names()):
+# "high-contrast" (alias "yellow-deepsky") still draws with its own colours when set
+LEGACY = ("high-contrast",)
 
 
 def names():
-    return list(PALETTES)
+    """Menu order: two-colour presets, the ★ (CVD_SAFE) ones as one block at the end of that section, then the
+    solid colours (MONO). Legacy presets are left out (still accepted by normalize() / get())."""
+    two = [n for n in PALETTES if n not in MONO and n not in LEGACY]
+    return [n for n in two if n not in CVD_SAFE] + [n for n in two if n in CVD_SAFE] + list(MONO)
+
+
+def known(name):
+    """Any preset that can be drawn: menu presets plus LEGACY ones."""
+    return name in PALETTES
 
 
 def normalize(name):
     """Return a known preset name; unknown or empty values fall back to the default."""
     n = str(name or "").strip().lower().replace("_", "-").replace(" ", "-")
+    if is_custom(n):
+        return n
+    if n == CUSTOM:
+        return custom_key(CUSTOM_DEFAULT["under"], CUSTOM_DEFAULT["over"])
     aliases = {"default": DEFAULT, "teal": "orange-teal", "blue": "orange-blue",
                # earlier name of orange-deepblue (configs, theme files and saved browser choices still work)
                "colorblind": "orange-deepblue", "okabe-ito": "orange-deepblue", "color-blind": "orange-deepblue",
-               "colourblind": "orange-deepblue", "colour-blind": "orange-deepblue", "cb": "orange-deepblue"}
+               "colourblind": "orange-deepblue", "colour-blind": "orange-deepblue", "cb": "orange-deepblue",
+               # colour name of high-contrast (the stored key stays "high-contrast")
+               "yellow-deepsky": "high-contrast", "all-teal": "teal-mono", "mono-teal": "teal-mono",
+               "teal-monochrome": "teal-mono", "brightyellow-deepsky": "high-contrast"}
     n = aliases.get(n, n)
     return n if n in PALETTES else DEFAULT
 
 
 def get(name=None, light=False):
     """Colours of a preset as a dict: over, under, baseline, notice."""
-    return dict(PALETTES[normalize(name)]["light" if light else "dark"])
+    n = normalize(name)
+    p = derive(*parse_custom(n)) if is_custom(n) else PALETTES[n]
+    return dict(p["light" if light else "dark"])
 
 
 def arrow(delta):
@@ -210,4 +340,4 @@ def accent(name=None, light=False):
 
 def js_table():
     """JSON-serialisable table for the browser palette switcher."""
-    return {k: {"dark": v["dark"], "light": v["light"], "cvd_safe": k in CVD_SAFE} for k, v in PALETTES.items()}
+    return {k: {"dark": PALETTES[k]["dark"], "light": PALETTES[k]["light"], "cvd_safe": k in CVD_SAFE} for k in names()}

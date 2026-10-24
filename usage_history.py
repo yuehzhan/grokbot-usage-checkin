@@ -194,7 +194,9 @@ class Ctx:
             self.ledger_path = usage_ledger.hud_ledger_path(self.data_dir, cfg)
         except Exception:
             self.ledger_path = str(self.data_dir / "ledger.json")
-        self.palette = usage_palette.normalize(g("palette", "palette", usage_palette.DEFAULT))
+        # "custom" + custom_colors {"under", "over"} -> 'custom-<under><over>' (the key carries the colours)
+        self.custom_colors = cfg.get("custom_colors") if isinstance(cfg.get("custom_colors"), dict) else None
+        self.palette = usage_palette.resolve(g("palette", "palette", usage_palette.DEFAULT), self.custom_colors)
         self.categories = usage_categories.load(cfg.get("checkin_categories"))
         self.max_categories = max(1, int(cfg.get("checkin_max_categories", usage_checkins.DEFAULT_MAX_CATEGORIES)))
         self.open_limit_hours = float(cfg.get("checkin_open_limit_hours", usage_checkins.DEFAULT_OPEN_LIMIT_HOURS))
@@ -828,6 +830,7 @@ def clock_periods(ctx, key, since, now, samples):
 
 
 def draw_clock(ctx, samples, cks, colors, path, title, since, now, zl, key="1d", mode="ot"):
+    import chart_hud  # trim_num / sfmt: one decimal only when needed
     plt = _plt(ctx)
     from matplotlib.colors import LinearSegmentedColormap, Normalize, to_rgba
     from matplotlib.patches import Patch
@@ -876,7 +879,7 @@ def draw_clock(ctx, samples, cks, colors, path, title, since, now, zl, key="1d",
                     ax.bar(th[h], v, width=w * 0.86, facecolor=to_rgba(col, 0.4), edgecolor=col, lw=1.1, zorder=3 + rank * 0.01)
     ax.set_xticks([h * w for h in range(0, 24, 3)])
     ax.set_xticklabels([L["hour_fmt"].format(h=h) for h in range(0, 24, 3)], color=T["text_color"], fontsize=11, fontweight="bold")
-    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:.1f}%")); ax.set_rlabel_position(7.5)
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{chart_hud.trim_num(v)}%")); ax.set_rlabel_position(7.5)
     ax.tick_params(axis="y", colors=T["dim"], labelsize=8); ax.grid(color=T["grid"], alpha=0.5, ls=":", lw=0.8)
     ax.spines["polar"].set_color(T["border"])
     ck = [r for r in cks if r["t"] <= now and (since is None or r["t"] >= since)]
@@ -897,10 +900,10 @@ def draw_clock(ctx, samples, cks, colors, path, title, since, now, zl, key="1d",
     if not series:
         for h, a in enumerate(avg):
             if a > 0 and a >= vmax * 0.35:
-                ax.text(th[h], a + vmax * 0.06, f"{a:.1f}", color=T["text_color"], fontsize=8, ha="center", va="center", zorder=5)
+                ax.text(th[h], a + vmax * 0.06, chart_hud.trim_num(a), color=T["text_color"], fontsize=8, ha="center", va="center", zorder=5)
     if n:
         top = max(range(24), key=lambda h: avg[h])
-        summ = L["clock_peak"].format(h=top, h2=top + 1, v=avg[top], n=n)
+        summ = chart_hud.sfmt(L["clock_peak"], h=top, h2=top + 1, v=float(avg[top]), n=n)
     else:
         summ = L["clock_none"]
     fig.text(0.5, 0.222, summ, color=T["text_color"], fontsize=11, fontweight="bold", ha="center")
@@ -1126,12 +1129,43 @@ def rewrite_page(ctx):
     return {"ok": True, "html": str(ctx.hist_dir / "index.html")}
 
 
+def _palette_arg(v):
+    v = str(v or "").strip()
+    if usage_palette.known(v) or v.lower() == usage_palette.CUSTOM or usage_palette.is_custom(v):
+        return v.lower() if usage_palette.is_custom(v) else v
+    raise argparse.ArgumentTypeError(f"unknown palette '{v}'")
+
+
+def palette_name_ok(name):
+    """A preset name or a custom key ('custom-<under><over>', both #RRGGBB as 12 hex digits)."""
+    return usage_palette.known(name) or usage_palette.is_custom(name)
+
+
+CUSTOM_KEEP = 4  # custom colour pairs whose images stay cached (the configured one is always kept)
+
+
+def _prune_custom(ctx, keep):
+    """Every picked custom pair gets its own image folder: keep the newest few (plus the configured palette's)."""
+    import shutil
+    root = ctx.hist_dir / "pal"
+    try:
+        dirs = sorted((d for d in root.iterdir() if d.is_dir() and d.name.startswith(usage_palette.CUSTOM + "-")
+                       and d.name not in (keep, ctx.pal_key)), key=lambda d: d.stat().st_mtime, reverse=True)
+    except OSError:
+        return
+    for d in dirs[CUSTOM_KEEP - 1:]:
+        shutil.rmtree(d, ignore_errors=True)
+
+
 def render_palette(ctx, name, clock=None, mode=None, patterns=False):
     """Draw one palette's full image set into history/pal/<key>/ when the page switches to it (plus, with
     clock=<range>, that clock-tab range); key = name, or name + '-pat' with patterns. Cached: nothing is drawn
     while the files match the latest render."""
-    if name not in usage_palette.names():
+    if not palette_name_ok(name):
         return {"ok": False, "error": "unknown palette"}
+    if usage_palette.is_custom(name):
+        name = usage_palette.normalize(name)
+        _prune_custom(ctx, keep=ctx.dir_key(name, patterns))
     name = ctx.dir_key(name, patterns)
     if clock is not None and clock not in CLOCK_RANGES:
         return {"ok": False, "error": "unknown clock range"}
@@ -1420,6 +1454,10 @@ GAUGE_CSS = (".gwrap{position:relative} .gsvg{position:absolute;left:1px;top:1px
              " .upd .trow>*{flex:0 0 auto;white-space:nowrap} .upd .trow>script{display:none}"
              " .upd label.pal{display:inline-flex;align-items:center;gap:4px} .upd .psel{gap:4px} .upd .pbtn{padding:4px 8px} .upd .btn{white-space:nowrap}"
              " .upd .trow{font-size:12.5px} .upd .trow select{font:inherit} #langsel{max-width:140px} #tzsel{max-width:170px} @media (max-width:1100px){.wrap{padding-left:14px;padding-right:14px}} .upd .btn{padding:5px 11px} #rmsg:empty{display:none}"
+             # Check for updates + Roll back: one unit, so the roll-back button never wraps onto a line of its own
+             " .upd .ugrp{display:inline-flex;align-items:center;gap:7px} .upd .ugrp:not(:has(>:not([hidden]))){display:none}"
+             # Auto-check switch + GitHub icon: one unit, so the icon never wraps onto a line of its own
+             " .upd .agrp{display:inline-flex;align-items:center;gap:7px} .upd .agrp:not(:has(>:not([hidden]))){display:none}"
              " .upd [hidden]{display:none!important}")
 PALETTE_JS = r"""(function(){var $=function(i){return document.getElementById(i);},P=JSON.parse($('paldata').textContent),KEY='usage.palette',PKEY='usage.patterns',pchk=$('patchk'),CK={r:'usage.clockRange',l:'usage.clockLayout',f:'usage.clockFill'},D={r:'wk',l:'ov',f:'t'},
 served=/^https?:$/.test(location.protocol),btn=$('palbtn'),msg=$('palmsg'),V=P.light?'light':'dark',cur=P.base,pat=!!P.pat,CR={r:'wk',l:'ov',f:'t'},seq=0,
@@ -1433,6 +1471,19 @@ var a=P.fixed.accent?P.accent:(P.fixed.under?P.under:c.under);o['--accent']=a;o[
 function mode(c){return c.l==='sd'?'sd':'o'+c.f;}function same(a,b){return a.r===b.r&&a.l===b.l&&a.f===b.f;}
 function fileOf(i,c){return i===clk?'clock-'+c.r+'-'+mode(c)+'.png':i.dataset.f0;}
 function key(n,p){return (p?n+'-pat':n)+P.osfx;}
+// custom colours: the key carries the pair (custom-<under><over>); remembered in localStorage 'usage.customColors'
+var CCK='usage.customColors',CC=P.cc,cpk=$('cpick'),ccu=$('ccu'),cco=$('cco'),cch=$('cchint');
+function isC(n){return /^custom-[0-9a-f]{12}$/.test(String(n));}
+function hx(v){return /^#[0-9a-fA-F]{6}$/.test(String(v));}
+function ckey(){return 'custom-'+CC.under.slice(1).toLowerCase()+CC.over.slice(1).toLowerCase();}
+function lv(n){return isC(n)?'custom':n;}
+function hsv(h){var c=rgb(h).map(function(v){return v/255;}),mx=Math.max.apply(0,c),mn=Math.min.apply(0,c),d=mx-mn,hh=0;
+if(d){hh=mx===c[0]?((c[1]-c[2])/d)%6:mx===c[1]?(c[2]-c[0])/d+2:(c[0]-c[1])/d+4;hh*=60;if(hh<0)hh+=360;}return [hh,mx?d/mx:0];}
+function similar(a,b){var la=lum(a),lb=lum(b),cr=(Math.max(la,lb)+0.05)/(Math.min(la,lb)+0.05),x=hsv(a),y=hsv(b),dh=Math.abs(x[0]-y[0]);dh=Math.min(dh,360-dh);
+return cr<1.6&&(dh<40||Math.min(x[1],y[1])<0.2);}
+function cshow(n){if(!cpk)return;cpk.hidden=!isC(n);if(ccu)ccu.value=CC.under.toLowerCase();if(cco)cco.value=CC.over.toLowerCase();
+if(cch)cch.hidden=!similar(CC.under,CC.over);var o=$('po-custom');if(o){var d=o.querySelectorAll('.dot');if(d.length>1){d[0].style.background=CC.over;d[1].style.background=CC.under;}}}
+try{var sc=JSON.parse(localStorage.getItem(CCK)||'null');if(sc&&hx(sc.under)&&hx(sc.over))CC={under:sc.under.toUpperCase(),over:sc.over.toUpperCase()};}catch(e){}
 function src(i,k,r,v){var f=fileOf(i,r);return (k===P.default&&f===i.dataset.f0)?i.dataset.orig:'pal/'+k+'/'+f+(v?'?v='+encodeURIComponent(v):'');}
 function pre(u){return new Promise(function(res){var im=new Image();im.onload=function(){(im.decode?im.decode():Promise.resolve()).then(function(){res(true);},function(){res(true);});};
 im.onerror=function(){res(false);};im.src=u;});}
@@ -1454,7 +1505,7 @@ opts.forEach(function(o,i){o.onclick=function(){pick(i);};o.onmousemove=function
 document.addEventListener('click',function(e){if(!list.hidden&&!b.parentNode.contains(e.target))close(false);});
 return {has:function(v){return opts.some(function(o){return o.dataset.v===v;});},
 mark:function(v){opts.forEach(function(o){o.setAttribute('aria-selected',o.dataset.v===v?'true':'false');});label.innerHTML=opts[idx(v)].innerHTML;}};}
-var PL=listbox(btn,$('pallist'),$('palcur'),function(){return cur;},function(v){go(v,CR,true,pat);}),
+var PL=listbox(btn,$('pallist'),$('palcur'),function(){return lv(cur);},function(v){go(v==='custom'?ckey():v,CR,true,pat);}),
 CL=listbox($('clkbtn'),$('clklist'),$('clkcur'),function(){return CR.r;},function(v){go(cur,with_('r',v),true,pat);}),
 LL=listbox($('clobtn'),$('clolist'),$('clocur'),function(){return CR.l;},function(v){go(cur,with_('l',v),true,pat);}),
 FL=listbox($('clfbtn'),$('clflist'),$('clfcur'),function(){return CR.f;},function(v){go(cur,with_('f',v),true,pat);});
@@ -1462,23 +1513,26 @@ function with_(k,v){var c={r:CR.r,l:CR.l,f:CR.f};c[k]=v;return c;}
 function marks(c){CL.mark(c.r);LL.mark(c.l);FL.mark(c.f);if($('clfsel'))$('clfsel').hidden=c.l==='sd';}
 // images are fetched and decoded first, then colours and images change in the same task (no half-switched page)
 function commit(n,r,us,p){var st=document.documentElement.style,o=vars(n);Object.keys(o).forEach(function(k){st.setProperty(k,o[k]);});
-imgs.forEach(function(i,j){i.dataset.f=fileOf(i,r);i.src=us[j];});cur=n;pat=p;CR=r;PL.mark(n);marks(r);if(pchk)pchk.checked=p;document.documentElement.dataset.palette=n;document.documentElement.dataset.patterns=p?'1':'';
+imgs.forEach(function(i,j){i.dataset.f=fileOf(i,r);i.src=us[j];});cur=n;pat=p;CR=r;cshow(n);PL.mark(lv(n));marks(r);if(pchk)pchk.checked=p;document.documentElement.dataset.palette=n;document.documentElement.dataset.patterns=p?'1':'';
 document.documentElement.dataset.clock=r.r+'-'+mode(r);}
-function go(n,r,save,p){if(!P.table[n])n=P.base;p=!!(p||P.pf);var k=key(n,p);r={r:r.r,l:r.l,f:r.f};if(!clk||!CL.has(r.r))r.r=D.r;if(!LL.has(r.l))r.l=D.l;if(!FL.has(r.f))r.f=D.f;
+function go(n,r,save,p){if(!P.table[n]&&!isC(n))n=P.base;p=!!(p||P.pf);var k=key(n,p);r={r:r.r,l:r.l,f:r.f};if(!clk||!CL.has(r.r))r.r=D.r;if(!LL.has(r.l))r.l=D.l;if(!FL.has(r.f))r.f=D.f;
 var my=++seq,need=k!==P.default||!same(r,D);btn.setAttribute('aria-busy','true');if(need)say(P.s.busy,true);
 var prep=(!need||!served)?Promise.resolve({ok:true,v:''}):fetch('/api/palette/render',{method:'POST',headers:{'X-Usage-Token':TKN,'Content-Type':'application/json'},
 body:JSON.stringify({name:n,patterns:p,clock:r.r,mode:mode(r)})}).then(function(x){return x.json();});
-prep.then(function(j){if(my!==seq)return;if(!j||!j.ok)throw 0;var us=imgs.map(function(i){return src(i,k,r,j.v);});
+prep.then(function(j){if(my!==seq)return;if(!j||!j.ok)throw 0;if(j.colors)P.table[n]=j.colors;if(!P.table[n])throw 0;var us=imgs.map(function(i){return src(i,k,r,j.v);});
 return Promise.all(us.map(pre)).then(function(ok){if(my!==seq)return;if(ok.indexOf(false)>=0)throw 0;commit(n,r,us,p);say('');btn.removeAttribute('aria-busy');
-if(save){try{localStorage.setItem(KEY,n);localStorage.setItem(PKEY,p?'1':'0');Object.keys(CK).forEach(function(k){localStorage.setItem(CK[k],r[k]);});}catch(e){}}});}).catch(function(){if(my!==seq)return;btn.removeAttribute('aria-busy');PL.mark(cur);marks(CR);if(pchk)pchk.checked=pat;
+if(save){try{if(isC(n))localStorage.setItem(CCK,JSON.stringify(CC));localStorage.setItem(KEY,n);localStorage.setItem(PKEY,p?'1':'0');Object.keys(CK).forEach(function(k){localStorage.setItem(CK[k],r[k]);});}catch(e){}}});}).catch(function(){if(my!==seq)return;btn.removeAttribute('aria-busy');PL.mark(lv(cur));marks(CR);cshow(cur);if(pchk)pchk.checked=pat;
 say(served?P.s.fail:P.s.file);});}
 // saved choices: palette name (P.alias maps names saved by older pages) and the "Add patterns" switch
 var n=P.base,p=pat,r={r:D.r,l:D.l,f:D.f};try{n=localStorage.getItem(KEY)||P.base;var sp=localStorage.getItem(PKEY);if(sp==='1'||sp==='0')p=sp==='1';
 Object.keys(CK).forEach(function(k){r[k]=localStorage.getItem(CK[k])||D[k];});}catch(e){}
-n=P.alias[n]||n;if(!P.table[n])n=P.base;p=!!(p||P.pf);document.documentElement.dataset.palette=P.base;document.documentElement.dataset.clock='wk-ot';
+n=P.alias[n]||n;if(n==='custom')n=ckey();if(!P.table[n]&&!(isC(n)&&served))n=P.base;p=!!(p||P.pf);document.documentElement.dataset.palette=P.base;document.documentElement.dataset.clock='wk-ot';
 if(pchk){pchk.checked=pat;pchk.disabled=!!P.pf;pchk.onchange=function(){var on=pchk.checked;go(cur,CR,true,on);
 if(served)fetch('/api/patterns',{method:'POST',headers:{'X-Usage-Token':TKN,'Content-Type':'application/json'},body:JSON.stringify({on:on})}).catch(function(){});};}
 if(key(n,p)!==P.default||!same(r,D))go(n,r,false,p);
+cshow(cur);function cpick(){if(!hx(ccu.value)||!hx(cco.value))return;CC={under:ccu.value.toUpperCase(),over:cco.value.toUpperCase()};
+try{localStorage.setItem(CCK,JSON.stringify(CC));}catch(e){}cshow(ckey());go(ckey(),CR,true,pat);}
+if(ccu&&cco){ccu.onchange=cco.onchange=cpick;ccu.oninput=cco.oninput=function(){if(cch)cch.hidden=!similar(ccu.value,cco.value);};if(!served)ccu.disabled=cco.disabled=true;}
 window.usagePalette=function(v,save){go(v,CR,save,pat);};window.usagePatterns=function(on,save){go(cur,CR,save,on);};window.usageClockRange=function(v,save){go(cur,with_('r',v),save,pat);};
 window.usageClockLayout=function(v,save){go(cur,with_('l',v),save,pat);};window.usageClockFill=function(v,save){go(cur,with_('f',v),save,pat);};})();"""
 
@@ -1493,7 +1547,7 @@ TK=(document.querySelector('meta[name="usage-token"]')||{}).content||'',cb=$('up
 ab=$('updauto'),al=$('updautol'),nb=$('updback'),nt=$('unotes'),prev=null,busy=false;
 if(!/^https?:$/.test(location.protocol))return;
 function f(t,o){return String(t).replace(/\\{(\\w+)\\}/g,function(_,k){return o[k]!=null?o[k]:'';});}
-function say(t){um.textContent=t||'';ur.hidden=!t&&nb.hidden&&nt.hidden;}
+function say(t){um.textContent=t||'';ur.hidden=!t&&nt.hidden;}
 function notes(j){var t=(!S.privacy&&j&&typeof j.notes==='string')?j.notes.slice(0,3200):'';nt.textContent=t?S.notes+'\\n'+t:'';nt.hidden=!t;if(t)ur.hidden=false;}
 function post(p,b){return fetch(p,{method:'POST',headers:{'X-Usage-Token':TK,'Content-Type':'application/json'},body:b?JSON.stringify(b):''}).then(r=>r.json());}
 function newer(j){var l=j.latest||{};return f(S['new'],{h:l.hash||'',s:S.privacy?'':(l.subject||''),n:j.behind}).replace(/\\s+(\\(|（)/,' $1');}
@@ -1503,7 +1557,7 @@ if(quiet&&st!=='local_changes'&&st!=='diverged')return;
 var m=S[st]||S.git_error;if((st==='local_changes'||st==='diverged')&&j.latest&&!S.privacy)m=newer(j)+' · '+m;
 say(m+(j.detail&&!S.privacy?' ('+j.detail+')':''));}
 function load(){if(busy)return;fetch('/api/update/state',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{if(!j||!j.ok||busy)return;
-cb.hidden=false;al.hidden=false;ab.checked=!!j.auto;prev=j.previous||null;nb.hidden=!prev;if(prev)ur.hidden=false;if(j.auto&&j.result)show(j.result,true);}).catch(()=>{});}
+cb.hidden=false;al.hidden=false;ab.checked=!!j.auto;prev=j.previous||null;nb.hidden=!prev;if(j.auto&&j.result)show(j.result,true);}).catch(()=>{});}
 load();setInterval(load,1800000);
 ab.onchange=function(){ab.disabled=true;post('/api/update/settings',{auto:ab.checked}).then(j=>{ab.disabled=false;
 if(j.ok)ab.checked=!!j.auto;else{ab.checked=!ab.checked;say(j.error||S.git_error);}}).catch(()=>{ab.disabled=false;ab.checked=!ab.checked;});};
@@ -1592,6 +1646,12 @@ def _on_colour(hexcol):
     return "#0B0F14" if 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2] > 0.4 else "#FFFFFF"
 
 
+# custom colours: the two pickers shown next to the palette menu when "Custom…" is chosen
+CPICK_STR = {"en": {"under": "Under baseline", "over": "Over baseline",
+                    "hint": "The two colours are close: the ▲ / ▼ tags and Add patterns still tell them apart"},
+             "zh-TW": {"under": "低於基準", "over": "高於基準", "hint": "兩個顏色很接近：▲／▼ 標籤和「加上紋路」仍能分辨"},
+             "zh-CN": {"under": "低于基准", "over": "高于基准", "hint": "两个颜色很接近：▲／▼ 标签和“加上纹路”仍能分辨"},
+             "numeric": {"under": "▼", "over": "▲", "hint": "▲ ▼ ▨"}}
 PAL_STR = {"en": {"busy": "Drawing charts…", "fail": "Could not draw this palette", "file": "Open the page through the dashboard server to switch palettes"},
            "zh-TW": {"busy": "正在產生圖表…", "fail": "無法產生這組配色", "file": "請透過儀表板伺服器開啟頁面才能切換配色"},
            "zh-CN": {"busy": "正在生成图表…", "fail": "无法生成这组配色", "file": "请通过仪表板服务器打开页面才能切换配色"},
@@ -1661,8 +1721,12 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
     # palette switcher: config default, overridden per browser (localStorage 'usage.palette')
     fixed = {k: bool(v) for k, v in _theme_explicit(ctx.theme_path).items()}
     plang = "numeric" if ctx.privacy else ("zh-TW" if ctx.lang == "zh-TW" else ("zh-CN" if ctx.lang.startswith("zh") else "en"))
+    cu, co = usage_palette.parse_custom(ctx.palette) or (usage_palette.CUSTOM_DEFAULT["under"], usage_palette.CUSTOM_DEFAULT["over"])
+    cc_now = {"under": cu, "over": co}
     paldata = json.dumps({"default": ctx.pal_key, "base": ctx.palette, "pat": ctx.patterns, "osfx": ctx.key_suffix, "light": T["is_light"],
-                          "table": usage_palette.js_table(), "alias": {"colorblind": "orange-deepblue"}, "fixed": fixed,
+                          "table": dict(usage_palette.js_table(), **({ctx.palette: {v: usage_palette.get(ctx.palette, v == "light") for v in ("dark", "light")}}
+                                                                       if usage_palette.is_custom(ctx.palette) or ctx.palette in usage_palette.LEGACY else {})),
+                          "cc": cc_now, "alias": {"colorblind": "orange-deepblue"}, "fixed": fixed,
                           "bg": bg, "accent": ac, "under": T["under_color"], "gen": gen, "pf": bool(_theme_file(ctx.theme_path).get("patterns")), "s": PAL_STR[plang]},
                          ensure_ascii=False).replace("<", "\\u003c")
     variant = "light" if T["is_light"] else "dark"
@@ -1673,10 +1737,26 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
         return (f"<li role='option' id='po-{n}' data-v='{n}' aria-selected='{'true' if n == ctx.palette else 'false'}'>"
                 f"<i class='dot' style='background:{c['over']}'></i><i class='dot' style='background:{c['under']}'></i>"
                 f"<span>{html.escape(name)}</span></li>")
-    palrows = [pal_row(i, n) for i, n in enumerate(usage_palette.names())]
-    palcur = palrows[usage_palette.names().index(ctx.palette)].split(">", 1)[1].rsplit("</li>", 1)[0]
+    pnames = usage_palette.names()
+    palrows = [pal_row(i, n) for i, n in enumerate(pnames) if n not in usage_palette.MONO]
+    if ctx.palette in usage_palette.LEGACY:  # configured legacy preset: listed (last in its section) so the menu shows it
+        palrows.append(pal_row(len(pnames), ctx.palette))
+    grp = "◐" if plang == "numeric" else usage_palette.MONO_GROUP[plang]
+    if plang != "numeric":  # the ★ note closes the two-colour section; the solid colours follow under their header
+        palrows.append(f"<li role='none' class='pnote' id='palnote'>{html.escape(usage_palette.STAR_NOTE[plang])}</li>")
+    palrows.append(f"<li role='presentation' class='pgrp' id='palgrp'>{html.escape(grp)}</li>")  # solid colours
+    palrows += [pal_row(pnames.index(n), n) for n in usage_palette.MONO]
+    is_cc = usage_palette.is_custom(ctx.palette)
+    cname = "✎" if plang == "numeric" else usage_palette.label(usage_palette.CUSTOM, plang)
+    palrows.append(f"<li role='option' id='po-custom' data-v='custom' class='pcust' aria-selected='{'true' if is_cc else 'false'}'>"
+                   f"<i class='dot' style='background:{co}'></i><i class='dot' style='background:{cu}'></i><span>{html.escape(cname)}</span></li>")
+    sel_id = "custom" if is_cc else ctx.palette
+    palcur = next(r for r in palrows if f"data-v='{sel_id}'" in r).split(">", 1)[1].rsplit("</li>", 1)[0]
+    CP = CPICK_STR[plang]
+    cpick_html = (f"<span class='pal cpick' id='cpick'{'' if is_cc else ' hidden'}><label>{html.escape(CP['under'])} <input type='color' id='ccu' value='{cu.lower()}'></label>"
+                  f"<label>{html.escape(CP['over'])} <input type='color' id='cco' value='{co.lower()}'></label>"
+                  f"<span class='cchint' id='cchint' role='status'{'' if usage_palette.similar(cu, co) else ' hidden'}>{html.escape(CP['hint'])}</span></span>")
     pal_label = {"numeric": "◐", "zh-TW": "配色", "zh-CN": "配色"}.get(plang, "Colours")
-    star_note = "" if plang == "numeric" else usage_palette.STAR_NOTE[plang]
     pat_label = {"numeric": "▨", "zh-TW": "加上紋路", "zh-CN": "加上纹路"}.get(plang, "Add patterns")
     off_label = {"numeric": "±", "zh-TW": "顯示校正", "zh-CN": "显示校正"}.get(plang, "Display offset")
     off_opts = "".join(f"<option value='{o}'{' selected' if o == ctx.display_offset else ''}>{html.escape(usage_offset.option_text(o, plang))}</option>"
@@ -1735,19 +1815,23 @@ html[data-patterns="1"] .badge:not(.note)::before{{content:"▲ "}} .pal{{color:
 .plist li[aria-selected=true]{{font-weight:700}} .plist li[aria-selected=true]::after{{content:'✓';margin-left:auto;padding-left:14px;color:var(--accent)}}
 .dot{{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none;box-shadow:0 0 0 1px rgba(128,128,128,.55)}} #palmsg{{color:{dim};font-size:12px}}
 #pallist{{min-width:max(100%,17em);max-height:min(88vh,760px)}}
-.plist li.pnote{{cursor:default;color:{dim};font-size:12px;line-height:1.45;border-top:1px solid var(--bd);border-radius:0;margin-top:4px;padding:7px 8px 4px;white-space:normal;position:sticky;bottom:-4px;background:{card}}}
+.plist li.pgrp{{cursor:default;color:{dim};font-size:12px;font-weight:700;letter-spacing:.04em;border-top:1px solid var(--bd);border-radius:0;margin-top:6px;padding:8px 10px 3px}}
+.plist li.pcust{{border-top:1px solid var(--bd);border-radius:0 0 5px 5px;margin-top:4px}}
+.cpick{{display:inline-flex;align-items:center;gap:8px}} .cpick label{{display:inline-flex;align-items:center;gap:4px}}
+.cpick input[type=color]{{width:30px;height:22px;padding:0;border:1px solid var(--bd);border-radius:4px;background:{card};cursor:pointer}} .cchint{{color:{dim};font-size:12px;white-space:normal!important;max-width:24em}}
+.plist li.pnote{{cursor:default;color:{dim};font-size:12px;line-height:1.45;border-top:1px solid var(--bd);border-radius:0;margin-top:4px;padding:7px 8px 4px;white-space:normal}}
 .ptog{{display:inline-flex;align-items:center;gap:5px;cursor:pointer}} .ptog input{{margin:0}} .offsel{{padding:3px 6px}} .otag{{color:{dim};font-size:.85em;font-weight:400}}
 {usage_checkins_ui.CSS}
 {GAUGE_CSS}{gh_css(_on_colour(bg) == "#FFFFFF")}
 </style></head><body><div class="wrap"><div class="top">{html.escape(L['eyebrow'])}{f' <span class="ver" id="appver">v{APP_VERSION}</span>' if APP_VERSION else ''}</div><h1>{html.escape(title)}</h1>
 <div class="bar"><nav>{''.join(tabs)}</nav><div class="upd"><div class="trow tset" id="tset"><span id="last" title="{html.escape(L['last'].format(t=f'{now:%H:%M}', z=zl))}">{html.escape(L.get('last_short', L['last']).format(t=f'{now:%H:%M}', z=zl))}</span>
 <span class="pal psel" id="psel"><span id="pall">{html.escape(pal_label)}</span><button type="button" class="pbtn" id="palbtn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="pall palcur"><span id="palcur">{palcur}</span></button>
-<ul class="plist" id="pallist" role="listbox" tabindex="-1" aria-labelledby="pall" hidden>{''.join(palrows)}{f"<li role='none' class='pnote' id='palnote'>{html.escape(star_note)}</li>" if star_note else ""}</ul><span id="palmsg" role="status"></span></span>
+<ul class="plist" id="pallist" role="listbox" tabindex="-1" aria-labelledby="pall" hidden>{''.join(palrows)}</ul><span id="palmsg" role="status"></span></span>{cpick_html}
 <label class="pal ptog" id="patl"><input type="checkbox" id="patchk"{" checked" if ctx.patterns else ""}> {html.escape(pat_label)}</label>
 <label class="pal" id="offl">{html.escape(off_label)} <select id="offsel" class="offsel">{off_opts}</select></label><script>{OFFSET_JS}</script>{pick_html}</div>
 <div class="trow tact" id="tact">{act_html}<button class="btn" id="manualbtn" hidden>{html.escape(MS['btn'])}</button><button class="btn" id="notifybtn" hidden>{html.escape(LS['notify'])}</button><button class="btn primary" id="refresh" hidden>{html.escape(L['refresh'])}</button><span id="rmsg" role="status" aria-live="polite"></span>
-<button class="btn" id="updbtn" hidden>{html.escape(US['btn'])}</button><label class="pal" id="updautol" hidden><input type="checkbox" id="updauto"> {html.escape(US['auto'])}</label>{gh_link_html("numeric" if ctx.privacy else ctx.lang)}</div></div></div>
-<div id="urow" class="urow" hidden><span id="umsg"></span><button class="btn updgo" id="updgo" hidden>{html.escape(US['go'])}</button><button class="btn" id="updback" hidden>{html.escape(US['back'])}</button>
+<span class="ugrp" id="ugrp"><button class="btn" id="updbtn" hidden>{html.escape(US['btn'])}</button><button class="btn" id="updback" hidden>{html.escape(US['back'])}</button></span><span class="agrp" id="agrp"><label class="pal" id="updautol" hidden><input type="checkbox" id="updauto"> {html.escape(US['auto'])}</label>{gh_link_html("numeric" if ctx.privacy else ctx.lang)}</span></div></div></div>
+<div id="urow" class="urow" hidden><span id="umsg"></span><button class="btn updgo" id="updgo" hidden>{html.escape(US['go'])}</button>
 <div id="unotes" class="unotes" role="region" aria-label="{html.escape(US['notes'] or US['go'])}" hidden></div></div>
 <form id="manualform" class="ckform" hidden><label>{html.escape(MS['pct'])} <input id="mpct" type="number" min="0" max="200" step="0.1" required style="width:6em"> <span class="sub">{html.escape(MS.get('pct_note', ''))}</span></label>
 <label>{html.escape(MS['reset'])} <input id="mreset" maxlength="64" placeholder="{html.escape(MS['reset_ph'])}" style="width:22em"></label>
@@ -2072,7 +2156,7 @@ def serve(ctx, allow_remote=False):
         """POST /api/palette/render {"name": ...}: draw that palette's images (cached until the next refresh)."""
         name = str(d.get("name") or "")
         clock = d.get("clock")
-        if name not in usage_palette.names():
+        if not palette_name_ok(name):
             return 400, {"ok": False, "error": "unknown palette"}
         pat = d.get("patterns", False)
         if not isinstance(pat, bool):
@@ -2084,7 +2168,10 @@ def serve(ctx, allow_remote=False):
             return 400, {"ok": False, "error": "unknown clock layout"}
         with draw_lock:
             try:
-                return 200, render_palette(ctx, name, clock, mode, pat)
+                out = render_palette(ctx, name, clock, mode, pat)
+                if out.get("ok") and usage_palette.is_custom(name):  # the page sets its CSS colours from these
+                    out["colors"] = {v: usage_palette.get(name, v == "light") for v in ("dark", "light")}
+                return 200, out
             except Exception as exc:
                 print(f"Warning: palette '{name}' render failed: {exc}", file=sys.stderr)
                 return 500, {"ok": False, "error": "render failed"}
@@ -2558,7 +2645,9 @@ def main(argv=None):
     p.add_argument("--config"); p.add_argument("--data-dir", dest="data_dir"); p.add_argument("--tz")
     p.add_argument("--lang"); p.add_argument("--theme"); p.add_argument("--pace", type=float)
     p.add_argument("--anim", choices=ANIM_MODES, help="page gauge animation (default: config 'anim' or once)")
-    p.add_argument("--palette", choices=usage_palette.names(), help="chart/page colours (default: config 'palette' or orange-teal)")
+    p.add_argument("--palette", type=_palette_arg, metavar="PALETTE",
+                   help="chart/page colours: a preset (" + ", ".join(usage_palette.names()) + "; legacy: high-contrast), or custom (colours from the config's "
+                        "custom_colors) or custom-RRGGBBrrggbb (under, over); default: config 'palette' or orange-teal")
     p.add_argument("--privacy", action="store_true", default=None)
     p.add_argument("--pct", help="sample: use this weekly %% (0-200) instead of reading Grok Build (manual entry)")
     p.add_argument("--reset", help="sample --pct: next reset, e.g. 'Sat 09:00', 'Oct 31, 09:00' or '2026-10-31 09:00'")

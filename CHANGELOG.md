@@ -6,6 +6,37 @@ MAJOR for changes that need you to do something, MINOR for new features, PATCH f
 The current version is in the `VERSION` file and shown small at the top of the page.
 A Traditional Chinese version is in [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md).
 
+## [1.2.0] - 2026-10-25
+
+### Added
+- Solid-colour palettes in their own "Solid colours" section of the Colours menu, below the ★ note, with
+  `teal-mono` (All teal) first, then `pink-mono`, `purple-mono`, `blue-mono` and `green-mono`. Over is the bright
+  light shade, under the deep muted shade; ▲ / ▼ and patterns still apply.
+- Custom colours: "Custom…", the last item in the Colours menu, shows two colour pickers (under / over baseline),
+  remembered in the browser; a hint appears when the two colours are too similar. Also `"palette": "custom"` with
+  `"custom_colors"` in the config, for the PNG renderer and `--palette custom`.
+- README: check-in search demo GIF.
+
+### Changed
+- Colours menu order: the ★ presets form one block at the end of the two-colour section, right above the ★ note.
+- `amber-purple` is now labelled "Golden orange / purple" (zh-TW 金橘／紫); the config key is unchanged.
+- README screenshots and the gauge GIF were re-made with sample data that has days both above and below the
+  baseline, so both colours show.
+- "Roll back to previous version" sits right after "Check for updates" in the toolbar, kept together with it, instead
+  of on a line of its own below the toolbar. Likewise the GitHub icon always stays right after "Auto-check for updates".
+
+### Removed
+- `high-contrast` is no longer in the Colours menu. It stays a legacy key: configs, theme files and `--palette` still
+  accept and draw it (`yellow-deepsky` too); a browser that had it saved falls back to the configured palette.
+
+### Fixed
+- Run-out projection: when the quota is projected to run out before the reset, the card is titled "Projected run-out"
+  instead of "Projected (7d)", and the chart's dashed line uses the same rate as the card, crossing the 100% line
+  where the card says (with its marker and label there) instead of drifting to day 7. Under one day left is shown
+  in hours (e.g. "about 8 h").
+- Rates and averages (average per day, burn rate, daily budget, chart labels) show one decimal only when it is not a
+  whole number: 74% instead of 74.0%, 10.8% stays, matching the whole-number cards beside them.
+
 ## [1.1.0] - 2026-10-25
 
 ### Added
@@ -41,5 +72,6 @@ First tagged state (everything before version numbers were added): usage history
 check-ins, palettes (including colour-blind-safe ones and patterns), language and time zone menus, display offset,
 desktop notifications, check for updates and one-click update, Windows and Linux service scripts.
 
+[1.2.0]: https://github.com/yuehzhan/grokbot-usage-checkin/blob/main/CHANGELOG.md#120---2026-10-25
 [1.1.0]: https://github.com/yuehzhan/grokbot-usage-checkin/blob/main/CHANGELOG.md#110---2026-10-25
 [1.0.0]: https://github.com/yuehzhan/grokbot-usage-checkin/blob/main/CHANGELOG.md#100---2026-10-24
