@@ -639,7 +639,7 @@ def parse_config():
     p.add_argument("--pct", type=float, default=None, help="Manual single reading or day override (%%)")
     p.add_argument("--day", type=int, default=None, help="Day number (1..7) for --pct")
     p.add_argument("--theme", default=None, help="Path to JSON theme file")
-    p.add_argument("--palette", default=None, help="Colour preset: orange-teal (default), orange-blue, colorblind")
+    p.add_argument("--palette", default=None, help="Colour preset (14, see README): orange-teal (default), orange-blue, colorblind, amber-purple, ...")
     p.add_argument("--baseline-color", default=None)
     p.add_argument("--under-color", default=None)
     p.add_argument("--over-color", default=None)
@@ -1269,14 +1269,28 @@ def draw_footer(ax_hud, cfg, L, pal, t_info):
     ax_hud.text(0.5 * FIG_W, 0.020 * FIG_H, foot_txt, color=pal["text_dim"], alpha=0.75, fontsize=10, fontweight="bold", ha="center", va="center")
 
 
-def configure_fonts_and_locale(lang: str) -> str:
+_CJK_FONTS_ADDED = False
+
+
+def _add_cjk_fonts_once():
+    """Register the Noto CJK files once per process: addfont() appends a duplicate entry and clears matplotlib's
+    font lookup cache on every call, which made each chart slower than the one before in a long-running server."""
+    global _CJK_FONTS_ADDED
+    if _CJK_FONTS_ADDED:
+        return
+    _CJK_FONTS_ADDED = True
+    known = {getattr(f, "fname", "") for f in font_manager.fontManager.ttflist}
     for f in font_manager.findSystemFonts():
         f_clean = Path(f).name.replace(" ", "")
-        if "NotoSansCJK" in f_clean or "NotoSerifCJK" in f_clean:
+        if ("NotoSansCJK" in f_clean or "NotoSerifCJK" in f_clean) and f not in known:
             try:
                 font_manager.fontManager.addfont(f)
             except Exception:
                 pass
+
+
+def configure_fonts_and_locale(lang: str) -> str:
+    _add_cjk_fonts_once()
 
     installed = {f.name for f in font_manager.fontManager.ttflist}
     candidates = FONT_CANDIDATES.get(lang, FONT_CANDIDATES["en"])
@@ -1315,13 +1329,14 @@ def render(rows, out_png, week_start, cfg=None):
     bg_r, bg_g, bg_b = to_rgb(bg)
     is_light = (0.2126 * bg_r + 0.7152 * bg_g + 0.0722 * bg_b) > 0.5
     text_col = cfg["text_color"] if cfg["text_color"] else ("#1E241B" if is_light else "#E8F4FF")
-    accent_col = cfg["accent_color"] if cfg["accent_color"] else ("#2B6CB0" if is_light else "#7FE7FF")
     try:
         import usage_palette
     except ImportError:
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         import usage_palette
     pset = usage_palette.get(cfg.get("palette"), is_light)
+    # accent (frame, eyebrow, gauge ring) follows the palette's cool colour unless accent_color is set
+    accent_col = cfg.get("accent_color") or cfg.get("under_color") or pset["under"]
     # historical key names kept: "purple" = OVER colour, "green" = UNDER colour, "orange" = BASELINE colour
     green = cfg["under_color"] or pset["under"]
     purple = cfg["over_color"] or pset["over"]

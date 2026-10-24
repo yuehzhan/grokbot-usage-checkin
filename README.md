@@ -57,13 +57,27 @@ to PATH"). No administrator rights. Everything stays on your PC; the page listen
 3. Stop it with `powershell -ExecutionPolicy Bypass -File .\stop.ps1`.
 4. Optional, start at sign-in: `.\register-task.ps1` (undo: `.\register-task.ps1 -Uninstall`).
 5. Update to a newer version (your data in `usage-data\` is kept):
+   - **On the page:** the dashboard checks GitHub for a newer version by itself (a minute after it starts, then about
+     once a day), and you can press **Check for updates** at any time. If there is a newer version, the page shows it
+     (for example `New version: abc1234 Fix the clock (2 behind)`) and a light-blue **Update** button. Press
+     **Update**: the dashboard stops, updates, reinstalls and starts again by itself; the page shows *Updating…* and
+     reloads when it is back (about 1–3 minutes). Nothing is installed unless you press **Update**.
+   - To turn the automatic check off, untick **Check for updates automatically** on the page (saved as
+     `"update_check": "off"` in `usage_config.json`, so it stays off after a restart), or set that key yourself.
+     The **Check for updates** button keeps working.
+   - This needs an install made with `git clone`. A ZIP install cannot update itself: download the new ZIP by hand
+     (or reinstall with `git clone` and move your `usage-data` folder over).
+   - It only does a plain `git pull --ff-only`. If you changed program files in the folder, or have your own
+     commits, it says so and does not update; use the commands below. Each step is written to
+     `usage-data\update.log`. If a step fails, the dashboard is started again anyway.
+   - By hand (always works):
    ```powershell
    powershell -ExecutionPolicy Bypass -File .\stop.ps1
    git pull
    powershell -ExecutionPolicy Bypass -File .\install.ps1
    powershell -ExecutionPolicy Bypass -File .\start.ps1
    ```
-   On Linux: `python3 service.py stop && git pull && python3 -m pip install -r requirements.txt && python3 service.py start`.
+   On Linux the page buttons work the same way. By hand: `python3 service.py stop && git pull && python3 -m pip install -r requirements.txt && python3 service.py start`.
 
 **What works on Windows**
 
@@ -146,21 +160,40 @@ If the automatic read keeps failing, set `"pct_source": "manual"` in `usage_conf
 - Deltas always carry ▲/▼, so the state never depends on colour alone.
 - No colour is used to mean "bad"; "over" is never red.
 
-| Preset (`palette`, `--palette`) | Over | Under | Baseline | Notice |
+| Preset (`palette`, `--palette`) | Menu label | Over | Under | Notice |
 | :--- | :--- | :--- | :--- | :--- |
-| `orange-teal` (default) | `#FFA51F` / `#C96A00` | `#23C4AE` / `#0B8A7E` | `#9AA4AE` / `#6B7480` | `#B48CFF` / `#7A4FC9` |
-| `orange-blue` | `#FFA51F` / `#C96A00` | `#4D8DFF` / `#1F5FD1` | `#9AA4AE` / `#6B7480` | `#B48CFF` / `#7A4FC9` |
-| `colorblind` (Okabe-Ito) | `#E69F00` / `#B87F00` | `#56B4E9` / `#0072B2` | `#9AA4AE` / `#6B7480` | `#CC79A7` / `#A8558A` |
+| `orange-teal` (default) | Orange / teal | `#FFA51F` / `#C96A00` | `#23C4AE` / `#0B8A7E` | `#B48CFF` / `#7A4FC9` |
+| `orange-blue` | Orange / blue | `#FFA51F` / `#C96A00` | `#4D8DFF` / `#1F5FD1` | `#B48CFF` / `#7A4FC9` |
+| `colorblind` (Okabe-Ito) | Colour-blind safe | `#E69F00` / `#B87F00` | `#56B4E9` / `#0072B2` | `#CC79A7` / `#A8558A` |
+| `amber-purple` | Amber / purple | `#FFB000` / `#B37A00` | `#9B7BFF` / `#6A4BD6` | `#F28CC8` / `#B0487F` |
+| `pink-green` | Pink / green | `#FF5FA2` / `#C2306E` | `#3DDC84` / `#138A4C` | `#B48CFF` / `#7A4FC9` |
+| `gold-sky` | Gold / sky blue | `#FFD23F` / `#9A7400` | `#5EC8FF` / `#0A78B8` | `#C59BFF` / `#7A4FC9` |
+| `orange-purple` | Orange / purple | `#FF8C1A` / `#C25E00` | `#B07CFF` / `#7A45D6` | `#7FD8C8` / `#1F8A7A` |
+| `magenta-teal` | Magenta / teal | `#FF4FD8` / `#B8269A` | `#2EC4B6` / `#0E857A` | `#A8B4FF` / `#4F5FC9` |
+| `yellow-indigo` | Yellow / indigo | `#F5E14B` / `#8F7F00` | `#6C7BFF` / `#3E4CD1` | `#FF9ECF` / `#A8558A` |
+| `peach-mint` | Peach / mint | `#FFB38A` / `#C0602F` | `#7FE0B0` / `#1E8A5A` | `#B48CFF` / `#7A4FC9` |
+| `tangerine-cyan` | Tangerine / cyan | `#FF8A3D` / `#C55A12` | `#3FD0FF` / `#0A7FAF` | `#C59BFF` / `#7A4FC9` |
+| `rose-lime` | Rose / lime | `#FF6FB5` / `#C23A7E` | `#A8E063` / `#4E8A12` | `#9EC5FF` / `#3F64C2` |
+| `sunflower-navy` | Sunflower / navy | `#FFC93C` / `#9C7200` | `#3A6BD9` / `#2A4FB0` | `#E59BFF` / `#A8558A` |
+| `high-contrast` | High contrast | `#FFFF00` / `#7A6E00` | `#00BFFF` / `#005F99` | `#FF9BFF` / `#9A2FA0` |
 
-Each cell is *dark background / light background*.
+Each cell is *dark background / light background*. The baseline line is the same neutral grey in every preset
+(`#9AA4AE` / `#6B7480`). "Over" is always a warm colour (orange, amber, gold, pink or yellow), never red, brown, grey,
+black or aqua; every preset has its own notice colour.
 
 - PNGs (`chart_hud.py`, history and clock charts) and web pages follow the palette. `over_color`, `under_color` and
   `baseline_color` in the config still override single colours.
-- The web pages have a palette dropdown; the choice is remembered in the browser (`localStorage` key `usage.palette`)
-  and does not change the config. With `render_all_palettes: true` (default) the history page has every palette's PNGs
-  ready (`history/pal/<name>/`), at the cost of slower rendering.
-- Themes (`themes/muted.json`, `themes/light.json`) set background, text and accent colours; the palette picks its
-  light variant automatically on light backgrounds. The cool accent is used only for frames and tabs, never for a state.
+- The web pages have a **Colours** menu (a list of all presets, two colour dots each; arrow keys, Home/End, Enter and
+  Esc work). The choice is remembered in the browser (`localStorage` key `usage.palette`) and does not change the config.
+- The page chrome follows the palette too: the accent (tab underline, frames, links, focus ring, the **⟳ Refresh**
+  button) is the palette's cool colour, via CSS variables (`--accent`, `--over`, `--under`, `--notice`). Images and
+  colours switch together, after the new images have loaded. The **Update** button keeps its fixed light-blue colour.
+- Only the configured palette is drawn on each refresh. Another palette is drawn the first time the page asks for it
+  (`POST /api/palette/render`, about 1–2 s) and then reused until the next refresh (`history/pal/<name>/`).
+  `render_all_palettes: true` draws every preset on every refresh instead (switching is instant, refreshes are slower).
+- Themes (`themes/muted.json`, `themes/light.json`) set background and text colours; the palette picks its light
+  variant automatically on light backgrounds. A theme's explicit `accent_color` / `over_color` / `under_color` wins over
+  the palette. The cool accent is used only for frames and tabs, never for a state.
 - Check-in name colours are chosen to stay clear of the state colours.
 
 ---
@@ -316,7 +349,7 @@ python3 chart_hud.py --pct 73 --day 5 [--lang auto|en|zh-TW|zh-CN|ja|ko|numeric]
 
 ```bash
 python3 usage_history.py history            # history/history-{1m,3m,6m,1y}.png + history/index.html
-python3 usage_history.py clock              # history/clock-7d.png + history/clock-all.png
+python3 usage_history.py clock              # history/clock-1d.png + history/clock-wk-ot.png
 python3 usage_history.py sample             # one Grok Build read -> samples.csv, then regenerate
 python3 usage_history.py sample --pct 42    # record a manual value (no Grok launch)
 python3 usage_history.py sample --pct 42 --reset "Sat 09:00"   # ... and the next reset (also "Oct 31, 09:00" or ISO)
@@ -355,8 +388,16 @@ All commands accept `--config`, `--data-dir`, `--tz`, `--lang`, `--theme`, `--pa
 
 ### Clock Chart
 
-- 24-hour polar chart of the average % increase per hour of day, for the last 7 days and for all samples.
-- This chart is a magnitude scale, not an over/under state: colours run from the palette's cool colour (low) through purple to orange (high), so orange still means "more usage". Drops in % are treated as a quota reset (the new value counts). Long gaps are skipped.
+- 24-hour polar charts of the % increase per hour of day; 0:00 is at the top and hours run clockwise.
+- **Left: the last 24 hours**, one bar per hour. This is a magnitude scale, not an over/under state: colours run from the palette's cool colour (low) to orange (high), with a colour bar underneath.
+- **Right: the current reset week** by default. A **Range** menu above it switches to 1 week / 1 month / 1 quarter / 6 months / 1 year / All. In this chart **colour = period, length = % increase in that hour**:
+  - 1 week: one colour per day (up to 8 days touched by the week); 1 month: per reset week; 1 quarter and 6 months: per month; 1 year: per quarter; All: per quarter, or per year when that would be more than 8 quarters (latest 8 kept).
+  - For weeks / months / quarters / years the length is the average % increase in that hour over the period's days.
+  - A legend under the dial lists the periods oldest first (e.g. `Sat 10/24 (today)` / `10/24 週六（今天）`, `Wk 1 10/03–10/09`); the current period is bold, periods without data are dimmed.
+  - Period colours are a set of up to 8 distinct colours per palette (dark and light versions), starting with the palette's cool colour and leaving out hues close to its "over" colour; the colour-blind preset uses the Okabe-Ito colours.
+- **Layout** menu: **Overlay** (default) draws every period's bar at the same angle, full width, longest first so a shorter bar is never hidden behind a taller one; **Fill** = **Translucent** (default, ~40 % fill with a solid outline) or **Solid**. **Side by side** splits each hour into thin wedges, one per period (the Fill menu is hidden).
+- Range, layout and fill are remembered in the browser (`usage.clockRange`, `usage.clockLayout`, `usage.clockFill`). Only the default view (week, overlay, translucent) is drawn on every refresh; other views are drawn when first picked (`history/pal/<palette>/clock-<range>-<ot|os|sd>.png`) and reused until the next refresh.
+- Drops in % are treated as a quota reset (the new value counts). Long gaps are skipped.
 - With fewer than 24 intervals, the chart shows a "collecting data" badge.
 - Check-ins (one-off check-ins and session starts) are drawn as dots outside the rim, one colour per name (name colours avoid the state colours).
 
@@ -378,9 +419,14 @@ cat usage-data/history_server.json             # {"url": "http://127.0.0.1:PORT/
 | Route | Method | Description |
 | :--- | :--- | :--- |
 | `/` | GET | History page (tabs: ranges, clock, check-ins). |
-| `/api/status` | GET | JSON with `ok`, `last_update`, `busy`, `timezone`, `sample_interval_minutes`, `pct_source`. |
+| `/api/status` | GET | JSON with `ok`, `last_update`, `busy`, `timezone`, `sample_interval_minutes`, `pct_source`, `boot` (changes on every start; the page uses it to see that an update has finished), `updating`. |
 | `/api/manual` | POST | Record a value you read yourself: JSON `{"pct": "42", "reset": "Sat 09:00"}` (`reset` optional; weekday+time, `Oct 31, 09:00` or ISO). Token required; `400 bad_manual_value` for a % outside 0–200 or an unreadable reset; `409` while another write runs. |
 | `/api/refresh` | POST | Take a sample now and regenerate (token required). In manual mode it returns `400 {"code":"manual_mode"}`. `409 {"error":"busy"}` while a read runs, `429 {"error":"cooldown","retry_in":N}` within the cooldown (`manual_refresh_cooldown_seconds`, default 60). |
+| `/api/palette/render` | POST | Draw (or reuse) one palette's images for the page: JSON `{"name": "gold-sky", "clock": "1m", "mode": "ot"}` (`clock` = `wk`/`1m`/`3m`/`6m`/`1y`/`all`, `mode` = `ot` overlay translucent, `os` overlay solid, `sd` side by side; both optional). Token required. Returns `{"ok", "name", "v", "cached", "seconds"}`; `v` is added to the image URLs (`pal/<name>/<file>?v=…`) so the browser caches each version. `400` for an unknown palette, range or mode. |
+| `/api/update/check` | POST | Check for updates (token required): runs `git fetch --quiet origin main` (20 s timeout) and compares `HEAD` with `origin/main`. Returns `state` = `up_to_date`, `behind` (`can_update: true`, `behind`, `latest.hash`, `latest.subject`), `local_changes`, `diverged`, `wrong_branch`, `not_git` (e.g. a ZIP install), `no_git`, `no_remote` or `fetch_failed`. A repeat within 30 s returns the last answer (`cached: true`). In privacy mode the commit subject and git messages are left out. |
+| `/api/update/state` | GET | Read-only: `auto` (the switch), `result` (last check, same fields as above, or `null`) and `checked_at`. Never runs git. |
+| `/api/update/settings` | POST | Turn the automatic check on/off: JSON `{"auto": false}` (token required). Saved to `usage_config.json` (`update_check`), or to `<data_dir>/update_check.json` when there is no config file. |
+| `/api/update/apply` | POST | Start the updater (token required, loopback clients only, only when the last check said `behind`). It runs detached: stop → `git pull --ff-only origin main` → install (Windows: `install.ps1`; elsewhere `pip install -r requirements.txt` with the same Python, only when `requirements.txt` changed) → start, logging to `<data_dir>/update.log`. Never forces, resets or touches the data folder; your `usage_config.json` is kept as it was. If a step fails it still starts the dashboard. `409` when an update is already running or the check no longer allows it. |
 | `/api/checkin` | POST | Check in / start / end a session (token required, see below). `GET` returns `405`. |
 | `/api/checkins` | GET | Sessions grouped by day plus per-category summary; same filters as search. |
 | `/api/checkins/search` | GET | Read-only search (see below). |
@@ -388,7 +434,8 @@ cat usage-data/history_server.json             # {"url": "http://127.0.0.1:PORT/
 
 - Binds `127.0.0.1` by default. Any non-loopback `history_host`/`--host` is refused unless `--allow-remote` is passed.
 - See **Local Server Security** below for the write token and Host/Origin checks.
-- The page shows a **Refresh now** button (with spinner), an **Enter manually** button and the check-in form only when it is served by this server; opened as a plain file, it is read-only. In manual mode **Refresh now** is hidden.
+- The page shows a **⟳ Refresh** button (accent colour, with spinner; it reads the usage again), an **Enter manually** button and the check-in form only when it is served by this server; opened as a plain file, it is read-only. In manual mode **⟳ Refresh** is hidden.
+- When served, the page also shows **Check for updates**, the **Check for updates automatically** switch, and a light-blue **Update** button when a newer version exists (see step 5 of the Windows quick start). After an update the server comes back on the same port, so the open page can reload itself.
 - `history/index.html` is self-contained (PNGs embedded), so it can be copied or opened offline.
 
 ### Check-ins: sessions, categories and search
@@ -460,6 +507,33 @@ curl -s "http://127.0.0.1:PORT/api/checkins/search?q=parser&category=code&from=2
 The page's check-in tab has category chips (a 4th pick is blocked), Start / End buttons (the End dialog asks for
 Done or Interrupted plus an optional reason), the search box with dates, the day-grouped list and the per-category
 summary. The last name used is remembered in `localStorage`.
+
+### Check-in categories and "break" (放風)
+
+A **break** (放風) is a stretch of time when your Grok Bot takes no tasks and decides for itself what to do, such as browsing, reading something it's curious about, tidying its own notes, or a small creative project. You agree on the time in advance (for example a few tens of minutes a week), and it checks in at the start and end, so you can see how long it took and how much usage it used.
+
+Breaks in moderation help a Grok Bot balance work and rest:
+- **Work and free time stay apart:** routine work gets done as usual, and free activity happens in the agreed slot instead of creeping into tasks.
+- **Usage stays predictable:** breaks have a fixed time cap and are checked in, so they can't quietly eat the week's allowance. When usage is tight, breaks are the first thing to shorten or pause.
+- **Its personality and interests stay alive:** time with things outside work keeps conversations and output from turning into pure routine, and often brings back ideas useful for work.
+- **You can see what it's up to:** break check-ins are searchable, so you can see what it has been interested in lately.
+
+Other categories:
+- **web** (網頁): working on websites (signing in, filling forms, browsing).
+- **code** (代碼): writing or changing code.
+- **image** (畫圖): generating or editing images.
+- **publish** (發佈): posting work to a site or social account.
+- **daily** (簽到): daily check-ins and point claims on sites.
+- **research** (研究): looking things up, comparing, summarising.
+- **writing** (寫作): articles, docs, posts.
+- **files** (檔案整理): moving, sorting, backing up files.
+- **review** (檢查驗收): testing and checking results.
+- **maintenance** (維護): fixing and updating tools.
+- **comms** (溝通): talking with the user or other assistants.
+- **learning** (學習): reading docs, learning a new tool.
+- **other** (其他): anything else.
+
+A session can have up to 3 categories.
 
 ### Local Server Security
 
@@ -579,8 +653,10 @@ python3 -m unittest discover -s tests -v
 Covers the notifier command builders (not executed), spike/ledger/dedupe, local-server security (token, Host,
 Origin, POST-only, debug `pct`), the screen reader on recorded screens, palettes and the write lock, and check-in
 sessions/categories/search, the Windows pieces that can be checked on any OS (terminal-screen replay of
-ConPTY-style output, manual entry parsing, process helpers, the Windows lock branch with a stand-in `msvcrt`), and
-`service.py` start/stop. Tests use temporary folders only.
+ConPTY-style output, manual entry parsing, process helpers, the Windows lock branch with a stand-in `msvcrt`),
+`service.py` start/stop, and the update check and updater steps (on throw-away local git repositories: up to date,
+behind, local changes, diverged, not a repository, no git, fetch failed). Tests use temporary folders only and no
+network.
 
 ## Configuration Keys (`usage_config.json`)
 
@@ -607,6 +683,7 @@ ConPTY-style output, manual entry parsing, process helpers, the Windows lock bra
 | `history_host` | `"127.0.0.1"` | Bind host for `usage_history.py serve`. Non-loopback hosts are refused unless `--allow-remote` is passed. |
 | `history_port` | `0` | Port for `usage_history.py serve` (`0` = random free port; actual URL written to `<data_dir>/history_server.json`). |
 | `manual_refresh_cooldown_seconds` | `60` | Minimum seconds between `POST /api/refresh` calls (`429` + `retry_in` otherwise). |
+| `update_check` | `"auto"` | `"auto"`: the page server checks GitHub for a newer version a minute after start and then about once a day (a restart within the day does not fetch again; the last result is kept in `<data_dir>/update_last.json`). `"off"`: only the **Check for updates** button checks. Either way nothing is installed until you press **Update**. The page's switch writes this key. |
 | `checkin_cooldown_seconds` | `5` | Minimum seconds between check-ins for the same name (`429` + `retry_in`). |
 | `ledger_path` | `<data_dir>/ledger.json` | Where the shared usage ledger is written. |
 | `daily_spike_points` | `20` | Daily spike alert threshold (points gained vs. ~24 h earlier). |
@@ -615,9 +692,9 @@ ConPTY-style output, manual entry parsing, process helpers, the Windows lock bra
 | `stale_after_hours` | `6` | Ledger age after which readers should refresh first. |
 | `desktop_notify` | `true` | Show OS desktop toasts for new alerts (`false` = log only). |
 | `extra_spend_csv` | `null` | Optional CSV of extra paid usage with at least the columns `time,usd_used` (`usd_used` = monthly running total; other columns are ignored); shown per month in the history view. |
-| `palette` | `"orange-teal"` | Colour preset: `orange-teal`, `orange-blue`, `colorblind`. |
+| `palette` | `"orange-teal"` | Colour preset: `orange-teal`, `orange-blue`, `colorblind`, `amber-purple`, `pink-green`, `gold-sky`, `orange-purple`, `magenta-teal`, `yellow-indigo`, `peach-mint`, `tangerine-cyan`, `rose-lime`, `sunflower-navy`, `high-contrast`. |
 | `over_color`, `under_color`, `baseline_color` | `null` | Optional single-colour overrides for `chart_hud.py` (hex); `null` = take it from the palette. |
-| `render_all_palettes` | `true` | Also render every palette's history/clock PNGs so the page dropdown can switch instantly. |
+| `render_all_palettes` | `false` | `true` = draw every palette's history/clock PNGs on every refresh (instant switching, slower refreshes). `false` = draw other palettes only when the page asks, then reuse them until the next refresh. |
 | `checkin_categories` | 14 defaults | Category ids in page order; `id:Label` sets a custom label. Unknown ids become `other`. |
 | `checkin_max_categories` | `3` | Maximum categories per session (at least 1). |
 | `checkin_open_limit_hours` | `6` | A session not ended after this many hours shows as "open". |
@@ -651,3 +728,4 @@ ConPTY-style output, manual entry parsing, process helpers, the Windows lock bra
   - Windows `ctypes.windll.kernel32.GetUserDefaultUILanguage()` locale detection in `chart_hud.py`.
   - Windows `os.startfile` / macOS `open` image auto-launch.
   - `install.ps1`, `start.ps1`, `stop.ps1`, `register-task.ps1` (parsed, not executed).
+  - The page's **Update** button on Windows (`self_update.py` running `stop.ps1` → `git pull --ff-only` → `install.ps1` → `start.ps1` hidden); the same flow with `service.py` was run end to end on Linux.

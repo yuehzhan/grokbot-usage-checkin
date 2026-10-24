@@ -305,6 +305,34 @@ class ViewerState:
             self.refresh_lock.release()
 
 
+_PAL_LOCK = threading.Lock()
+
+
+def render_palette_image(data_dir: Path, name: str, img_path: Path) -> Optional[Path]:
+    """<data_dir>/pal/<name>/<image>: the current chart in another palette, drawn on demand from the settings
+    usage_record.py saved in pal/render.json and kept until the main chart changes."""
+    alt = data_dir / "pal" / name / img_path.name
+    with _PAL_LOCK:
+        try:
+            if alt.is_file() and alt.stat().st_mtime >= img_path.stat().st_mtime:
+                return alt
+            spec = json.loads((data_dir / "pal" / "render.json").read_text(encoding="utf-8"))
+            if spec.get("out_name") != img_path.name:
+                return None
+            import csv
+            import chart_hud
+            with open(spec["rows_csv"], encoding="utf-8", newline="") as fp:
+                rows = [r for r in csv.DictReader(fp) if r.get("day")]
+            alt.parent.mkdir(parents=True, exist_ok=True)
+            tmp = alt.with_name(alt.stem + ".tmp.png")
+            chart_hud.render(rows, str(tmp), spec["period_start"], dict(spec.get("cfg") or {}, palette=name))
+            os.replace(tmp, alt)
+            return alt
+        except Exception as exc:
+            print(f"Warning: palette '{name}' image not drawn: {exc}", file=sys.stderr)
+            return None
+
+
 def render_html_page(state: ViewerState) -> str:
     priv = state.is_privacy
     latest = state.build_latest_payload()
@@ -341,8 +369,8 @@ def render_html_page(state: ViewerState) -> str:
   :root {{
     --bg: #05070a;
     --card: #0c1017;
-    --border: #1e2d3d;
-    --accent: #7fe7ff;
+    --border: {usage_palette.blend("#05070a", pal_now["under"], 0.25)};
+    --accent: {pal_now["under"]};
     --text: #e8f4ff;
     --dim: #8ba0b5;
     --over: {pal_now['over']};
@@ -516,9 +544,14 @@ def render_html_page(state: ViewerState) -> str:
   let palette = PAL.default;
   try {{ palette = localStorage.getItem("usage.palette") || PAL.default; }} catch (e) {{}}
   if (!PAL.table[palette]) palette = PAL.default;
+  function mix(a, b, t) {{
+    const x = [1, 3, 5].map(function(i) {{ return parseInt(a.substr(i, 2), 16); }}), y = [1, 3, 5].map(function(i) {{ return parseInt(b.substr(i, 2), 16); }});
+    return "#" + x.map(function(v, i) {{ return ("0" + Math.round(v + (y[i] - v) * t).toString(16)).slice(-2); }}).join("");
+  }}
   function applyPalette() {{
     const c = PAL.table[palette].dark, r = document.documentElement.style;
     ["over", "under", "baseline", "notice"].forEach(function(k) {{ r.setProperty("--" + k, c[k]); }});
+    r.setProperty("--accent", c.under); r.setProperty("--border", mix("#05070a", c.under, 0.25));
     const sel = document.getElementById("pal-sel");
     if (sel) sel.value = palette;
   }}
@@ -707,14 +740,27 @@ def render_html_page(state: ViewerState) -> str:
   setInterval(pollLatest, 60000);
 
   const palSel = document.getElementById("pal-sel");
-  if (palSel) palSel.addEventListener("change", function() {{
-    palette = palSel.value;
-    try {{ localStorage.setItem("usage.palette", palette); }} catch (e) {{}}
-    applyPalette();
-    reloadImage();
-  }});
+  // fetch + decode the new chart first, then switch colours and image together
+  let palSeq = 0;
+  function switchPalette(n, save) {{
+    const my = ++palSeq;
+    fetch("/image?palette=" + encodeURIComponent(n) + "&ts=" + Date.now(), {{ cache: "no-store" }})
+      .then(function(r) {{ if (!r.ok) throw 0; return r.blob(); }})
+      .then(function(b) {{
+        const u = URL.createObjectURL(b), im = new Image();
+        im.onload = function() {{
+          if (my !== palSeq) return;
+          palette = n;
+          if (save) {{ try {{ localStorage.setItem("usage.palette", n); }} catch (e) {{}} }}
+          applyPalette(); hudImg.src = u;
+        }};
+        im.src = u;
+      }}).catch(function() {{ if (my === palSeq && palSel) palSel.value = palette; }});
+  }}
+  if (palSel) palSel.addEventListener("change", function() {{ switchPalette(palSel.value, true); }});
+  const wanted = palette; palette = PAL.default;
   applyPalette();
-  if (palette !== PAL.default) reloadImage();
+  if (wanted !== PAL.default) switchPalette(wanted, false);
   renderStats(state);
   updateControls();
 }})();
@@ -767,9 +813,9 @@ def make_handler(state: ViewerState):
             if route == "/image":
                 img_path = state.resolve_current_image_path()
                 want = (qs.get("palette") or [""])[0]
-                if img_path is not None and want in usage_palette.names() and want != state.palette:
-                    alt = state.data_dir / "pal" / want / img_path.name  # rendered by usage_record.py
-                    if alt.is_file():
+                if img_path is not None and img_path.is_file() and want in usage_palette.names() and want != state.palette:
+                    alt = render_palette_image(state.data_dir, want, img_path)  # drawn on first request, then cached
+                    if alt is not None:
                         img_path = alt
                 if img_path is None or not img_path.is_file():
                     self._send_json(404, {"ok": False, "error": "image not found"})
@@ -886,7 +932,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--over-color", default=None)
     p.add_argument("--text-color", default=None)
     p.add_argument("--no-cache", action="store_true")
-    p.add_argument("--palette", default=None, help="Colour preset: orange-teal (default), orange-blue, colorblind")
+    p.add_argument("--palette", default=None, help="Colour preset (14, see README): orange-teal (default), orange-blue, colorblind, amber-purple, ...")
     p.add_argument("--debug-pct-override", action="store_true",
                    help="Testing only: let POST /api/refresh accept a pct value")
     return p

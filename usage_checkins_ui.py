@@ -111,7 +111,7 @@ def pane_html(L, hint_html=""):
 CSS = """.chips{display:inline-flex;gap:4px;flex-wrap:wrap}.chips label{border:1px solid var(--bd,#2a3a4a);border-radius:999px;padding:2px 9px;font-size:12px;cursor:pointer;user-select:none}
 .chips input{display:none}.chips label.on{border-color:var(--under);color:var(--under);font-weight:700}
 .ckb{background:transparent;border:1px solid var(--bd,#2a3a4a);color:inherit;font:inherit;font-weight:700;padding:5px 12px;border-radius:7px;cursor:pointer}
-.ckb:disabled{opacity:.5;cursor:default} #ckdlg{background:#0d1117;color:inherit;border:1px solid var(--bd,#2a3a4a);border-radius:10px}
+.ckb:disabled{opacity:.5;cursor:default} #ckdlg{background:var(--card,#0d1117);color:inherit;border:1px solid var(--bd,#2a3a4a);border-radius:10px}
 tr.day td{font-weight:700;border-top:2px solid var(--bd,#2a3a4a)} .st-interrupted,.st-open{color:var(--notice);font-weight:700}
 .st-running{color:var(--under)} .ckfilter{margin:6px 0} #ckmsg{color:var(--notice);font-weight:700}"""
 

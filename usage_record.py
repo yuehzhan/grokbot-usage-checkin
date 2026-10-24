@@ -415,7 +415,7 @@ def main(argv: Optional[List[str]] = None):
     p.add_argument("--under-color", default=None)
     p.add_argument("--over-color", default=None)
     p.add_argument("--text-color", default=None)
-    p.add_argument("--palette", default=None, help="Colour preset: orange-teal (default), orange-blue, colorblind")
+    p.add_argument("--palette", default=None, help="Colour preset (14, see README): orange-teal (default), orange-blue, colorblind, amber-purple, ...")
     p.add_argument("--no-cache", action="store_true", help="Do not write auto-detected reset_at to <data_dir>/state.json")
     p.add_argument("--no-render", action="store_true", help="Update CSV and summary JSON only without rendering PNG")
     p.add_argument("--no-open", action="store_true", help="Do not auto-open rendered PNG")
@@ -770,9 +770,18 @@ def main(argv: Optional[List[str]] = None):
                 "palette": resolve(getattr(args, "palette", None), "palette"),
             }
             chart_hud.render(rows, str(out_png), period_start_str, render_cfg)
-            # Same chart in every palette preset for the viewer's palette menu: <data_dir>/pal/<name>/<file>
+            # Other palettes for the viewer's palette menu (<data_dir>/pal/<name>/<file>): usage_view.py draws one
+            # on demand from pal/render.json; render_all_palettes: true draws all 14 right away instead.
+            if not any(render_cfg.get(k) for k in ("baseline_color", "under_color", "over_color")):
+                try:
+                    (data_dir / "pal").mkdir(parents=True, exist_ok=True)
+                    atomic_write_text(data_dir / "pal" / "render.json", json.dumps(
+                        {"rows_csv": str(csv_path), "period_start": period_start_str, "out_name": out_png.name,
+                         "cfg": {k: v for k, v in render_cfg.items() if k != "palette"}}, ensure_ascii=False))
+                except Exception as exc:
+                    print(f"Warning: cannot save palette render settings: {exc}", file=sys.stderr)
             if not any(render_cfg.get(k) for k in ("baseline_color", "under_color", "over_color")) \
-                    and bool(resolve(None, "render_all_palettes", default=True)):
+                    and bool(resolve(None, "render_all_palettes", default=False)):
                 import usage_palette
                 for pal_name in usage_palette.names():
                     try:

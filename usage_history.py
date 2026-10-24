@@ -6,11 +6,14 @@ and state.json, and writes its own files under <data_dir>.
 
 Subcommands (all accept --config / --data-dir / --tz / --lang / --privacy / --theme):
   history                 Render <data_dir>/history/history-{1m,3m,6m,1y}.png + index.html
-  clock                   Render <data_dir>/history/clock-7d.png and clock-all.png
+  clock                   Render <data_dir>/history/clock-1d.png (last 24 h) and clock-wk-ot.png (this reset week,
+                          one colour per day, overlay + translucent); other ranges (1 month ... all, grouped by
+                          week / month / quarter / year) and layouts (os = overlay solid, sd = side by side) are
+                          drawn when the page asks for them
   sample [--pct N]        Take one reading -> <data_dir>/samples.csv, then re-render (failure-safe)
   sampler                 Run `sample` every sample_interval_minutes (single instance, aligned)
   checkin NAME [NOTE]     Append a check-in to <data_dir>/checkins.csv (--category ID, default other)
-  serve                   Localhost viewer: history page, manual refresh, check-in API
+  serve                   Localhost viewer: history page, manual refresh, check-in API, check for updates
   status                  Print sampler/server status JSON
 
 Files written: samples.csv (timestamp ISO-8601 with UTC offset, pct), checkins.csv
@@ -50,17 +53,23 @@ STR = {
         "sparse_short": "Not enough data ({n} week(s)); trend is indicative only", "empty": "No data in this range",
         "spend_title": "Extra spend per month (cumulative max within month)", "no_spend": "No extra spend recorded",
         "footer": "generated {t} ({z})  ·  pace {p:g}%/day  ·  * = week not complete",
-        "clock_eyebrow": "USAGE CLOCK // PER HOUR", "clock_7d": "Usage Clock — last 7 days", "clock_all": "Usage Clock — all time",
+        "clock_eyebrow": "USAGE CLOCK // PER HOUR", "clock_1d": "Usage Clock — last 24 hours", "clock_r": "Usage Clock — {r}",
+        "clock_rt": {"wk": "this week", "1m": "last month", "3m": "last quarter", "6m": "last 6 months", "1y": "last year", "all": "all time"},
+        "clock_ro": {"wk": "1 week", "1m": "1 month", "3m": "1 quarter", "6m": "6 months", "1y": "1 year", "all": "All"}, "clock_rl": "Range",
+        "clock_lo": {"ov": "Overlay", "sd": "Side by side"}, "clock_ll": "Layout", "clock_fo": {"t": "Translucent", "s": "Solid"}, "clock_fl": "Fill",
+        "clock_wd": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], "clock_day": "{wd} {md}", "clock_wkl": "Wk {i} {a}–{b}",
+        "clock_mon": "{mon} {y}", "clock_q": "Q{q} {y}", "clock_today": "{l} (today)", "clock_curp": "{l} (now)",
+        "clock_note_g": "Times in {z} · colour = day (or week / month / quarter), see the legend · length = % increase in that hour · long gaps skipped",
         "clock_peak": "Peak {h}:00–{h2}:00  avg +{v:.1f}%/h  ({n} intervals)", "clock_none": "No valid intervals yet",
         "collecting": "Collecting data ({n}/{m})", "clock_note": "Times in {z} · length/color = avg % increase in that hour · resets counted from new value · long gaps skipped",
-        "ck_legend": "Check-ins ({n})", "last": "Last update: {t} ({z})", "refresh": "Refresh now", "loading": "Loading…",
+        "ck_legend": "Check-ins ({n})", "last": "Last update: {t} ({z})", "refresh": "⟳ Refresh", "loading": "Loading…",
         "range": "Range", "name": "Name", "all": "All", "note": "Note", "time": "Time", "recent": "Recent check-ins",
         "per_name": "Per name", "top_hour": "Most common hour", "none_ck": "No check-ins yet", "ck_btn": "Check in",
         "ck_hint": "Open this page through the local server to check in here, or run: usage_history.py checkin <name> [note] --category <id>",
         "category": "Category", "per_cat": "Per category", "count": "Check-ins", "share": "Share", "last_ck": "Last",
         "week": "Week start", "days": "Days", "peak": "Peak", "pace": "Pace", "at100": "100%", "yes": "yes",
         "month": "Month", "amount": "Amount", "weekly_detail": "Weekly detail", "conn_err": "Cannot reach local server",
-        "clock_sub": "Average % increase per hour ({z}); 0:00 at top, clockwise", "no_clock": "Collecting data — clock charts appear after sampling starts",
+        "clock_sub": "% increase per hour ({z}); 0:00 at top, clockwise. Left: last 24 hours. Right: colour = day (or week / month / quarter), see the legend under the dial; length = % increase in that hour", "no_clock": "Collecting data — clock charts appear after sampling starts",
         "hour_fmt": "{h}",
     },
     "zh-TW": {
@@ -72,27 +81,46 @@ STR = {
         "sparse": "資料不足：{n} 週（建議 ≥ {m} 週）", "sparse_short": "資料不足（目前 {n} 週），趨勢僅供參考",
         "empty": "資料不足 — 此範圍尚無紀錄", "spend_title": "每月額外付費（取當月最高累計）", "no_spend": "此範圍無額外付費紀錄",
         "footer": "產生於 {t}（{z}）· 基準 {p:g}%/天 · * = 該週未滿",
-        "clock_eyebrow": "USAGE CLOCK // 每小時用量", "clock_7d": "用量時鐘 — 近 7 天", "clock_all": "用量時鐘 — 全部",
+        "clock_eyebrow": "USAGE CLOCK // 每小時用量", "clock_1d": "用量時鐘 — 近 24 小時", "clock_r": "用量時鐘 — {r}",
+        "clock_rt": {"wk": "本週", "1m": "近一個月", "3m": "近一季", "6m": "近半年", "1y": "近一年", "all": "全部"},
+        "clock_ro": {"wk": "一週", "1m": "一個月", "3m": "一季", "6m": "半年", "1y": "一年", "all": "全部"}, "clock_rl": "範圍",
+        "clock_lo": {"ov": "疊加", "sd": "並排"}, "clock_ll": "排列", "clock_fo": {"t": "半透明", "s": "實心"}, "clock_fl": "填色",
+        "clock_wd": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"], "clock_day": "{md} {wd}", "clock_wkl": "第{i}週 {a}–{b}",
+        "clock_mon": "{y}年{m}月", "clock_q": "{y} Q{q}", "clock_today": "{l}（今天）", "clock_curp": "{l}（目前）",
+        "clock_note_g": "時刻為 {z} · 顏色 = 不同天（或週／月／季），對照圖例 · 長度 = 該小時用量增加 · 間隔過長略過",
         "clock_peak": "尖峰 {h}:00–{h2}:00　平均 +{v:.1f}%/小時　（{n} 個區間）", "clock_none": "尚無有效區間",
         "collecting": "資料收集中（{n}/{m}）", "clock_note": "時刻為 {z} · 長度/顏色 = 該小時平均用量增加 · 週重置以新值計 · 間隔過長略過",
-        "ck_legend": "打卡（{n} 次）", "last": "最後更新：{t}（{z}）", "refresh": "立即更新", "loading": "讀取中…",
+        "ck_legend": "打卡（{n} 次）", "last": "最後更新：{t}（{z}）", "refresh": "⟳ 重新整理", "loading": "讀取中…",
         "range": "範圍", "name": "名字", "all": "全部", "note": "備註", "time": "時間", "recent": "最近打卡", "per_name": "各名字統計",
         "top_hour": "最常時段", "none_ck": "尚無打卡", "ck_btn": "打卡",
         "ck_hint": "以本機服務開啟此頁才能在這裡打卡；或執行：usage_history.py checkin <名字> [備註] --category <類別id>",
         "category": "類別", "per_cat": "各類別統計", "count": "次數", "share": "占比", "last_ck": "最近一次",
         "week": "週起始", "days": "天數", "peak": "峰值", "pace": "基準", "at100": "達 100%", "yes": "是",
         "month": "月份", "amount": "金額", "weekly_detail": "每週明細", "conn_err": "無法連線到本機服務",
-        "clock_sub": "每小時平均用量增加（{z}），0 時在上、順時針", "no_clock": "資料收集中 — 開始取樣後才會產生時鐘圖",
+        "clock_sub": "每小時用量增加（{z}），0 時在上、順時針。左圖：近 24 小時。右圖：顏色 = 不同天（或週／月／季），對照下方圖例；長度 = 該小時用量增加", "no_clock": "資料收集中 — 開始取樣後才會產生時鐘圖",
         "hour_fmt": "{h}時",
     },
 }
 # privacy / numeric: word-free symbols only (no service, product, timezone or city names)
+STR["zh-CN"] = dict(STR["zh-TW"], **{
+    "clock_tab": "时钟", "clock_1d": "用量时钟 — 近 24 小时", "clock_r": "用量时钟 — {r}",
+    "clock_rt": {"wk": "本周", "1m": "近一个月", "3m": "近一季", "6m": "近半年", "1y": "近一年", "all": "全部"},
+    "clock_ro": {"wk": "一周", "1m": "一个月", "3m": "一季", "6m": "半年", "1y": "一年", "all": "全部"}, "clock_rl": "范围",
+    "clock_lo": {"ov": "叠加", "sd": "并排"}, "clock_ll": "排列", "clock_fo": {"t": "半透明", "s": "实心"}, "clock_fl": "填色",
+    "clock_wd": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"], "clock_wkl": "第{i}周 {a}–{b}", "clock_curp": "{l}（当前）",
+    "clock_sub": "每小时用量增加（{z}），0 时在上、顺时针。左图：近 24 小时。右图：颜色 = 不同天（或周／月／季），对照下方图例；长度 = 该小时用量增加",
+    "clock_note_g": "时刻为 {z} · 颜色 = 不同天（或周／月／季），对照图例 · 长度 = 该小时用量增加 · 间隔过长略过",
+})
 STR["numeric"] = dict(STR["en"], **{
     "eyebrow": "", "title": "", "rwk": "W", "week_empty": "∅", "r1m": "1M", "r3m": "3M", "r6m": "6M", "r1y": "1Y", "clock_tab": "◷", "checkin_tab": "✓",
     "weeks": "#", "avg_peak": "Ø ▲", "hit100": "▲100", "extra": "∑ $", "over_n": "▲ {n}", "pace_sub": "{p:g}/d → {w:g}",
     "cap_sub": "▲100", "extra_sub": "{n}", "main": "", "leg_over": "▲", "leg_under": "▼", "leg_pace": "{p:g}/d", "leg_daily": "∑",
     "sparse": "{n}/{m}", "sparse_short": "{n}/{m}", "empty": "∅", "spend_title": "$", "no_spend": "∅", "footer": "{t}",
-    "clock_eyebrow": "", "clock_7d": "◷ 7", "clock_all": "◷ ∞", "clock_peak": "▲ {h}–{h2}  +{v:.1f}  ({n})", "clock_none": "∅",
+    "clock_eyebrow": "", "clock_1d": "◷ 1", "clock_r": "◷ {r}", "clock_rt": {"wk": "W", "1m": "1M", "3m": "3M", "6m": "6M", "1y": "1Y", "all": "∞"},
+    "clock_ro": {"wk": "W", "1m": "1M", "3m": "3M", "6m": "6M", "1y": "1Y", "all": "∞"}, "clock_rl": "◷",
+    "clock_lo": {"ov": "▤", "sd": "▥"}, "clock_ll": "◫", "clock_fo": {"t": "◌", "s": "●"}, "clock_fl": "◐",
+    "clock_wd": ["1", "2", "3", "4", "5", "6", "7"], "clock_day": "{md}", "clock_wkl": "{i}: {a}–{b}", "clock_mon": "{y}-{m:02d}", "clock_q": "{y} Q{q}",
+    "clock_today": "{l} ●", "clock_curp": "{l} ●", "clock_note_g": "", "clock_peak": "▲ {h}–{h2}  +{v:.1f}  ({n})", "clock_none": "∅",
     "collecting": "{n}/{m}", "clock_note": "", "ck_legend": "✓ {n}", "last": "↻ {t}", "refresh": "↻", "loading": "…",
     "range": "", "name": "", "all": "∗", "note": "", "time": "", "recent": "✓", "per_name": "∑", "top_hour": "▲",
     "none_ck": "∅", "ck_btn": "✓", "ck_hint": "", "week": "", "days": "D", "peak": "▲", "pace": "→", "at100": "100",
@@ -152,6 +180,8 @@ class Ctx:
         self.categories = usage_categories.load(cfg.get("checkin_categories"))
         self.max_categories = max(1, int(cfg.get("checkin_max_categories", usage_checkins.DEFAULT_MAX_CATEGORIES)))
         self.open_limit_hours = float(cfg.get("checkin_open_limit_hours", usage_checkins.DEFAULT_OPEN_LIMIT_HOURS))
+        # off: only the configured palette is drawn on every refresh; others are drawn when the page asks for them
+        self.render_all_palettes = bool(cfg.get("render_all_palettes", False))
         self.theme_path = g("theme", "theme", None)
         self.theme = self._theme(self.theme_path, self.palette)
 
@@ -195,7 +225,7 @@ class Ctx:
     @staticmethod
     def _theme(path, palette=None):
         # over/under/baseline/notice come from the palette unless a theme file sets them explicitly
-        t = {"bg_color": "#000000", "text_color": "#E8F4FF", "accent_color": "#7FE7FF", "baseline_color": None,
+        t = {"bg_color": "#000000", "text_color": "#E8F4FF", "accent_color": None, "baseline_color": None,
              "under_color": None, "over_color": None, "notice_color": None}
         if path:
             p = Path(path) if Path(path).is_absolute() else (HERE / path if (HERE / path).exists() else Path(path))
@@ -212,6 +242,8 @@ class Ctx:
         for k in ("over", "under", "baseline", "notice"):
             t[k + "_color"] = t[k + "_color"] or pal[k]
         t["palette"] = usage_palette.normalize(palette)
+        # the accent (frames, tabs, eyebrow text, focus rings) is the palette's cool colour unless the theme pins one
+        t["accent_color"] = t["accent_color"] or t["under_color"]
         t["card"] = _blend(t["bg_color"], t["text_color"], 0.05)
         t["border"] = _blend(t["bg_color"], t["accent_color"], 0.25)
         t["dim"] = _blend(t["text_color"], t["bg_color"], 0.35)
@@ -558,10 +590,10 @@ def draw_range(ctx, S, path, now, zl):
     fig.savefig(path, facecolor=T["bg_color"]); plt.close(fig)
 
 
-def hourly_rates(samples, since, max_gap_h):
+def hourly_rates(samples, since, max_gap_h, until=None):
     b = {h: [] for h in range(24)}; n = 0
     for (t1, p1), (t2, p2) in zip(samples, samples[1:]):
-        if since is not None and t1 < since:
+        if (since is not None and t1 < since) or (until is not None and t1 >= until):
             continue
         gh = (t2 - t1).total_seconds() / 3600
         if gh <= 0 or gh > max_gap_h:
@@ -570,9 +602,69 @@ def hourly_rates(samples, since, max_gap_h):
     return b, n
 
 
-def draw_clock(ctx, samples, cks, colors, path, title, since, now, zl):
+CLOCK_MODES = ("ot", "os", "sd")  # overlay translucent (default) / overlay solid / side by side
+
+
+def clock_periods(ctx, key, since, now, samples):
+    """Colour groups for the clock dial, oldest first: [(label, start, end, is_current)], at most 8.
+    wk -> days, 1m -> reset weeks, 3m/6m -> months, 1y -> quarters, all -> quarters (or years past 8 quarters).
+    None for the 24-hour dial (one series coloured by size)."""
+    if key == "1d":
+        return None
+    L = ctx.L
+    st = since or (samples[0][0] if samples else now)
+    out = []
+
+    def add(label, a, b, cur):
+        a2, b2 = max(a, st), min(b, now)
+        if a2 < b2 or cur:
+            out.append(((L["clock_today"] if key == "wk" else L["clock_curp"]).format(l=label) if cur else label, a2, b2, cur))
+
+    def month_start(y, m):
+        return st.replace(year=y, month=m, day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    if key == "wk":
+        d = st.replace(hour=0, minute=0, second=0, microsecond=0)
+        while d < now:
+            e = (d + timedelta(days=1, hours=3)).replace(hour=0, minute=0)
+            add(L["clock_day"].format(wd=L["clock_wd"][d.weekday()], md=f"{d:%m/%d}"), d, e, d.date() == now.date())
+            d = e
+    elif key == "1m":
+        try:
+            ws = _period_start(ctx, st)
+        except Exception:
+            ws = st
+        i = 1
+        while ws < now:
+            we = ws + timedelta(days=ctx.period_days)
+            add(L["clock_wkl"].format(i=i, a=f"{max(ws, st):%m/%d}", b=f"{min(we, now) - timedelta(seconds=1):%m/%d}"), ws, we, ws <= now < we)
+            ws = we; i += 1
+    else:
+        unit = {"3m": 1, "6m": 1, "1y": 3}.get(key, 3)
+        if key == "all" and ((now.year - st.year) * 12 + now.month - st.month) // 3 + 1 > 8:
+            unit = 12
+        y, m = st.year, ((st.month - 1) // unit) * unit + 1
+        while True:
+            a = month_start(y, m)
+            if a >= now:
+                break
+            y2, m2 = (y + (m - 1 + unit) // 12, (m - 1 + unit) % 12 + 1)
+            b = month_start(y2, m2)
+            if unit == 1:
+                lab = L["clock_mon"].format(mon=calendar.month_abbr[m], y=y, m=m)
+            elif unit == 3:
+                lab = L["clock_q"].format(q=(m - 1) // 3 + 1, y=y)
+            else:
+                lab = str(y)
+            add(lab, a, b, a <= now < b)
+            y, m = y2, m2
+    return out[-8:]
+
+
+def draw_clock(ctx, samples, cks, colors, path, title, since, now, zl, key="1d", mode="ot"):
     plt = _plt(ctx)
-    from matplotlib.colors import LinearSegmentedColormap, Normalize
+    from matplotlib.colors import LinearSegmentedColormap, Normalize, to_rgba
+    from matplotlib.patches import Patch
     from matplotlib.ticker import FuncFormatter
     T, L = ctx.theme, ctx.L
     cmap = LinearSegmentedColormap.from_list("hud", [T["under_color"], T["over_color"]])
@@ -580,18 +672,42 @@ def draw_clock(ctx, samples, cks, colors, path, title, since, now, zl):
     b, n = hourly_rates(samples, since, max_gap)
     avg = [(sum(v) / len(v)) if v else 0.0 for _, v in sorted(b.items())]
     need = max(6, min(24, int(24 * 60 / ctx.interval)))
-    fig = plt.figure(figsize=(7.2, 8.0), dpi=110, facecolor=T["bg_color"])
+    periods = clock_periods(ctx, key, since, now, samples)
+    series = []  # (label, colour, [24 values], has_data, is_current)
+    if periods:
+        cols = usage_palette.period_colors(T["palette"], T["is_light"], 8)
+        for gi, (lab, a, e, cur) in enumerate(periods):
+            gb, gn = hourly_rates(samples, a, max_gap, e)
+            series.append((lab, cols[gi % len(cols)], [(sum(v) / len(v)) if v else 0.0 for _, v in sorted(gb.items())], gn > 0, cur))
+    fig = plt.figure(figsize=(7.2, 8.6), dpi=110, facecolor=T["bg_color"])
     if L["clock_eyebrow"]:
-        fig.text(0.05, 0.965, L["clock_eyebrow"], color=T["accent_color"], fontsize=9.5, fontweight="bold", va="top")
-    fig.text(0.05, 0.925, title, color=T["text_color"], fontsize=18, fontweight="bold", va="center")
+        fig.text(0.05, 0.972, L["clock_eyebrow"], color=T["accent_color"], fontsize=9.5, fontweight="bold", va="top")
+    fig.text(0.05, 0.94, title, color=T["text_color"], fontsize=18, fontweight="bold", va="center")
     st = since or (samples[0][0] if samples else now)
-    fig.text(0.05, 0.89, f"{st:%Y-%m-%d %H:%M} → {now:%Y-%m-%d %H:%M}" + ("" if ctx.privacy else f" ({zl})") + f" · n={n}",
+    fig.text(0.05, 0.908, f"{st:%Y-%m-%d %H:%M} → {now:%Y-%m-%d %H:%M}" + ("" if ctx.privacy else f" ({zl})") + f" · n={n}",
              color=T["dim"], fontsize=10, fontweight="bold", va="center")
-    ax = fig.add_axes([0.14, 0.19, 0.72, 0.64], projection="polar", facecolor=T["card"])
+    ax = fig.add_axes([0.14, 0.27, 0.72, 0.59], projection="polar", facecolor=T["card"])
     ax.set_theta_zero_location("N"); ax.set_theta_direction(-1)
     w = 2 * math.pi / 24; th = [(h + 0.5) * w for h in range(24)]
-    vmax = max(max(avg), 1.0); norm = Normalize(0, vmax)
-    ax.bar(th, avg, width=w * 0.86, color=[cmap(norm(a)) for a in avg], edgecolor=T["border"], lw=0.6, alpha=0.95, zorder=3)
+    vmax = max([max(avg), 1.0] + [max(v) for _, _, v, _, _ in series]); norm = Normalize(0, vmax)
+    if not series:
+        ax.bar(th, avg, width=w * 0.86, color=[cmap(norm(a)) for a in avg], edgecolor=T["border"], lw=0.6, alpha=0.95, zorder=3)
+    elif mode == "sd":  # thin wedges side by side, one per period, oldest first (clockwise)
+        g = len(series); ww = w * 0.86 / g
+        for gi, (_, col, vals, _, _) in enumerate(series):
+            ax.bar([h * w + w * 0.07 + (gi + 0.5) * ww for h in range(24)], vals, width=ww * 0.92, color=col, edgecolor=T["card"], lw=0.3, zorder=3)
+    else:  # overlay: full-width bars per hour, longest drawn first so a shorter bar never hides a taller one
+        for h in range(24):
+            order = sorted(range(len(series)), key=lambda gi: -series[gi][2][h])
+            for rank, gi in enumerate(order):
+                v = series[gi][2][h]
+                if v <= 0:
+                    continue
+                col = series[gi][1]
+                if mode == "os":
+                    ax.bar(th[h], v, width=w * 0.86, color=col, edgecolor=T["card"], lw=0.6, zorder=3 + rank * 0.01)
+                else:
+                    ax.bar(th[h], v, width=w * 0.86, facecolor=to_rgba(col, 0.4), edgecolor=col, lw=1.1, zorder=3 + rank * 0.01)
     ax.set_xticks([h * w for h in range(0, 24, 3)])
     ax.set_xticklabels([L["hour_fmt"].format(h=h) for h in range(0, 24, 3)], color=T["text_color"], fontsize=11, fontweight="bold")
     ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:.1f}%")); ax.set_rlabel_position(7.5)
@@ -609,33 +725,78 @@ def draw_clock(ctx, samples, cks, colors, path, title, since, now, zl):
         ax.scatter(tt, [vmax * (1.12 + 0.07 * i)] * len(tt), s=22, color=colors[nm], edgecolors=T["card"], linewidths=0.5, zorder=6,
                    label=(f"#{names.index(nm) + 1}" if ctx.privacy else nm))
     if shown:
-        leg = fig.legend(loc="lower left", bbox_to_anchor=(0.02, 0.13), frameon=False, fontsize=8.5, labelcolor=T["text_color"],
-                         title=L["ck_legend"].format(n=len(ck)), handletextpad=0.3)
+        leg = ax.legend(loc="lower left", bbox_to_anchor=(-0.16, -0.12), frameon=False, fontsize=8.5, labelcolor=T["text_color"],
+                        title=L["ck_legend"].format(n=len(ck)), handletextpad=0.3)
         leg.get_title().set_color(T["dim"]); leg.get_title().set_fontsize(8.5)
-    for h, a in enumerate(avg):
-        if a > 0 and a >= vmax * 0.35:
-            ax.text(th[h], a + vmax * 0.06, f"{a:.1f}", color=T["text_color"], fontsize=8, ha="center", va="center", zorder=5)
+    if not series:
+        for h, a in enumerate(avg):
+            if a > 0 and a >= vmax * 0.35:
+                ax.text(th[h], a + vmax * 0.06, f"{a:.1f}", color=T["text_color"], fontsize=8, ha="center", va="center", zorder=5)
     if n:
         top = max(range(24), key=lambda h: avg[h])
         summ = L["clock_peak"].format(h=top, h2=top + 1, v=avg[top], n=n)
     else:
         summ = L["clock_none"]
-    fig.text(0.5, 0.105, summ, color=T["text_color"], fontsize=11, fontweight="bold", ha="center")
-    sm = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
-    cax = fig.add_axes([0.25, 0.062, 0.5, 0.012]); cb = fig.colorbar(sm, cax=cax, orientation="horizontal")
-    cb.outline.set_edgecolor(T["border"]); cb.ax.tick_params(colors=T["dim"], labelsize=8)
-    if L["clock_note"]:
-        fig.text(0.5, 0.018, L["clock_note"].format(z=zl), color=T["dim"], fontsize=7.5, ha="center")
+    fig.text(0.5, 0.222, summ, color=T["text_color"], fontsize=11, fontweight="bold", ha="center")
+    if series:  # legend under the dial: colour = period (oldest first); periods without data are dimmed
+        hs = [Patch(facecolor=to_rgba(col, 0.45 if (mode == "ot" and has) else (1.0 if has else 0.25)), edgecolor=to_rgba(col, 1.0 if has else 0.3),
+                    lw=1.2, label=lab) for lab, col, _, has, _ in series]
+        nc = min(4, len(hs)); rows = -(-len(hs) // nc)
+        order = [r * nc + c for c in range(nc) for r in range(rows) if r * nc + c < len(hs)]  # read left to right, then down
+        hs = [hs[i] for i in order]; series = [series[i] for i in order]
+        lg = fig.legend(handles=hs, loc="upper center", bbox_to_anchor=(0.5, 0.198), ncol=nc, frameon=False, fontsize=9,
+                        handlelength=1.4, columnspacing=1.2, handletextpad=0.5)
+        for txt, (_, _, _, has, cur) in zip(lg.get_texts(), series):
+            txt.set_color(T["text_color"] if has else T["dim"]); txt.set_alpha(1.0 if has else 0.6)
+            if cur:
+                txt.set_fontweight("bold")
+        note = L.get("clock_note_g") or ""
+    else:
+        sm = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
+        cax = fig.add_axes([0.25, 0.165, 0.5, 0.012]); cb = fig.colorbar(sm, cax=cax, orientation="horizontal")
+        cb.outline.set_edgecolor(T["border"]); cb.ax.tick_params(colors=T["dim"], labelsize=8)
+        note = L["clock_note"]
+    if note:
+        fig.text(0.5, 0.04, note.format(z=zl), color=T["dim"], fontsize=7.5, ha="center", wrap=True)
     if n < need:
-        fig.text(0.95, 0.925, L["collecting"].format(n=n, m=need), color=T["notice_color"], fontsize=11, fontweight="bold", ha="right", va="center",
+        fig.text(0.95, 0.94, L["collecting"].format(n=n, m=need), color=T["notice_color"], fontsize=11, fontweight="bold", ha="right", va="center",
                  bbox=dict(boxstyle="round,pad=0.35", facecolor=_blend(T["bg_color"], T["notice_color"], 0.12), edgecolor=T["notice_color"]))
     fig.savefig(path, facecolor=T["bg_color"]); plt.close(fig)
 
 
-def _palette_dirs(ctx):
-    """(palette, out_dir): the configured palette goes to history/ (embedded in index.html), every
-    preset also goes to history/pal/<name>/ so the page's palette menu can swap images."""
-    return [(name, ctx.hist_dir / "pal" / name) for name in usage_palette.names()]
+GEN_FILE = ".gen"  # history/.gen: id of the latest render; history/pal/<name>/.gen: render that palette matches
+
+
+def _cycle_palettes(ctx):
+    """Palettes drawn on every refresh: the configured one (all 14 with render_all_palettes)."""
+    return usage_palette.names() if ctx.render_all_palettes else [ctx.palette]
+
+
+def _palette_dirs(ctx, names=None):
+    """(palette, out_dir): images go to history/pal/<name>/; the configured palette is also copied to history/
+    (embedded in index.html). Other palettes are drawn lazily by render_palette() when the page asks."""
+    return [(name, ctx.hist_dir / "pal" / name) for name in (_cycle_palettes(ctx) if names is None else names)]
+
+
+def _read_text(p):
+    try:
+        return p.read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+def _write_text(p, text):
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_name(p.name + ".tmp"); tmp.write_text(text, encoding="utf-8"); os.replace(tmp, p)
+
+
+def _new_gen(ctx, names):
+    """A fresh render id; palettes not drawn in this pass become stale and are redrawn on demand."""
+    gen = f"{time.time_ns():x}"
+    _write_text(ctx.hist_dir / GEN_FILE, gen)
+    for _, d in _palette_dirs(ctx, names):
+        _write_text(d / GEN_FILE, gen)
+    return gen
 
 
 def _publish_default(ctx, files):
@@ -657,59 +818,159 @@ def _with_palette(ctx, name, fn):
         ctx.theme = keep
 
 
+def _clock_inputs(ctx):
+    now = ctx.now()
+    return now, ctx.zlabel(now), [x for x in load_samples(ctx) if x[0] <= now], load_checkins(ctx)
+
+
+# Clock tab: left = last 24 hours, right = a range picked on the page. "wk" (the current reset week) is drawn on
+# every refresh; the others only when the page asks (POST /api/palette/render {"clock": key}), then cached.
+CLOCK_RANGES = ("wk", "1m", "3m", "6m", "1y", "all")
+
+
+def _clock_since(ctx, key, now):
+    if key == "1d":
+        return now - timedelta(hours=24)
+    if key == "wk":
+        try:
+            return _period_start(ctx, now)
+        except Exception:
+            return now - timedelta(days=ctx.period_days)
+    if key == "all":
+        return None
+    return _months_back(now, {"1m": 1, "3m": 3, "6m": 6, "1y": 12}[key])
+
+
+def _clock_title(ctx, key):
+    L = ctx.L
+    return L["clock_1d"] if key == "1d" else L["clock_r"].format(r=L["clock_rt"][key])
+
+
+def clock_file(key, mode=None):
+    return "clock-1d.png" if key == "1d" else f"clock-{key}-{mode or CLOCK_MODES[0]}.png"
+
+
+def _draw_clocks(ctx, names, now, zl, s, ck, items=(("1d", None), ("wk", "ot"))):
+    cks, _, colors = ck
+    for name, d in _palette_dirs(ctx, names):
+        d.mkdir(parents=True, exist_ok=True)
+        for key, mode in items:
+            _with_palette(ctx, name, lambda: draw_clock(ctx, s, cks, colors, d / clock_file(key, mode), _clock_title(ctx, key),
+                                                          _clock_since(ctx, key, now), now, zl, key, mode or "ot"))
+
+
 def render_clock(ctx):
     ctx.hist_dir.mkdir(parents=True, exist_ok=True)
-    now = ctx.now(); zl = ctx.zlabel(now)
-    s = [x for x in load_samples(ctx) if x[0] <= now]
-    cks, _, colors = load_checkins(ctx)
-    for name, d in _palette_dirs(ctx):
-        d.mkdir(parents=True, exist_ok=True)
-        _with_palette(ctx, name, lambda: (
-            draw_clock(ctx, s, cks, colors, d / "clock-7d.png", ctx.L["clock_7d"], now - timedelta(days=7), now, zl),
-            draw_clock(ctx, s, cks, colors, d / "clock-all.png", ctx.L["clock_all"], None, now, zl)))
-    _publish_default(ctx, ["clock-7d.png", "clock-all.png"])
-    return {"ok": True, "samples": len(s), "files": [str(ctx.hist_dir / "clock-7d.png"), str(ctx.hist_dir / "clock-all.png")]}
+    now, zl, s, ck = _clock_inputs(ctx)
+    names = _cycle_palettes(ctx)
+    _draw_clocks(ctx, names, now, zl, s, ck)
+    _publish_default(ctx, ["clock-1d.png", clock_file("wk")])
+    for d in [ctx.hist_dir] + [p for _, p in _palette_dirs(ctx)]:
+        for old in ("clock-7d.png", "clock-all.png", "clock-wk.png"):  # names used by earlier versions
+            if (d / old).exists():
+                (d / old).unlink()
+    _new_gen(ctx, names)
+    return {"ok": True, "samples": len(s), "files": [str(ctx.hist_dir / "clock-1d.png"), str(ctx.hist_dir / clock_file("wk"))]}
 
 
-def render_current_week(ctx, nowa):
-    """'This week' tab: the current week's daily cumulative chart (chart_hud) in every palette preset."""
+def render_clock_range(ctx, name, key, mode="ot"):
+    """history/pal/<name>/clock-<key>-<mode>.png for the clock tab's range / layout menus; cached until the next refresh."""
+    d = ctx.hist_dir / "pal" / name
+    gen = _read_text(ctx.hist_dir / GEN_FILE)
+    fn = clock_file(key, mode)
+    stamp = d / f"{GEN_FILE}-{fn[:-4]}"
+    if gen and (d / fn).exists() and _read_text(stamp) == gen:
+        return False
+    now, zl, s, ck = _clock_inputs(ctx)
+    _draw_clocks(ctx, [name], now, zl, s, ck, items=((key, mode),))
+    if gen:
+        _write_text(stamp, gen)
+    return True
+
+
+def render_current_week(ctx, nowa, names=None):
+    """'This week' tab: the current week's daily cumulative chart (chart_hud) for the given palettes."""
     out = ctx.hist_dir / "week-current.png"
+    publish = names is None or ctx.palette in names
     try:
         ws = _period_start(ctx, nowa)
         f = ctx.data_dir / f"week-{ws.astimezone(ctx.tz):%Y-%m-%d}.csv"
         rows = [r for r in csv.DictReader(f.open(encoding="utf-8"))] if f.exists() else []
         if not rows:
-            for d in [out] + [dd / "week-current.png" for _, dd in _palette_dirs(ctx)]:
+            for d in ([out] if publish else []) + [dd / "week-current.png" for _, dd in _palette_dirs(ctx, names)]:
                 if d.exists():
                     d.unlink()
             return False
         import chart_hud
-        for name, d in _palette_dirs(ctx):
+        for name, d in _palette_dirs(ctx, names):
             d.mkdir(parents=True, exist_ok=True)
             chart_hud.render(rows, str(d / "week-current.png"), f"{ws.astimezone(ctx.tz):%Y-%m-%d}",
                              {"lang": "numeric" if ctx.privacy else ctx.lang, "privacy": ctx.privacy, "pace": ctx.pace,
-                              "palette": name, "reset_hm": f"{ws.astimezone(ctx.tz):%H:%M}"})
-        _publish_default(ctx, ["week-current.png"])
+                              "palette": name, "reset_hm": f"{ws.astimezone(ctx.tz):%H:%M}",
+                              "accent_color": _theme_explicit_value(ctx.theme_path, "accent")})
+        if publish:
+            _publish_default(ctx, ["week-current.png"])
         return True
     except Exception as exc:
         print(f"Warning: current week chart failed: {exc}", file=sys.stderr)
         return False
 
 
-def render_history(ctx):
-    ctx.hist_dir.mkdir(parents=True, exist_ok=True)
+def _history_inputs(ctx):
     nowa = ctx.now(); zl = ctx.zlabel(nowa); now = nowa.replace(tzinfo=None, second=0, microsecond=0)
     weeks, extra = load_weeks(ctx), load_extra(ctx)
-    sums = [summarize(ctx, weeks, extra, k, m, mw, now) for k, m, mw in RANGES]
-    for name, d in _palette_dirs(ctx):
+    return nowa, zl, now, [summarize(ctx, weeks, extra, k, m, mw, now) for k, m, mw in RANGES]
+
+
+def _draw_ranges(ctx, names, sums, now, zl):
+    for name, d in _palette_dirs(ctx, names):
         d.mkdir(parents=True, exist_ok=True)
         for S in sums:
             _with_palette(ctx, name, lambda: draw_range(ctx, S, d / f"history-{S['key']}.png", now, zl))
+
+
+def render_history(ctx):
+    ctx.hist_dir.mkdir(parents=True, exist_ok=True)
+    nowa, zl, now, sums = _history_inputs(ctx)
+    names = _cycle_palettes(ctx)
+    _draw_ranges(ctx, names, sums, now, zl)
     _publish_default(ctx, [f"history-{S['key']}.png" for S in sums])
-    render_current_week(ctx, nowa)
-    write_html(ctx, sums, now, nowa, zl)
+    render_current_week(ctx, nowa, names)
+    gen = _new_gen(ctx, names)
+    write_html(ctx, sums, now, nowa, zl, gen)
     return {"ok": True, "html": str(ctx.hist_dir / "index.html"),
             "ranges": {S["key"]: {"weeks": S["n"], "sparse": S["sparse"]} for S in sums}}
+
+
+def render_palette(ctx, name, clock=None, mode=None):
+    """Draw one palette's full image set into history/pal/<name>/ when the page switches to it (plus, with
+    clock=<range>, that clock-tab range). Cached: nothing is drawn while the files match the latest render."""
+    if name not in usage_palette.names():
+        return {"ok": False, "error": "unknown palette"}
+    if clock is not None and clock not in CLOCK_RANGES:
+        return {"ok": False, "error": "unknown clock range"}
+    if mode is not None and mode not in CLOCK_MODES:
+        return {"ok": False, "error": "unknown clock layout"}
+    extra = clock is not None and (clock, mode or "ot") != ("wk", "ot")
+    d = ctx.hist_dir / "pal" / name
+    gen = _read_text(ctx.hist_dir / GEN_FILE)
+    t0 = time.perf_counter()
+    if gen and _read_text(d / GEN_FILE) == gen:
+        drew = extra and render_clock_range(ctx, name, clock, mode or "ot")
+        out = {"ok": True, "name": name, "v": gen, "cached": not drew}
+        return dict(out, seconds=round(time.perf_counter() - t0, 2)) if drew else out
+    ctx.hist_dir.mkdir(parents=True, exist_ok=True)
+    now, zl, s, ck = _clock_inputs(ctx)
+    _draw_clocks(ctx, [name], now, zl, s, ck)
+    nowa, zl2, now2, sums = _history_inputs(ctx)
+    _draw_ranges(ctx, [name], sums, now2, zl2)
+    render_current_week(ctx, nowa, [name])
+    if not gen:
+        gen = f"{time.time_ns():x}"; _write_text(ctx.hist_dir / GEN_FILE, gen)
+    _write_text(d / GEN_FILE, gen)
+    if extra:
+        render_clock_range(ctx, name, clock, mode or "ot")
+    return {"ok": True, "name": name, "v": gen, "cached": False, "seconds": round(time.perf_counter() - t0, 2)}
 
 
 # Ledger status bar + browser notifications (Web Notifications API; permission is asked from a button,
@@ -746,34 +1007,183 @@ LEDGER_STR = {
 }
 
 
-# Palette switcher: sets the CSS colour variables and swaps chart images to history/pal/<name>/ (relative
-# paths, so it also works when index.html is opened as a file). The choice is remembered per browser.
-PALETTE_JS = """(function(){var P=JSON.parse(document.getElementById('paldata').textContent),s=document.getElementById('palsel'),KEY='usage.palette';
-function apply(n){if(!P.table[n])n=P.default;var c=P.table[n][P.light?'light':'dark'],r=document.documentElement.style;
-['over','under','baseline','notice'].forEach(function(k){if(!P.fixed[k])r.setProperty('--'+k,c[k]);});
-document.querySelectorAll('img[data-f]').forEach(function(i){if(!i.dataset.orig)i.dataset.orig=i.src;
-i.src=(n===P.default)?i.dataset.orig:('pal/'+n+'/'+i.dataset.f);});if(s)s.value=n;}
-var n=P.default;try{n=localStorage.getItem(KEY)||P.default;}catch(e){}apply(n);
-if(s)s.onchange=function(){try{localStorage.setItem(KEY,s.value);}catch(e){}apply(s.value);};})();"""
+UPDATE_STR = {  # "Check for updates" / "Update" (POST /api/update/check, /api/update/apply); served page only
+    "en": {"btn": "Check for updates", "go": "Update", "checking": "Checking…",
+           "new": "New version: {h} {s} ({n} behind)", "up_to_date": "You have the latest version.",
+           "not_git": "This folder was not installed with git clone (for example from a ZIP), so it cannot update itself. "
+                      "Download the new version by hand, or reinstall with git clone (you can move your usage-data folder over).",
+           "no_git": "Git was not found, so updates cannot be checked. Install Git and try again.",
+           "no_remote": "This folder has no 'origin' remote, so updates cannot be checked.",
+           "fetch_failed": "Could not reach GitHub to check for updates (are you offline?). Try again later.",
+           "local_changes": "A new version is out, but program files in this folder were changed. To keep your changes, "
+                            "it will not update by itself. Please update by hand.",
+           "diverged": "A new version is out, but this folder has its own commits that GitHub does not have. "
+                       "It will not update by itself. Please update by hand.",
+           "wrong_branch": "This folder is not on the main branch, so it will not update by itself.",
+           "git_error": "Could not check for updates.", "cooldown": "Please wait {s}s before checking again.",
+           "busy": "An update is already running.", "confirm": "Update and restart the dashboard now? Your data is kept.",
+           "updating": "Updating… (about 1–3 minutes; the page reloads by itself)",
+           "slow": "The update is taking too long. See update.log in the data folder, or update with the commands in the README.",
+           "failed": "The update did not start: {e}", "auto": "Check for updates automatically"},
+    "zh-TW": {"btn": "檢查更新", "go": "更新", "checking": "檢查中…",
+              "new": "有新版本：{h} {s}（落後 {n} 個）", "up_to_date": "已經是最新版本。",
+              "not_git": "這個資料夾不是用 git clone 安裝的（例如從 ZIP 解壓縮），所以不能自動更新。"
+                         "請手動下載新版，或改用 git clone 重新安裝（usage-data 資料夾可以直接搬過去）。",
+              "no_git": "找不到 Git，無法檢查更新。請先安裝 Git 再試一次。",
+              "no_remote": "這個資料夾沒有設定 origin，無法檢查更新。",
+              "fetch_failed": "連不到 GitHub，無法檢查更新（可能沒有網路）。請稍後再試。",
+              "local_changes": "有新版本，但這個資料夾裡的程式檔被改過。為了不蓋掉你的修改，不會自動更新，請手動更新。",
+              "diverged": "有新版本，但這個資料夾有 GitHub 上沒有的提交，不會自動更新，請手動更新。",
+              "wrong_branch": "這個資料夾目前不在 main 分支，不會自動更新。",
+              "git_error": "無法檢查更新。", "cooldown": "請等 {s} 秒再檢查。",
+              "busy": "已經在更新了。", "confirm": "要現在更新並重新啟動儀表板嗎？你的資料會保留。",
+              "updating": "更新中…（大約 1–3 分鐘，完成後頁面會自動重新整理）",
+              "slow": "更新等太久了。請看資料資料夾裡的 update.log，或照 README 的指令手動更新。",
+              "failed": "更新沒有開始：{e}", "auto": "自動檢查更新"},
+    "numeric": {"btn": "⇪", "go": "⇪ ↻", "checking": "…", "new": "⇪ {h} (−{n})", "up_to_date": "✓",
+                "not_git": "× zip", "no_git": "× git", "no_remote": "× git", "fetch_failed": "× ⇅", "local_changes": "× ✎",
+                "diverged": "× ⑂", "wrong_branch": "× ⑂", "git_error": "×", "cooldown": "⌛ {s}s", "busy": "↻ …",
+                "confirm": "⇪ ↻ ?", "updating": "↻ …", "slow": "× log", "failed": "×", "auto": "⇪ ⏱", "privacy": True},
+}
+UPDATE_CHECK_COOLDOWN = 30  # seconds between real "git fetch" runs; a repeat click inside it gets the last answer
+UPDATE_AUTO_FIRST_DELAY = 60  # automatic check: first look a minute after start (then about once a day)
 
 
-def _theme_explicit(path):
-    """Which semantic colours a theme file pins (those do not change with the palette)."""
-    out = {"over": False, "under": False, "baseline": False, "notice": False}
+# Palette switcher: a keyboard-usable list (button + role=listbox) with each palette's two colours. Picking one asks
+# the server to draw that palette (POST /api/palette/render, cached), preloads its images from history/pal/<name>/,
+# then switches the CSS colour variables (--over/--under/--accent/--bd...) and the images together. The choice is
+# remembered per browser (localStorage 'usage.palette'). Opened as a file, only palettes already on disk can be shown.
+PALETTE_JS = r"""(function(){var $=function(i){return document.getElementById(i);},P=JSON.parse($('paldata').textContent),KEY='usage.palette',CK={r:'usage.clockRange',l:'usage.clockLayout',f:'usage.clockFill'},D={r:'wk',l:'ov',f:'t'},
+served=/^https?:$/.test(location.protocol),btn=$('palbtn'),msg=$('palmsg'),V=P.light?'light':'dark',cur=P.default,CR={r:'wk',l:'ov',f:'t'},seq=0,
+TKN=(document.querySelector('meta[name="usage-token"]')||{}).content||'',clk=$('clkimg'),
+imgs=[].slice.call(document.querySelectorAll('img[data-f]'));imgs.forEach(function(i){i.dataset.orig=i.getAttribute('src');i.dataset.f0=i.dataset.f;});
+function rgb(h){h=String(h).replace('#','');if(h.length==3)h=h.replace(/./g,'$&$&');return [0,2,4].map(function(i){return parseInt(h.substr(i,2),16)||0;});}
+function mix(a,b,t){var x=rgb(a),y=rgb(b);return '#'+x.map(function(v,i){return ('0'+Math.round(v+(y[i]-v)*t).toString(16)).slice(-2);}).join('');}
+function lum(h){var c=rgb(h).map(function(v){v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4);});return 0.2126*c[0]+0.7152*c[1]+0.0722*c[2];}
+function vars(n){var c=P.table[n][V],o={};['over','under','baseline','notice'].forEach(function(k){if(!P.fixed[k])o['--'+k]=c[k];});
+var a=P.fixed.accent?P.accent:(P.fixed.under?P.under:c.under);o['--accent']=a;o['--bd']=mix(P.bg,a,0.25);o['--on-accent']=lum(a)>0.4?'#0B0F14':'#FFFFFF';return o;}
+function mode(c){return c.l==='sd'?'sd':'o'+c.f;}function same(a,b){return a.r===b.r&&a.l===b.l&&a.f===b.f;}
+function fileOf(i,c){return i===clk?'clock-'+c.r+'-'+mode(c)+'.png':i.dataset.f0;}
+function src(i,n,r,v){var f=fileOf(i,r);return (n===P.default&&f===i.dataset.f0)?i.dataset.orig:'pal/'+n+'/'+f+(v?'?v='+encodeURIComponent(v):'');}
+function pre(u){return new Promise(function(res){var im=new Image();im.onload=function(){(im.decode?im.decode():Promise.resolve()).then(function(){res(true);},function(){res(true);});};
+im.onerror=function(){res(false);};im.src=u;});}
+function say(t,spin){msg.textContent='';if(spin){var e=document.createElement('span');e.className='spin';msg.appendChild(e);}if(t)msg.appendChild(document.createTextNode(t));}
+// a keyboard-usable drop-down: button + role=listbox (arrows, Home/End, Enter/Space, Esc, Tab), styled like a select
+function listbox(b,list,label,getCur,onPick){if(!b||!list)return {mark:function(){},has:function(){return false;}};var opts=[].slice.call(list.querySelectorAll('[role=option]')),act=0;
+function idx(v){for(var i=0;i<opts.length;i++)if(opts[i].dataset.v===v)return i;return 0;}
+function hi(i){act=(i+opts.length)%opts.length;opts.forEach(function(o,j){o.classList.toggle('act',j===act);});list.setAttribute('aria-activedescendant',opts[act].id);
+if(opts[act].scrollIntoView)opts[act].scrollIntoView({block:'nearest'});}
+function open(){list.hidden=false;b.setAttribute('aria-expanded','true');hi(idx(getCur()));list.focus();}
+function close(f){list.hidden=true;b.setAttribute('aria-expanded','false');if(f)b.focus();}
+function pick(i){close(true);onPick(opts[i].dataset.v);}
+b.onclick=function(){if(list.hidden)open();else close(true);};
+b.onkeydown=function(e){if(['ArrowDown','ArrowUp','Enter',' '].indexOf(e.key)>=0){e.preventDefault();open();}};
+list.onkeydown=function(e){var k=e.key;if(k==='ArrowDown'){e.preventDefault();hi(act+1);}else if(k==='ArrowUp'){e.preventDefault();hi(act-1);}
+else if(k==='Home'){e.preventDefault();hi(0);}else if(k==='End'){e.preventDefault();hi(opts.length-1);}
+else if(k==='Enter'||k===' '){e.preventDefault();pick(act);}else if(k==='Escape'){e.preventDefault();close(true);}else if(k==='Tab'){close(false);}};
+opts.forEach(function(o,i){o.onclick=function(){pick(i);};o.onmousemove=function(){if(act!==i)hi(i);};});
+document.addEventListener('click',function(e){if(!list.hidden&&!b.parentNode.contains(e.target))close(false);});
+return {has:function(v){return opts.some(function(o){return o.dataset.v===v;});},
+mark:function(v){opts.forEach(function(o){o.setAttribute('aria-selected',o.dataset.v===v?'true':'false');});label.innerHTML=opts[idx(v)].innerHTML;}};}
+var PL=listbox(btn,$('pallist'),$('palcur'),function(){return cur;},function(v){go(v,CR,true);}),
+CL=listbox($('clkbtn'),$('clklist'),$('clkcur'),function(){return CR.r;},function(v){go(cur,with_('r',v),true);}),
+LL=listbox($('clobtn'),$('clolist'),$('clocur'),function(){return CR.l;},function(v){go(cur,with_('l',v),true);}),
+FL=listbox($('clfbtn'),$('clflist'),$('clfcur'),function(){return CR.f;},function(v){go(cur,with_('f',v),true);});
+function with_(k,v){var c={r:CR.r,l:CR.l,f:CR.f};c[k]=v;return c;}
+function marks(c){CL.mark(c.r);LL.mark(c.l);FL.mark(c.f);if($('clfsel'))$('clfsel').hidden=c.l==='sd';}
+// images are fetched and decoded first, then colours and images change in the same task (no half-switched page)
+function commit(n,r,us){var st=document.documentElement.style,o=vars(n);Object.keys(o).forEach(function(k){st.setProperty(k,o[k]);});
+imgs.forEach(function(i,j){i.dataset.f=fileOf(i,r);i.src=us[j];});cur=n;CR=r;PL.mark(n);marks(r);document.documentElement.dataset.palette=n;
+document.documentElement.dataset.clock=r.r+'-'+mode(r);}
+function go(n,r,save){if(!P.table[n])n=P.default;r={r:r.r,l:r.l,f:r.f};if(!clk||!CL.has(r.r))r.r=D.r;if(!LL.has(r.l))r.l=D.l;if(!FL.has(r.f))r.f=D.f;
+var my=++seq,need=n!==P.default||!same(r,D);btn.setAttribute('aria-busy','true');if(need)say(P.s.busy,true);
+var prep=(!need||!served)?Promise.resolve({ok:true,v:''}):fetch('/api/palette/render',{method:'POST',headers:{'X-Usage-Token':TKN,'Content-Type':'application/json'},
+body:JSON.stringify({name:n,clock:r.r,mode:mode(r)})}).then(function(x){return x.json();});
+prep.then(function(j){if(my!==seq)return;if(!j||!j.ok)throw 0;var us=imgs.map(function(i){return src(i,n,r,j.v);});
+return Promise.all(us.map(pre)).then(function(ok){if(my!==seq)return;if(ok.indexOf(false)>=0)throw 0;commit(n,r,us);say('');btn.removeAttribute('aria-busy');
+if(save){try{localStorage.setItem(KEY,n);Object.keys(CK).forEach(function(k){localStorage.setItem(CK[k],r[k]);});}catch(e){}}});}).catch(function(){if(my!==seq)return;btn.removeAttribute('aria-busy');PL.mark(cur);marks(CR);
+say(served?P.s.fail:P.s.file);});}
+var n=P.default,r={r:D.r,l:D.l,f:D.f};try{n=localStorage.getItem(KEY)||P.default;Object.keys(CK).forEach(function(k){r[k]=localStorage.getItem(CK[k])||D[k];});}catch(e){}
+if(!P.table[n])n=P.default;document.documentElement.dataset.palette=P.default;document.documentElement.dataset.clock='wk-ot';if(n!==P.default||!same(r,D))go(n,r,false);
+window.usagePalette=function(v,save){go(v,CR,save);};window.usageClockRange=function(v,save){go(cur,with_('r',v),save);};
+window.usageClockLayout=function(v,save){go(cur,with_('l',v),save);};window.usageClockFill=function(v,save){go(cur,with_('f',v),save);};})();"""
+
+
+# "Check for updates": asks the local server (POST /api/update/check); when GitHub has a newer version
+# an "Update" button appears. The server also checks by itself about once a day (switch on the page,
+# GET /api/update/state shows the last result). "Update" (POST /api/update/apply) starts the updater, then
+# the page polls /api/status until a *new* server answers (different boot id) and reloads. Updating
+# itself only ever happens after a click.
+UPDATE_JS = """(function(){var $=id=>document.getElementById(id),S=JSON.parse($('updstr').textContent),
+TK=(document.querySelector('meta[name="usage-token"]')||{}).content||'',cb=$('updbtn'),gb=$('updgo'),um=$('umsg'),ur=$('urow'),
+ab=$('updauto'),al=$('updautol'),busy=false;
+if(!/^https?:$/.test(location.protocol))return;
+function f(t,o){return String(t).replace(/\\{(\\w+)\\}/g,function(_,k){return o[k]!=null?o[k]:'';});}
+function say(t){um.textContent=t||'';ur.hidden=!t;}
+function post(p,b){return fetch(p,{method:'POST',headers:{'X-Usage-Token':TK,'Content-Type':'application/json'},body:b?JSON.stringify(b):''}).then(r=>r.json());}
+function newer(j){var l=j.latest||{};return f(S['new'],{h:l.hash||'',s:S.privacy?'':(l.subject||''),n:j.behind}).replace(/\\s+(\\(|（)/,' $1');}
+function show(j,quiet){gb.hidden=true;var st=j.state||'git_error';
+if(st==='behind'){say(newer(j));gb.hidden=false;return;}
+if(quiet&&st!=='local_changes'&&st!=='diverged')return;
+var m=S[st]||S.git_error;if((st==='local_changes'||st==='diverged')&&j.latest&&!S.privacy)m=newer(j)+' · '+m;
+say(m+(j.detail&&!S.privacy?' ('+j.detail+')':''));}
+function load(){if(busy)return;fetch('/api/update/state',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{if(!j||!j.ok||busy)return;
+cb.hidden=false;al.hidden=false;ab.checked=!!j.auto;if(j.auto&&j.result)show(j.result,true);}).catch(()=>{});}
+load();setInterval(load,1800000);
+ab.onchange=function(){ab.disabled=true;post('/api/update/settings',{auto:ab.checked}).then(j=>{ab.disabled=false;
+if(j.ok)ab.checked=!!j.auto;else{ab.checked=!ab.checked;say(j.error||S.git_error);}}).catch(()=>{ab.disabled=false;ab.checked=!ab.checked;});};
+cb.onclick=function(){cb.disabled=true;gb.hidden=true;say(S.checking);
+post('/api/update/check').then(j=>{cb.disabled=false;
+if(j.error==='cooldown'){say(f(S.cooldown,{s:j.retry_in}));return;}
+if(j.error==='busy'){say(S.checking);return;}show(j,false);}).catch(()=>{cb.disabled=false;say(S.git_error);});};
+gb.onclick=function(){if(!confirm(S.confirm))return;gb.disabled=cb.disabled=true;
+post('/api/update/apply').then(j=>{if(!j.ok){gb.disabled=cb.disabled=false;
+say(j.error==='busy'?S.busy:f(S.failed,{e:S.privacy?'':(S[j.state]||j.error||'')}));return;}
+busy=true;gb.hidden=cb.hidden=true;say(S.updating);var old=j.boot,t0=Date.now();
+(function poll(){if(Date.now()-t0>600000){say(S.slow);busy=false;cb.hidden=false;cb.disabled=false;return;}
+fetch('/api/status',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(s=>{if(s&&s.ok&&s.boot&&s.boot!==old){location.reload();return;}
+setTimeout(poll,3000);}).catch(()=>{setTimeout(poll,3000);});})();})
+.catch(()=>{gb.disabled=cb.disabled=false;say(S.failed.replace('{e}',''));});};})();"""
+
+def _theme_file(path):
     if not path:
-        return out
+        return {}
     p = Path(path) if Path(path).is_absolute() else (HERE / path if (HERE / path).exists() else Path(path))
     try:
         d = json.loads(p.read_text(encoding="utf-8"))
-        return {k: bool(d.get(k + "_color")) for k in out}
+        return d if isinstance(d, dict) else {}
     except Exception:
-        return out
+        return {}
 
 
-def write_html(ctx, sums, now, nowa, zl):
+def _theme_explicit(path):
+    """Which colours a theme file pins (those do not change with the palette)."""
+    d = _theme_file(path)
+    return {k: bool(d.get(k + "_color")) for k in ("over", "under", "baseline", "notice", "accent")}
+
+
+def _theme_explicit_value(path, key):
+    return _theme_file(path).get(key + "_color") or None
+
+
+def _on_colour(hexcol):
+    """Readable text colour on a filled accent button."""
+    from matplotlib.colors import to_rgb
+    lin = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in to_rgb(hexcol)]
+    return "#0B0F14" if 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2] > 0.4 else "#FFFFFF"
+
+
+PAL_STR = {"en": {"busy": "Drawing charts…", "fail": "Could not draw this palette", "file": "Open the page through the dashboard server to switch palettes"},
+           "zh-TW": {"busy": "正在產生圖表…", "fail": "無法產生這組配色", "file": "請透過儀表板伺服器開啟頁面才能切換配色"},
+           "zh-CN": {"busy": "正在生成图表…", "fail": "无法生成这组配色", "file": "请通过仪表板服务器打开页面才能切换配色"},
+           "numeric": {"busy": "…", "fail": "×", "file": "×"}}
+
+
+def write_html(ctx, sums, now, nowa, zl, gen=""):
     L, T = ctx.L, ctx.theme
     MS = MANUAL_STR["numeric"] if ctx.privacy else (MANUAL_STR["zh-TW"] if ctx.lang.startswith("zh") else MANUAL_STR["en"])
     LS = LEDGER_STR["numeric"] if ctx.privacy else (LEDGER_STR["zh-TW"] if ctx.lang.startswith("zh") else LEDGER_STR["en"])
+    US = UPDATE_STR["numeric"] if ctx.privacy else (UPDATE_STR["zh-TW"] if ctx.lang.startswith("zh") else UPDATE_STR["en"])
     try:
         ledger = json.loads(Path(ctx.ledger_path).read_text(encoding="utf-8"))
         ledger.pop("_newAlerts", None)
@@ -781,6 +1191,7 @@ def write_html(ctx, sums, now, nowa, zl):
         ledger = None
     ledjson = json.dumps(ledger, ensure_ascii=False).replace("<", "\\u003c")
     lsjson = json.dumps(LS, ensure_ascii=False).replace("<", "\\u003c")
+    usjson = json.dumps(US, ensure_ascii=False).replace("<", "\\u003c")
     b64 = lambda p: base64.b64encode(p.read_bytes()).decode() if p.exists() else ""
     tabs, panes = [], []
     wk = ctx.hist_dir / "week-current.png"
@@ -798,7 +1209,21 @@ def write_html(ctx, sums, now, nowa, zl):
                      f"<div class='tables'><table><caption>{html.escape(L['weekly_detail'])}</caption><tr><th>{L['week']}</th><th>{L['days']}</th><th>{L['peak']}</th>"
                      f"<th>{L['pace']}</th><th>{L['at100']}</th></tr>{rows}</table><table><caption>{html.escape(L['spend_title'])}</caption>"
                      f"<tr><th>{L['month']}</th><th>{L['amount']}</th></tr>{sp}</table></div></section>")
-    imgs = "".join(f"<figure><img alt='' data-f='{fn}' src='data:image/png;base64,{b64(ctx.hist_dir / fn)}'></figure>" for fn in ("clock-7d.png", "clock-all.png") if (ctx.hist_dir / fn).exists())
+    imgs = ""
+    if (ctx.hist_dir / "clock-1d.png").exists() and (ctx.hist_dir / clock_file("wk")).exists():
+        def menu(mid, label, opts, cur):
+            rows = "".join(f"<li role='option' id='{mid}-{k}' data-v='{k}' aria-selected='{'true' if k == cur else 'false'}'><span>{html.escape(v)}</span></li>"
+                           for k, v in opts)
+            return (f"<span class='pal psel' id='{mid}sel'><span id='{mid}l'>{html.escape(label)}</span>"
+                    f"<button type='button' class='pbtn' id='{mid}btn' aria-haspopup='listbox' aria-expanded='false' aria-labelledby='{mid}l {mid}cur'>"
+                    f"<span id='{mid}cur'><span>{html.escape(dict(opts)[cur])}</span></span></button>"
+                    f"<ul class='plist' id='{mid}list' role='listbox' tabindex='-1' aria-labelledby='{mid}l' hidden>{rows}</ul></span>")
+        bar = (menu("clk", L["clock_rl"], [(k, L["clock_ro"][k]) for k in CLOCK_RANGES], "wk")
+               + menu("clo", L["clock_ll"], [(k, L["clock_lo"][k]) for k in ("ov", "sd")], "ov")
+               + menu("clf", L["clock_fl"], [(k, L["clock_fo"][k]) for k in ("t", "s")], "t"))
+        imgs = (f"<figure><div class='clkbar'></div><img alt='' data-f='clock-1d.png' src='data:image/png;base64,{b64(ctx.hist_dir / 'clock-1d.png')}'></figure>"
+                f"<figure><div class='clkbar'>{bar}</div>"
+                f"<img alt='' id='clkimg' data-f='{clock_file('wk')}' src='data:image/png;base64,{b64(ctx.hist_dir / clock_file('wk'))}'></figure>")
     tabs.append(f"<button data-k='clock'>{html.escape(L['clock_tab'])}</button>")
     panes.append(f"<section id='p-clock'><div class='sub'>{html.escape(L['clock_sub'].format(z=zl))}</div>"
                  f"<div class='clocks'>{imgs or '<div class=warn>' + html.escape(L['no_clock']) + '</div>'}</div></section>")
@@ -810,40 +1235,64 @@ def write_html(ctx, sums, now, nowa, zl):
     bg, tx, ac, card, bd, dim = T["bg_color"], T["text_color"], T["accent_color"], T["card"], T["border"], T["dim"]
     # palette switcher: config default, overridden per browser (localStorage 'usage.palette')
     fixed = {k: bool(v) for k, v in _theme_explicit(ctx.theme_path).items()}
-    paldata = json.dumps({"default": ctx.palette, "light": T["is_light"], "table": usage_palette.js_table(), "fixed": fixed},
-                         ensure_ascii=False).replace("<", "\\u003c")
     plang = "numeric" if ctx.privacy else ("zh-TW" if ctx.lang == "zh-TW" else ("zh-CN" if ctx.lang.startswith("zh") else "en"))
-    palopts = "".join(f"<option value='{n}'{' selected' if n == ctx.palette else ''}>"
-                      f"{html.escape(str(i + 1) if plang == 'numeric' else usage_palette.LABELS[n].get(plang, usage_palette.LABELS[n]['en']))}</option>"
-                      for i, n in enumerate(usage_palette.names()))
+    paldata = json.dumps({"default": ctx.palette, "light": T["is_light"], "table": usage_palette.js_table(), "fixed": fixed,
+                          "bg": bg, "accent": ac, "under": T["under_color"], "gen": gen, "s": PAL_STR[plang]},
+                         ensure_ascii=False).replace("<", "\\u003c")
+    variant = "light" if T["is_light"] else "dark"
+
+    def pal_row(i, n):
+        c = usage_palette.PALETTES[n][variant]
+        name = str(i + 1) if plang == "numeric" else usage_palette.LABELS[n].get(plang, usage_palette.LABELS[n]["en"])
+        return (f"<li role='option' id='po-{n}' data-v='{n}' aria-selected='{'true' if n == ctx.palette else 'false'}'>"
+                f"<i class='dot' style='background:{c['over']}'></i><i class='dot' style='background:{c['under']}'></i>"
+                f"<span>{html.escape(name)}</span></li>")
+    palrows = [pal_row(i, n) for i, n in enumerate(usage_palette.names())]
+    palcur = palrows[usage_palette.names().index(ctx.palette)].split(">", 1)[1].rsplit("</li>", 1)[0]
     pal_label = {"numeric": "◐", "zh-TW": "配色", "zh-CN": "配色"}.get(plang, "Colours")
+    onac, hl = _on_colour(ac), _blend(bg, tx, 0.14)
     doc = f"""<!doctype html><html lang="{'zh-Hant' if ctx.lang == 'zh-TW' else 'en'}"><head><meta charset="utf-8"><title>{html.escape(title or '↻')}</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"><style>
 body{{margin:0;background:{bg};color:{tx};font-family:"Noto Sans CJK TC","Noto Sans TC","PingFang TC","Microsoft JhengHei","Segoe UI",sans-serif}}
-.wrap{{max-width:1060px;margin:0 auto;padding:20px}} .top{{color:{ac};font-size:12px;font-weight:700;letter-spacing:1px}} h1{{margin:4px 0 8px;font-size:26px}}
+.wrap{{max-width:1060px;margin:0 auto;padding:20px}} .top{{color:var(--accent);font-size:12px;font-weight:700;letter-spacing:1px}} h1{{margin:4px 0 8px;font-size:26px}}
 .bar{{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}} .upd{{color:{dim};font-size:13px;display:flex;align-items:center;gap:10px}}
-nav{{display:inline-flex;border:1px solid {bd};border-radius:10px;padding:4px;background:{card};margin:6px 0 14px}}
+nav{{display:inline-flex;border:1px solid var(--bd);border-radius:10px;padding:4px;background:{card};margin:6px 0 14px}}
 nav>button{{background:none;border:1px solid transparent;color:{dim};font:inherit;font-weight:700;font-size:15px;padding:6px 18px;border-radius:7px;cursor:pointer}}
-nav>button.on{{color:{tx};border-color:{ac}}} section{{display:none}} section.on{{display:block}} img{{width:100%;border:1px solid {bd};border-radius:10px}}
-:root{{--over:{T['over_color']};--under:{T['under_color']};--baseline:{T['baseline_color']};--notice:{T['notice_color']}}}
+nav>button.on{{color:{tx};border-color:var(--accent)}} section{{display:none}} section.on{{display:block}} img{{width:100%;border:1px solid var(--bd);border-radius:10px}}
+:root{{--over:{T['over_color']};--under:{T['under_color']};--baseline:{T['baseline_color']};--notice:{T['notice_color']};--accent:{ac};--bd:{bd};--on-accent:{onac};--card:{card}}}
+a{{color:var(--accent)}} :focus-visible{{outline:2px solid var(--accent);outline-offset:2px}} input[type=checkbox],input[type=radio]{{accent-color:var(--accent)}}
+nav>button:hover{{color:{tx};border-color:var(--bd)}} .btn:hover,#ckbtn:hover,#ckr button:hover{{border-color:var(--accent)}}
 .warn{{border:1px solid var(--notice);color:var(--notice);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-weight:700}}
 .tables{{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-top:12px}} .clocks{{display:grid;grid-template-columns:1fr 1fr;gap:12px}} figure{{margin:0}}
-table{{border-collapse:collapse;width:100%;background:{card};border:1px solid {bd};font-size:13px}} caption{{text-align:left;font-weight:700;padding:6px 0}}
-th,td{{padding:5px 10px;border-bottom:1px solid {bd};text-align:left}} th{{color:{dim}}} .over{{color:var(--over);font-weight:700}} .under{{color:var(--under);font-weight:700}}
+.clkbar{{display:flex;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:12px;min-height:36px;margin-bottom:6px}} .clkbar .plist{{min-width:8em}} .psel[hidden]{{display:none}}
+table{{border-collapse:collapse;width:100%;background:{card};border:1px solid var(--bd);font-size:13px}} caption{{text-align:left;font-weight:700;padding:6px 0}}
+th,td{{padding:5px 10px;border-bottom:1px solid var(--bd);text-align:left}} th{{color:{dim}}} .over{{color:var(--over);font-weight:700}} .under{{color:var(--under);font-weight:700}}
 .sub{{color:{dim};font-size:13px;margin:6px 0}} .ckform{{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}}
-input,select{{background:{card};color:{tx};border:1px solid {bd};border-radius:6px;padding:6px 10px;font:inherit}}
-.btn,#ckbtn,#ckr button{{background:{card};border:1px solid {bd};color:{tx};font:inherit;font-weight:700;padding:5px 14px;border-radius:7px;cursor:pointer}}
-#ckr button.on,.btn{{border-color:{ac}}} .btn:disabled{{opacity:.6;cursor:wait}} #ckmsg,#rmsg,#mmsg{{color:var(--notice);font-weight:700}} [hidden]{{display:none!important}}
-.spin{{display:inline-block;width:12px;height:12px;border:2px solid {ac};border-top-color:transparent;border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px;margin-right:6px}}
+input,select{{background:{card};color:{tx};border:1px solid var(--bd);border-radius:6px;padding:6px 10px;font:inherit}}
+.btn,#ckbtn,#ckr button{{background:{card};border:1px solid var(--bd);color:{tx};font:inherit;font-weight:700;padding:5px 14px;border-radius:7px;cursor:pointer}}
+#ckr button.on,.btn{{border-color:var(--accent)}} .btn:disabled{{opacity:.6;cursor:wait}}
+.btn.primary{{background:var(--accent);color:var(--on-accent);border-color:var(--accent);padding:6px 18px}} .btn.primary:hover{{filter:brightness(1.1)}}
+.btn.updgo{{background:#A5F3FC;color:#06303A;border:2px solid #22D3EE;padding:6px 18px}} .btn.updgo:hover{{filter:brightness(1.06)}}
+.urow{{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 10px;font-size:13px}} #umsg{{font-weight:700;color:{dim}}} #ckmsg,#rmsg,#mmsg{{color:var(--notice);font-weight:700}} [hidden]{{display:none!important}}
+.spin{{display:inline-block;width:12px;height:12px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px;margin-right:6px}}
 @keyframes sp{{to{{transform:rotate(360deg)}}}}
-.info{{background:{card};border:1px solid {bd};border-left:3px solid {ac};border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:14px}}
+.info{{background:{card};border:1px solid var(--bd);border-left:3px solid var(--accent);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:14px}}
 .badges{{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}} .badge{{border:1px solid var(--over);color:var(--over);border-radius:999px;padding:3px 12px;font-weight:700;font-size:13px}}
 .badge.note{{border-color:var(--notice);color:var(--notice)}} .pal{{color:{dim};font-size:13px}}
+.psel{{position:relative;display:inline-flex;align-items:center;gap:6px}} .pbtn{{background:{card};color:{tx};border:1px solid var(--bd);border-radius:6px;padding:6px 10px;font:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:6px}}
+.pbtn:hover{{border-color:var(--accent)}} .pbtn::after{{content:'▾';color:{dim};margin-left:2px}} .pbtn>span,.plist li>span{{white-space:nowrap}}
+.plist{{position:absolute;right:0;top:calc(100% + 4px);z-index:20;margin:0;padding:4px;list-style:none;background:{card};border:1px solid var(--bd);border-radius:8px;min-width:100%;max-height:min(80vh,560px);overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.45)}}
+.plist li{{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:5px;cursor:pointer;color:{tx};font-size:14px}} .plist li.act{{background:{hl}}}
+.plist li[aria-selected=true]{{font-weight:700}} .plist li[aria-selected=true]::after{{content:'✓';margin-left:auto;padding-left:14px;color:var(--accent)}}
+.dot{{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none;box-shadow:0 0 0 1px rgba(128,128,128,.55)}} #palmsg{{color:{dim};font-size:12px}}
 {usage_checkins_ui.CSS}
 </style></head><body><div class="wrap"><div class="top">{html.escape(L['eyebrow'])}</div><h1>{html.escape(title)}</h1>
 <div class="bar"><nav>{''.join(tabs)}</nav><div class="upd"><span id="last">{html.escape(L['last'].format(t=f'{now:%H:%M}', z=zl))}</span>
-<label class="pal">{html.escape(pal_label)} <select id="palsel">{palopts}</select></label>
-<button class="btn" id="manualbtn" hidden>{html.escape(MS['btn'])}</button><button class="btn" id="notifybtn" hidden>{html.escape(LS['notify'])}</button><button class="btn" id="refresh" hidden>{html.escape(L['refresh'])}</button><span id="rmsg"></span></div></div>
+<span class="pal psel" id="psel"><span id="pall">{html.escape(pal_label)}</span><button type="button" class="pbtn" id="palbtn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="pall palcur"><span id="palcur">{palcur}</span></button>
+<ul class="plist" id="pallist" role="listbox" tabindex="-1" aria-labelledby="pall" hidden>{''.join(palrows)}</ul><span id="palmsg" role="status"></span></span>
+<button class="btn" id="manualbtn" hidden>{html.escape(MS['btn'])}</button><button class="btn" id="notifybtn" hidden>{html.escape(LS['notify'])}</button><button class="btn primary" id="refresh" hidden>{html.escape(L['refresh'])}</button><span id="rmsg"></span>
+<button class="btn" id="updbtn" hidden>{html.escape(US['btn'])}</button><label class="pal" id="updautol" hidden><input type="checkbox" id="updauto"> {html.escape(US['auto'])}</label></div></div>
+<div id="urow" class="urow" hidden><span id="umsg"></span><button class="btn updgo" id="updgo" hidden>{html.escape(US['go'])}</button></div>
 <form id="manualform" class="ckform" hidden><label>{html.escape(MS['pct'])} <input id="mpct" type="number" min="0" max="200" step="0.1" required style="width:6em"> <span class="sub">{html.escape(MS.get('pct_note', ''))}</span></label>
 <label>{html.escape(MS['reset'])} <input id="mreset" maxlength="64" placeholder="{html.escape(MS['reset_ph'])}" style="width:22em"></label>
 <button class="btn" type="submit">{html.escape(MS['save'])}</button><span class="sub">{html.escape(MS['hint'])}</span><span id="mmsg"></span></form>
@@ -851,6 +1300,7 @@ input,select{{background:{card};color:{tx};border:1px solid {bd};border-radius:6
 <script type="application/json" id="ckdata">{ckdata}</script><script>{usage_checkins_ui.JS}</script>
 <script type="application/json" id="ledgerdata">{ledjson}</script><script type="application/json" id="ledgerstr">{lsjson}</script><script>{LEDGER_JS}</script>
 <script type="application/json" id="paldata">{paldata}</script><script>{PALETTE_JS}</script>
+<script type="application/json" id="updstr">{usjson}</script><script>{UPDATE_JS}</script>
 <script>
 var TK=(document.querySelector('meta[name="usage-token"]')||{{}}).content||'';
 document.querySelectorAll('nav>button').forEach(b=>b.onclick=()=>{{document.querySelectorAll('nav>button,section').forEach(e=>e.classList.remove('on'));
@@ -1123,16 +1573,40 @@ def serve(ctx, allow_remote=False):
         extra_hosts.append(ctx.host)
         print("WARNING: serving on a non-loopback address; anyone on the network who learns the token can check in "
               "and trigger refreshes. Add the name you browse with to history_allowed_hosts.", file=sys.stderr)
-    busy = threading.Lock(); state = {"last_refresh": 0.0, "ck": {}}
+    busy = threading.Lock(); state = {"last_refresh": 0.0, "ck": {}, "upd_at": 0.0, "upd": None, "updating": False}
+    upd_lock = threading.Lock()
+    boot = f"{os.getpid()}-{time.time():.0f}"  # changes on every start: the page reloads once a new server answers
+    port_box = {"port": 0}
     token = local_guard.new_token()
     token_file = ctx.data_dir / "history_server.token"
 
+    draw_lock = threading.RLock()  # one drawing pass at a time (refresh cycle or an on-demand palette)
+
     def regen():
-        for fn in (render_clock, render_history):
+        with draw_lock:
+            for fn in (render_clock, render_history):
+                try:
+                    fn(ctx)
+                except Exception as exc:
+                    print(f"Warning: {exc}", file=sys.stderr)
+
+    def palette_render(d):
+        """POST /api/palette/render {"name": ...}: draw that palette's images (cached until the next refresh)."""
+        name = str(d.get("name") or "")
+        clock = d.get("clock")
+        if name not in usage_palette.names():
+            return 400, {"ok": False, "error": "unknown palette"}
+        mode = d.get("mode")
+        if clock is not None and clock not in CLOCK_RANGES:
+            return 400, {"ok": False, "error": "unknown clock range"}
+        if mode is not None and mode not in CLOCK_MODES:
+            return 400, {"ok": False, "error": "unknown clock layout"}
+        with draw_lock:
             try:
-                fn(ctx)
+                return 200, render_palette(ctx, name, clock, mode)
             except Exception as exc:
-                print(f"Warning: {exc}", file=sys.stderr)
+                print(f"Warning: palette '{name}' render failed: {exc}", file=sys.stderr)
+                return 500, {"ok": False, "error": "render failed"}
     regen()  # always rebuild on start, so an updated version's page shows right away
 
     def last_update():
@@ -1160,7 +1634,105 @@ def serve(ctx, allow_remote=False):
             r = dict(r, name="", note="")
         return 200, {"ok": True, "checkin": r}
 
-    WRITE_PATHS = ("/api/checkin", "/api/refresh", "/api/manual")
+    WRITE_PATHS = ("/api/checkin", "/api/refresh", "/api/manual", "/api/update/check", "/api/update/apply", "/api/update/settings",
+                   "/api/palette/render")
+
+    def update_public(r):
+        r = dict(r)
+        if ctx.privacy:  # commit subjects and git messages may name services: hash and counts only
+            r["detail"] = ""
+            if r.get("latest"):
+                r["latest"] = {"hash": r["latest"].get("hash"), "subject": ""}
+        return r
+
+    def update_check():
+        """POST /api/update/check -> self_update.check() (git fetch origin main, then compare with HEAD)."""
+        import self_update
+        if not upd_lock.acquire(blocking=False):
+            return 409, {"ok": False, "error": "busy"}
+        try:
+            wait = UPDATE_CHECK_COOLDOWN - (time.time() - state["upd_at"])
+            if wait > 0:
+                if state["upd"] is not None:
+                    return 200, dict(state["upd"], cached=True)
+                return 429, {"ok": False, "error": "cooldown", "retry_in": int(wait) + 1}
+            state["upd_at"] = time.time()
+            state["upd"] = update_public(self_update.check(HERE))
+            self_update.save_last(ctx.data_dir, state["upd"], state["upd_at"])
+            return 200, state["upd"]
+        finally:
+            upd_lock.release()
+
+    def update_auto_loop():
+        """Automatic check (unless "update_check": "off"): shortly after start and then about once a day.
+        A restart within the day only re-compares with what was fetched last time (no network)."""
+        import self_update
+        last, _ = self_update.load_last(ctx.data_dir)
+        state["upd_at"] = min(last, time.time())
+        time.sleep(UPDATE_AUTO_FIRST_DELAY)
+        first = True
+        while True:
+            try:
+                if self_update.auto_enabled(ctx.cfg, ctx.data_dir) and not state["updating"]:
+                    due = self_update.auto_due(state["upd_at"])
+                    if (due or first) and upd_lock.acquire(blocking=False):
+                        try:
+                            r = update_public(self_update.check(HERE, fetch=due))
+                            if due:
+                                state["upd_at"] = time.time()
+                                self_update.save_last(ctx.data_dir, r, state["upd_at"])
+                            state["upd"] = r
+                        finally:
+                            upd_lock.release()
+                    first = False
+            except Exception as exc:
+                print(f"Warning: update check: {exc}", file=sys.stderr)
+            time.sleep(600)
+
+    def update_info():
+        """GET /api/update/state: the switch and the last result (read-only, never runs git)."""
+        import self_update
+        return {"ok": True, "auto": self_update.auto_enabled(ctx.cfg, ctx.data_dir), "result": state["upd"],
+                "checked_at": datetime.fromtimestamp(state["upd_at"], ctx.tz).isoformat(timespec="minutes") if state["upd_at"] else None}
+
+    def update_settings(d):
+        """POST /api/update/settings {"auto": true|false} -> saved, survives restarts."""
+        import self_update
+        if not isinstance(d.get("auto"), bool):
+            return 400, {"ok": False, "error": "auto must be true or false"}
+        try:
+            with usage_lock.write_lock(ctx.data_dir):
+                where = self_update.set_auto(ctx.cfg_path, ctx.data_dir, d["auto"])
+            if ctx.cfg_path and Path(where) == Path(ctx.cfg_path):
+                ctx.cfg = dict(ctx.cfg, **{self_update.SETTING_KEY: "auto" if d["auto"] else "off"})
+        except Exception as exc:
+            return 500, {"ok": False, "error": "write failed" if ctx.privacy else f"could not save the setting: {exc}"}
+        return 200, {"ok": True, "auto": self_update.auto_enabled(ctx.cfg, ctx.data_dir), "file": "" if ctx.privacy else where.name}
+
+    def update_apply(client_ip):
+        """POST /api/update/apply -> start the detached updater (fast-forward only), loopback clients only."""
+        import self_update
+        if ctx.host not in ("127.0.0.1", "localhost", "::1") or client_ip not in ("127.0.0.1", "::1", "::ffff:127.0.0.1"):
+            return 403, {"ok": False, "error": "updates can only be started from this computer"}
+        if not upd_lock.acquire(blocking=False):
+            return 409, {"ok": False, "error": "busy"}
+        try:
+            if state["updating"] or self_update.updater_busy(ctx.data_dir):
+                return 409, {"ok": False, "error": "busy"}
+            r = self_update.check(HERE, fetch=False)  # uses what the last check fetched
+            if not r.get("can_update"):
+                return 409, dict(update_public(r), ok=False, error=r.get("state"))
+            cfg = str(Path(ctx.cfg_path).resolve()) if ctx.cfg_path else None
+            if not ctx.port:  # random port: ask the next start to reuse this one (see the end of serve)
+                (ctx.data_dir / "update.port").write_text(str(port_box["port"]), encoding="utf-8")
+            if not self_update.spawn(HERE, ctx.data_dir, cfg, wait_pid=os.getpid()):
+                return 500, {"ok": False, "error": "could not start the updater"}
+            state["updating"] = True
+            return 200, {"ok": True, "boot": boot, "behind": r.get("behind"), "log": "update.log"}
+        except Exception as exc:
+            return 500, {"ok": False, "error": "updater failed" if ctx.privacy else f"could not start the updater: {exc}"}
+        finally:
+            upd_lock.release()
 
     def manual(d):
         """POST /api/manual {"pct": 42, "reset": "Sat 09:00"} -> one manual sample."""
@@ -1184,7 +1756,9 @@ def serve(ctx, allow_remote=False):
             if not isinstance(body, bytes):
                 body = json.dumps(body, ensure_ascii=False).encode()
             self.send_response(code); self.send_header("Content-Type", ct); self.send_header("Content-Length", str(len(body)))
-            self.send_header("Cache-Control", "no-store"); self.send_header("X-Content-Type-Options", "nosniff")
+            if "Cache-Control" not in (extra or {}):
+                self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Referrer-Policy", "same-origin")
             for k, v in (extra or {}).items():
                 self.send_header(k, v)
@@ -1212,13 +1786,18 @@ def serve(ctx, allow_remote=False):
             if u.path.endswith(".png") and (len(parts) == 1 or (len(parts) == 3 and parts[0] == "pal" and parts[1] in usage_palette.names())) \
                     and all(x and x not in (".", "..") for x in parts):
                 p = ctx.hist_dir.joinpath(*parts)
-                return self._send(200, p.read_bytes(), "image/png") if p.is_file() else self._send(404, {"ok": False, "error": "not found"})
+                # versioned palette images (?v=<render id>) may be cached: the page preloads them before swapping
+                cache = {"Cache-Control": "private, max-age=86400"} if len(parts) == 3 and g("v") else None
+                return self._send(200, p.read_bytes(), "image/png", extra=cache) if p.is_file() else self._send(404, {"ok": False, "error": "not found"})
             if u.path in ("/api/ledger", "/ledger.json"):
                 lp = Path(ctx.ledger_path)
                 return self._send(200, lp.read_bytes()) if lp.exists() else self._send(404, {"ok": False, "error": "no ledger yet; run: usage_history.py sample"})
             if u.path == "/api/status":
                 return self._send(200, {"ok": True, "last_update": last_update(), "busy": busy.locked(), "timezone": ctx.zlabel(),
-                                        "sample_interval_minutes": ctx.interval, "pct_source": "manual" if manual_mode(ctx) else "auto"})
+                                        "sample_interval_minutes": ctx.interval, "pct_source": "manual" if manual_mode(ctx) else "auto",
+                                        "boot": boot, "updating": state["updating"]})
+            if u.path == "/api/update/state":
+                return self._send(200, update_info())
             if u.path in ("/api/checkins", "/api/checkins/search"):  # read-only
                 return self._send(200, checkin_query(ctx, q))
             self._send(404, {"ok": False, "error": "not found"})
@@ -1250,6 +1829,28 @@ def serve(ctx, allow_remote=False):
                 if not isinstance(d, dict):
                     return self._send(400, {"ok": False, "error": "bad json"})
                 return self._send(*manual(d))
+            if u.path == "/api/update/check":
+                return self._send(*update_check())
+            if u.path == "/api/update/apply":
+                return self._send(*update_apply(self.client_address[0]))
+            if u.path == "/api/palette/render":
+                try:
+                    n = int(self.headers.get("Content-Length") or 0); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
+                    d = json.loads(raw or "{}")
+                except Exception:
+                    return self._send(400, {"ok": False, "error": "bad json"})
+                if not isinstance(d, dict):
+                    return self._send(400, {"ok": False, "error": "bad json"})
+                return self._send(*palette_render(d))
+            if u.path == "/api/update/settings":
+                try:
+                    n = int(self.headers.get("Content-Length") or 0); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
+                    d = json.loads(raw or "{}")
+                except Exception:
+                    return self._send(400, {"ok": False, "error": "bad json"})
+                if not isinstance(d, dict):
+                    return self._send(400, {"ok": False, "error": "bad json"})
+                return self._send(*update_settings(d))
             if u.path == "/api/refresh":
                 if manual_mode(ctx):
                     return self._send(400, {"ok": False, "error": "pct_source is manual: use Enter manually", "code": "manual_mode"})
@@ -1270,13 +1871,33 @@ def serve(ctx, allow_remote=False):
 
         def log_message(self, *a):
             pass
-    srv = ThreadingHTTPServer((ctx.host, ctx.port), H)
+    srv = None
+    hint = ctx.data_dir / "update.port"  # left by "Update": come back on the same port so the open page reconnects
+    if not ctx.port and hint.exists():
+        try:
+            want = int(hint.read_text(encoding="utf-8").strip())
+        except (OSError, ValueError):
+            want = 0
+        try:
+            hint.unlink()
+        except OSError:
+            pass
+        if 0 < want < 65536:
+            try:
+                srv = ThreadingHTTPServer((ctx.host, want), H)
+            except OSError:
+                srv = None
+    if srv is None:
+        srv = ThreadingHTTPServer((ctx.host, ctx.port), H)
+    port_box["port"] = srv.server_address[1]
     url = f"http://{ctx.host}:{srv.server_address[1]}/"
     info = ctx.data_dir / "history_server.json"
     with usage_lock.write_lock(ctx.data_dir):
         local_guard.write_token_file(token_file, token)
         info.write_text(json.dumps({"pid": os.getpid(), "url": url, "token_file": str(token_file)}))
     print(json.dumps({"ok": True, "url": url, "token_file": str(token_file)}), flush=True)
+    if not os.environ.get("USAGE_NO_AUTO_UPDATE_CHECK"):  # the tests set this: no git fetch of the real checkout
+        threading.Thread(target=update_auto_loop, daemon=True).start()
     signal.signal(signal.SIGTERM, lambda *a: (_ for _ in ()).throw(SystemExit(0)))
     try:
         srv.serve_forever()

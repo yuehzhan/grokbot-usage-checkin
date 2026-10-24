@@ -13,6 +13,7 @@
   "history_host": "127.0.0.1",
   "history_port": 0,
   "manual_refresh_cooldown_seconds": 60,
+  "update_check": "auto",
   "checkin_cooldown_seconds": 5,
   "extra_spend_csv": null,
   "ledger_path": null,
@@ -22,7 +23,7 @@
   "stale_after_hours": 6,
   "desktop_notify": true,
   "palette": "orange-teal",
-  "render_all_palettes": true,
+  "render_all_palettes": false,
   "checkin_categories": [
     "web",
     "code",
