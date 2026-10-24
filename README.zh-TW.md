@@ -41,6 +41,14 @@ python3 service.py start        # 背景啟動網頁與每小時取樣；停止�
    （從網路下載的 ZIP，Windows 會封鎖腳本）。
 3. 停止：`powershell -ExecutionPolicy Bypass -File .\stop.ps1`
 4. （選用）登入 Windows 時自動啟動：`.\register-task.ps1`；取消：`.\register-task.ps1 -Uninstall`
+5. 更新到新版（`usage-data\` 裡的資料會保留）：
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\stop.ps1
+   git pull
+   powershell -ExecutionPolicy Bypass -File .\install.ps1
+   powershell -ExecutionPolicy Bypass -File .\start.ps1
+   ```
+   Linux：`python3 service.py stop && git pull && python3 -m pip install -r requirements.txt && python3 service.py start`
 
 ## Windows 上哪些可用
 

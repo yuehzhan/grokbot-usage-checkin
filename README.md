@@ -48,6 +48,14 @@ to PATH"). No administrator rights. Everything stays on your PC; the page listen
    in that folder (Windows blocks scripts from downloaded ZIPs).
 3. Stop it with `powershell -ExecutionPolicy Bypass -File .\stop.ps1`.
 4. Optional, start at sign-in: `.\register-task.ps1` (undo: `.\register-task.ps1 -Uninstall`).
+5. Update to a newer version (your data in `usage-data\` is kept):
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\stop.ps1
+   git pull
+   powershell -ExecutionPolicy Bypass -File .\install.ps1
+   powershell -ExecutionPolicy Bypass -File .\start.ps1
+   ```
+   On Linux: `python3 service.py stop && git pull && python3 -m pip install -r requirements.txt && python3 service.py start`.
 
 **What works on Windows**
 

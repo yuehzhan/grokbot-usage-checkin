@@ -693,11 +693,13 @@ LEDGER_JS = "(function(){var $=id=>document.getElementById(id),served=/^https?:$
 MANUAL_STR = {  # "Enter manually" form (POST /api/manual); shown only when served by usage_history.py serve
     "en": {"btn": "Enter manually", "pct": "Weekly %", "reset": "Next reset (optional)",
            "reset_ph": "Sat 09:00 / Oct 31, 09:00 / 2026-10-31 09:00", "save": "Save",
-           "hint": "Copy the numbers from Grok Build /usage or the Grok usage page."},
+           "hint": "Copy the numbers from Grok Build /usage or the Grok usage page.",
+           "pct_note": "Type it in, or install Grok Build to read it automatically"},
     "zh-TW": {"btn": "手動輸入", "pct": "本週用量 %", "reset": "下次重置（可留空）",
               "reset_ph": "Sat 09:00 / Oct 31, 09:00 / 2026-10-31 09:00", "save": "儲存",
-              "hint": "從 Grok Build 的 /usage 或 Grok 用量頁面抄下數字。"},
-    "numeric": {"btn": "✎", "pct": "%", "reset": "↻", "reset_ph": "", "save": "✓", "hint": ""},
+              "hint": "從 Grok Build 的 /usage 或 Grok 用量頁面抄下數字。",
+              "pct_note": "手動填寫，或安裝 Grok Build 自動讀取"},
+    "numeric": {"btn": "✎", "pct": "%", "reset": "↻", "reset_ph": "", "save": "✓", "hint": "", "pct_note": ""},
 }
 
 LEDGER_STR = {
@@ -812,7 +814,7 @@ input,select{{background:{card};color:{tx};border:1px solid {bd};border-radius:6
 <div class="bar"><nav>{''.join(tabs)}</nav><div class="upd"><span id="last">{html.escape(L['last'].format(t=f'{now:%H:%M}', z=zl))}</span>
 <label class="pal">{html.escape(pal_label)} <select id="palsel">{palopts}</select></label>
 <button class="btn" id="manualbtn" hidden>{html.escape(MS['btn'])}</button><button class="btn" id="notifybtn" hidden>{html.escape(LS['notify'])}</button><button class="btn" id="refresh" hidden>{html.escape(L['refresh'])}</button><span id="rmsg"></span></div></div>
-<form id="manualform" class="ckform" hidden><label>{html.escape(MS['pct'])} <input id="mpct" type="number" min="0" max="200" step="0.1" required style="width:6em"></label>
+<form id="manualform" class="ckform" hidden><label>{html.escape(MS['pct'])} <input id="mpct" type="number" min="0" max="200" step="0.1" required style="width:6em"> <span class="sub">{html.escape(MS.get('pct_note', ''))}</span></label>
 <label>{html.escape(MS['reset'])} <input id="mreset" maxlength="64" placeholder="{html.escape(MS['reset_ph'])}" style="width:22em"></label>
 <button class="btn" type="submit">{html.escape(MS['save'])}</button><span class="sub">{html.escape(MS['hint'])}</span><span id="mmsg"></span></form>
 <div id="ledger"></div>{''.join(panes)}</div>
