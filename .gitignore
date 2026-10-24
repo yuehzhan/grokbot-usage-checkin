@@ -1,0 +1,23 @@
+# runtime data (samples, check-ins, rendered pages/PNGs, state.json, ledger)
+data/
+usage-data/
+*.log
+*.pid
+*.port
+history_server.json
+# per-start write tokens (chmod 600)
+*.token
+# backups
+*.bak*
+.bak-*/
+# python
+__pycache__/
+*.pyc
+# local config (keep usage_config.example.json)
+usage_config.json
+*.log.*
+service.json
+*.tmp
+# Windows virtual environment created by install.ps1
+.venv/
+venv/

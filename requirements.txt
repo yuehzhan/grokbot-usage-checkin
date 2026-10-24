@@ -1,0 +1,7 @@
+# Runtime dependencies (everything else is the Python standard library).
+matplotlib>=3.6       # PNG charts (pulls in numpy, which chart_hud.py also imports)
+numpy>=1.23
+# Windows only: pseudo console for reading Grok Build's /usage screen
+pywinpty>=2.0; sys_platform == "win32"
+# Windows only: IANA time-zone data for "tz": "Europe/Berlin" style settings (zoneinfo needs it there)
+tzdata; sys_platform == "win32"
