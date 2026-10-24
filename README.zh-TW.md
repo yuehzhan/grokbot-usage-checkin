@@ -245,6 +245,10 @@ Grok Build 沒有「不開畫面就印出用量」的指令；`grok -p "/usage"`
 記錄檔：`usage-data\service.log`、`usage-data\server.log`、`usage-data\sampler.log`。回報問題時附上這些檔案即可（裡面不含帳號資料）。
 
 
+## 致謝
+
+本工具主要由 Grok Bot（琥珀）操刀，Gemini 3.8 與 Gemini 4 輔助完成；原作者僅負責協調與激發靈感。後續維護與更新，將視未來情況調整。
+
 ## 第三方聲明
 
 - 網頁工具列最後的小 GitHub 圖示只用來連到本專案的 GitHub 頁面。圖示是 Octicons 的 `mark-github`（© GitHub, Inc.，MIT 授權，

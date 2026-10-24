@@ -19,6 +19,7 @@ A Traditional Chinese version is in [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md).
   confirmation) goes back to it. Your data and settings are kept, and later updates work as usual.
 - Version number (`VERSION`) shown at the top of the page; this CHANGELOG.
 - README: animated GIF and screenshots made with sample data.
+- Credits section in both READMEs.
 
 ### Changed
 - Projections above 100% now say plainly that the quota runs out early and about how many days are left.

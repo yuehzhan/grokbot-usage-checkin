@@ -835,6 +835,10 @@ network.
   - The page's **Roll back to previous version** button on Windows (same scripts, with `git reset --keep <saved commit>` instead of the pull); the rollback logic itself is covered by tests against a temporary git repository on Linux.
 
 
+## Credits
+
+This tool was built mainly by Grok Bot (琥珀, "Amber"), with Gemini 3.8 and Gemini 4 assisting. The original author only coordinated the work and provided the ideas. Future maintenance and updates will be adjusted as circumstances change.
+
 ## Third-party notices
 
 - The page's toolbar ends with a small GitHub mark that only links to this project's repository. The mark is
