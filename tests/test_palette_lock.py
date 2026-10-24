@@ -15,7 +15,12 @@ BANNED_NEGATIVE = {"#8B4513", "#A52A2A", "#000000", "#808080", "#FF0000", "#00FF
 
 class PaletteTests(unittest.TestCase):
     def test_presets_and_default(self):
-        self.assertEqual(up.names(), ["orange-teal", "orange-blue", "colorblind"])
+        self.assertEqual(up.names(), ["orange-teal", "orange-blue", "colorblind", "amber-purple", "pink-green", "gold-sky", "orange-purple",
+                                      "magenta-teal", "yellow-indigo", "peach-mint", "tangerine-cyan", "rose-lime", "sunflower-navy",
+                                      "high-contrast"])
+        for n in up.names():
+            for lang in ("en", "zh-TW", "zh-CN"):
+                self.assertTrue(up.LABELS[n][lang], (n, lang))
         self.assertEqual(up.normalize("nonsense"), "orange-teal")
         self.assertEqual(up.normalize("Okabe-Ito"), "colorblind")
         self.assertEqual(up.get("colorblind")["under"], "#56B4E9")

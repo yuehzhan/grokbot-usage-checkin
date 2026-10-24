@@ -28,7 +28,7 @@ def request(url, method="GET", headers=None, body=None):
 
 def start_server(argv, info_file, wait=60):
     """Start a server process; wait until `info_file` (JSON with url/token_file) appears."""
-    env = dict(os.environ, MPLBACKEND="Agg")
+    env = dict(os.environ, MPLBACKEND="Agg", USAGE_NO_AUTO_UPDATE_CHECK="1")  # never fetch the real checkout
     proc = subprocess.Popen([sys.executable] + argv, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                             env=env, text=True)
     t0 = time.time()

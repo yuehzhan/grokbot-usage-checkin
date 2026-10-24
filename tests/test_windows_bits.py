@@ -227,7 +227,7 @@ class ServiceTests(unittest.TestCase):
         with open(cfg, "w", encoding="utf-8") as fh:
             json.dump({"pct_source": "manual", "reset_source": "manual", "reset_anchor": "Sat 09:00", "data_dir": "data",
                        "render_all_palettes": False, "desktop_notify": False, "tz": "UTC"}, fh)
-        env = dict(os.environ, MPLBACKEND="Agg")
+        env = dict(os.environ, MPLBACKEND="Agg", USAGE_NO_AUTO_UPDATE_CHECK="1")
         run = lambda *a: subprocess.run([sys.executable, os.path.join(ROOT, "service.py")] + list(a) + ["--config", cfg],
                                         capture_output=True, text=True, timeout=120, env=env, cwd=d)
         try:
