@@ -37,12 +37,9 @@ def tag(off):
 
 
 def option_text(off, lang="en"):
-    """Menu text: −2, −1, +0, +1 (match desktop app), +2."""
+    """Menu text: −2, −1, +0, +1, +2 (plain numbers in every language; the gap to the desktop app is not constant)."""
     off = clamp(off)
-    s = f"+{off}" if off >= 0 else f"\u2212{-off}"
-    if off == 1 and lang != "numeric":
-        s += {"zh-TW": "（同桌面版）", "zh-CN": "（同桌面版）"}.get(lang, " (match desktop app)")
-    return s
+    return f"+{off}" if off >= 0 else f"\u2212{-off}"
 
 
 def suffix(off):

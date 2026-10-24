@@ -110,6 +110,23 @@ BASE_STRINGS = {
     "hero_title": "WEEKLY USAGE",
     "day_of_7": "Day {d} / 7",
     "gauge_base": "Baseline {base:.0f}%",
+    "tag_proj_over": "▲ over",
+    "tag_proj_under": "▼ within",
+    "tag_avg_over": "▲ faster",
+    "tag_avg_under": "▼ slower",
+    "tag_exhaust": "▲ running out",
+    "vs_under": "{n:.0f}% under baseline",
+    "vs_over": "{n:.0f}% over baseline",
+    "vs_even": "On baseline",
+    "vs_under_note": "plenty left",
+    "vs_over_note": "using it fast",
+    "vs_even_note": "right on pace",
+    "exhaust_main": "Runs out early, ~{left:.1f} days left",
+    "exhausted_now": "Weekly quota used up",
+    "proj_exhaust_val": "Quota ~{left:.1f}d left",
+    "proj_exhaust_val_short": "~{left:.1f}d left",
+    "proj_exhaust_sub": "Quota runs out early · raw {proj:.0f}%",
+    "proj_exhaust_chart": "out in ~{left:.1f}d",
     "ring_left": "{rem:.0f}% left",
     "on_pace": "ON PACE",
     "ahead_pace": "AHEAD OF PACE",
@@ -117,7 +134,7 @@ BASE_STRINGS = {
     "hits_100": "Hits 100% ~Day {day:.1f}",
     "within_cap": "7d est. {proj:.0f}% (within cap)",
     "stat_vs_base": "vs Baseline",
-    "stat_vs_base_sub": "Day {d} baseline: {base}%",
+    "stat_vs_base_sub": "Day {data_d} baseline: {base}%",
     "stat_rem": "Remaining",
     "stat_rem_sub": "of 100% weekly cap",
     "over_cap_note": "+{over:.0f}% over cap",
@@ -132,7 +149,7 @@ BASE_STRINGS = {
     "countdown_m": "{mins}m",
     "reset_short": "Reset",
     "stat_budget": "Daily Budget Left",
-    "stat_budget_sub": "over {d_rem}d left (min 1d)",
+    "stat_budget_sub": "over {d_rem}d to reset (incl. today)",
     "cum_title": "Cumulative Usage vs. Baseline",
     "ylabel_cum": "Cumulative (%)",
     "day_fmt": "Day {d}",
@@ -168,6 +185,23 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "hero_title": "本週累計用量",
         "day_of_7": "第 {d} / 7 天",
         "gauge_base": "基準線 {base:.0f}%",
+        "tag_proj_over": "▲超標",
+        "tag_proj_under": "▼未超標",
+        "tag_avg_over": "▲快於基準",
+        "tag_avg_under": "▼慢於基準",
+        "tag_exhaust": "▲即將用罄",
+        "vs_under": "落後基準 {n:.0f}%",
+        "vs_over": "超前基準 {n:.0f}%",
+        "vs_even": "與基準相同",
+        "vs_under_note": "用量充裕",
+        "vs_over_note": "消耗較快",
+        "vs_even_note": "剛好符合基準",
+        "exhaust_main": "預估額度提前耗盡，剩約 {left:.1f} 天",
+        "exhausted_now": "本週額度已用完",
+        "proj_exhaust_val": "額度剩約 {left:.1f} 天",
+        "proj_exhaust_val_short": "剩約 {left:.1f} 天",
+        "proj_exhaust_sub": "額度提前耗盡 · 原始預估 {proj:.0f}%",
+        "proj_exhaust_chart": "約 {left:.1f} 天後耗盡",
         "ring_left": "剩餘 {rem:.0f}%",
         "on_pace": "符合基準配速",
         "ahead_pace": "超前基準配速",
@@ -175,7 +209,7 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "hits_100": "預估第 {day:.1f} 天達 100%",
         "within_cap": "7天預估 {proj:.0f}% (未超標)",
         "stat_vs_base": "比基準差異",
-        "stat_vs_base_sub": "第{d}天基準: {base}%",
+        "stat_vs_base_sub": "第{data_d}天基準: {base}%",
         "stat_rem": "剩餘可用額度",
         "stat_rem_sub": "每週上限 100%",
         "over_cap_note": "超額 +{over:.0f}%",
@@ -190,7 +224,7 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "countdown_m": "{mins}分",
         "reset_short": "已重置",
         "stat_budget": "剩餘日均配額",
-        "stat_budget_sub": "剩餘 {d_rem} 天 (最少1天)",
+        "stat_budget_sub": "距重置 {d_rem} 天（含今天）",
         "cum_title": "本週累計用量 vs. 基準線",
         "ylabel_cum": "累計用量 (%)",
         "day_fmt": "第{d}天",
@@ -224,6 +258,23 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "hero_title": "本周累计用量",
         "day_of_7": "第 {d} / 7 天",
         "gauge_base": "基准线 {base:.0f}%",
+        "tag_proj_over": "▲超标",
+        "tag_proj_under": "▼未超标",
+        "tag_avg_over": "▲快于基准",
+        "tag_avg_under": "▼慢于基准",
+        "tag_exhaust": "▲即将用尽",
+        "vs_under": "落后基准 {n:.0f}%",
+        "vs_over": "超前基准 {n:.0f}%",
+        "vs_even": "与基准相同",
+        "vs_under_note": "用量充裕",
+        "vs_over_note": "消耗较快",
+        "vs_even_note": "刚好符合基准",
+        "exhaust_main": "预计额度提前耗尽，剩约 {left:.1f} 天",
+        "exhausted_now": "本周额度已用完",
+        "proj_exhaust_val": "额度剩约 {left:.1f} 天",
+        "proj_exhaust_val_short": "剩约 {left:.1f} 天",
+        "proj_exhaust_sub": "额度提前耗尽 · 原始预计 {proj:.0f}%",
+        "proj_exhaust_chart": "约 {left:.1f} 天后耗尽",
         "ring_left": "剩余 {rem:.0f}%",
         "on_pace": "符合基准",
         "ahead_pace": "超前基准",
@@ -231,7 +282,7 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "hits_100": "预计第 {day:.1f} 天达 100%",
         "within_cap": "预计7天 {proj:.0f}% (未超限)",
         "stat_vs_base": "对比基准",
-        "stat_vs_base_sub": "第{d}天基准: {base}%",
+        "stat_vs_base_sub": "第{data_d}天基准: {base}%",
         "stat_rem": "剩余额度",
         "stat_rem_sub": "每周上限 100%",
         "over_cap_note": "超限 +{over:.0f}%",
@@ -246,7 +297,7 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "countdown_m": "{mins}分",
         "reset_short": "已重置",
         "stat_budget": "剩余日均可用",
-        "stat_budget_sub": "剩余 {d_rem} 天 (至少1天)",
+        "stat_budget_sub": "距重置 {d_rem} 天（含今天）",
         "cum_title": "累计用量 vs. 基准线",
         "ylabel_cum": "累计用量 (%)",
         "day_fmt": "第{d}天",
@@ -280,6 +331,23 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "hero_title": "週間累計使用量",
         "day_of_7": "{d} / 7 日目",
         "gauge_base": "基準線 {base:.0f}%",
+        "tag_proj_over": "▲超過",
+        "tag_proj_under": "▼範囲内",
+        "tag_avg_over": "▲基準より速い",
+        "tag_avg_under": "▼基準より遅い",
+        "tag_exhaust": "▲まもなく上限",
+        "vs_under": "基準より {n:.0f}% 少ない",
+        "vs_over": "基準より {n:.0f}% 多い",
+        "vs_even": "基準どおり",
+        "vs_under_note": "余裕あり",
+        "vs_over_note": "消費が速め",
+        "vs_even_note": "基準ペース",
+        "exhaust_main": "枠が早めに尽きる見込み・残り約{left:.1f}日",
+        "exhausted_now": "今週の枠を使い切りました",
+        "proj_exhaust_val": "枠の残り約{left:.1f}日",
+        "proj_exhaust_val_short": "残り約{left:.1f}日",
+        "proj_exhaust_sub": "枠が早期に上限 · 予測値 {proj:.0f}%",
+        "proj_exhaust_chart": "約{left:.1f}日で上限",
         "ring_left": "残り {rem:.0f}%",
         "on_pace": "基準ペース内",
         "ahead_pace": "基準ペース超過",
@@ -287,7 +355,7 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "hits_100": "約{day:.1f}日目に100%到達",
         "within_cap": "7日予測 {proj:.0f}% (上限内)",
         "stat_vs_base": "基準比",
-        "stat_vs_base_sub": "{d}日目基準: {base}%",
+        "stat_vs_base_sub": "{data_d}日目基準: {base}%",
         "stat_rem": "残り枠",
         "stat_rem_sub": "週間上限 100%",
         "over_cap_note": "上限超過 +{over:.0f}%",
@@ -302,7 +370,7 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "countdown_m": "{mins}分",
         "reset_short": "リセット済",
         "stat_budget": "残り1日あたり枠",
-        "stat_budget_sub": "残り{d_rem}日 (最小1日)",
+        "stat_budget_sub": "リセットまで{d_rem}日（今日を含む）",
         "cum_title": "週間累計使用量 vs. 基準線",
         "ylabel_cum": "累計 (%)",
         "day_fmt": "{d}日目",
@@ -336,6 +404,23 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "hero_title": "주간 누적 사용량",
         "day_of_7": "{d} / 7 일차",
         "gauge_base": "기준선 {base:.0f}%",
+        "tag_proj_over": "▲초과",
+        "tag_proj_under": "▼기준 이내",
+        "tag_avg_over": "▲기준보다 빠름",
+        "tag_avg_under": "▼기준보다 느림",
+        "tag_exhaust": "▲곧 소진",
+        "vs_under": "기준보다 {n:.0f}% 적음",
+        "vs_over": "기준보다 {n:.0f}% 많음",
+        "vs_even": "기준과 같음",
+        "vs_under_note": "여유 있음",
+        "vs_over_note": "소진 빠름",
+        "vs_even_note": "기준 속도",
+        "exhaust_main": "한도 조기 소진 예상, 약 {left:.1f}일 남음",
+        "exhausted_now": "이번 주 한도 소진",
+        "proj_exhaust_val": "한도 약 {left:.1f}일 남음",
+        "proj_exhaust_val_short": "약 {left:.1f}일 남음",
+        "proj_exhaust_sub": "한도 조기 소진 · 예측 {proj:.0f}%",
+        "proj_exhaust_chart": "약 {left:.1f}일 후 소진",
         "ring_left": "남음 {rem:.0f}%",
         "on_pace": "기준 속도 유지",
         "ahead_pace": "기준 속도 초과",
@@ -343,7 +428,7 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "hits_100": "약 {day:.1f}일차 100% 도달",
         "within_cap": "7일 예상 {proj:.0f}% (한도 내)",
         "stat_vs_base": "기준 대비",
-        "stat_vs_base_sub": "{d}일차 기준: {base}%",
+        "stat_vs_base_sub": "{data_d}일차 기준: {base}%",
         "stat_rem": "남은 한도",
         "stat_rem_sub": "주간 상한 100%",
         "over_cap_note": "상한 초과 +{over:.0f}%",
@@ -358,7 +443,7 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "countdown_m": "{mins}분",
         "reset_short": "초기화됨",
         "stat_budget": "남은 일일 예산",
-        "stat_budget_sub": "남은 {d_rem}일 (최소 1일)",
+        "stat_budget_sub": "초기화까지 {d_rem}일 (오늘 포함)",
         "cum_title": "주간 누적 사용량 vs. 기준선",
         "ylabel_cum": "누적 (%)",
         "day_fmt": "{d}일차",
@@ -394,6 +479,23 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "hero_title": "∑ %",
         "day_of_7": "{d}/7",
         "gauge_base": "{base:.0f}%",
+        "tag_proj_over": "▲",
+        "tag_proj_under": "▼",
+        "tag_avg_over": "▲",
+        "tag_avg_under": "▼",
+        "tag_exhaust": "▲",
+        "vs_under": "{n:.0f}%",
+        "vs_over": "{n:.0f}%",
+        "vs_even": "0%",
+        "vs_under_note": "",
+        "vs_over_note": "",
+        "vs_even_note": "",
+        "exhaust_main": "→ 100% · ≈{left:.1f}d",
+        "exhausted_now": "≥ 100%",
+        "proj_exhaust_val": "≈{left:.1f}d",
+        "proj_exhaust_val_short": "≈{left:.1f}d",
+        "proj_exhaust_sub": "{proj:.0f}%",
+        "proj_exhaust_chart": "100% ≈{left:.1f}d",
         "ring_left": "{rem:.0f}% ↓",
         "on_pace": "▼ ≤",
         "ahead_pace": "▲ >",
@@ -401,7 +503,7 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "hits_100": "→ 100% @ D{day:.1f}",
         "within_cap": "→ 7/7: {proj:.0f}%",
         "stat_vs_base": "Δ",
-        "stat_vs_base_sub": "D{d}: {base}%",
+        "stat_vs_base_sub": "D{data_d}: {base}%",
         "stat_rem": "100% −",
         "stat_rem_sub": "/ 100%",
         "over_cap_note": "+{over:.0f}% > 100%",
@@ -725,6 +827,123 @@ def glow_plot(ax, x, y, color, is_light, lw=2.6, ls="-", zorder=4):
     ax.plot(x, y, color=color, lw=lw, ls=ls, alpha=1.0, solid_capstyle="round", zorder=zorder)
 
 
+def vs_base_text(diff, L, is_num=False):
+    """Stat-card wording for the gap to the baseline: (value, note, state) with state 'over'/'under'/'even'.
+    Plain words, no arrow: e.g. 「落後基準 16%」 + 「用量充裕」, or 「超前基準 5%」 + 「消耗較快」."""
+    if abs(diff) < 0.5:
+        state = "even"
+    else:
+        state = "over" if diff > 0 else "under"
+    if is_num:
+        return ("0%" if state == "even" else f"{diff:+.0f}%"), "", state
+    val = sfmt(L.get(f"vs_{state}", "{n:.0f}%"), n=abs(diff))
+    note = str(L.get(f"vs_{state}_note", "") or "")
+    return val, note, state
+
+
+def exhaust_days(latest_pct, avg_day):
+    """Days until 100% at the current daily rate (remaining % / average % per day), or None when not burning."""
+    if avg_day <= 0:
+        return None
+    return max(0.0, 100.0 - latest_pct) / avg_day
+
+
+def cycle_days(rem_sec, latest_day, period_days=7):
+    """One day index for the whole page. While the cycle runs, today is day (period - ceil(time to reset / 24h) + 1)
+    and the days left (today included) are ceil(time to reset / 24h); so 「第 3 / 7 天」 and 「剩餘 5 天」 always add
+    up to period + 1. Outside the cycle (or without a reset time) the day of the latest reading is used."""
+    if rem_sec is not None and 0 < rem_sec <= period_days * 86400:
+        left = int(np.ceil(rem_sec / 86400.0))
+        return period_days + 1 - left, left
+    d = int(min(max(int(latest_day), 1), period_days))
+    return d, period_days + 1 - d
+
+
+def stat_tag(txt):
+    """Small bracketed tag beside a stat number: 「［▼未超標］」 (full-width brackets for CJK), "[▼ within]" otherwise."""
+    txt = str(txt or "")
+    if not txt:
+        return ""
+    return f"［{txt}］" if any(ord(ch) > 0x2E80 for ch in txt) else f"[{txt}]"
+
+
+STAT_LONG_MIN_FS = 15.0  # below this the long projection wording falls back to the short one
+
+
+def _place_tag(fig, ax_hud, val_t, tag, right_px, y_px, gid):
+    """Draw (text, colour) tag right of the value text; shrink tag, then value, until both fit before right_px."""
+    txt, col = tag
+    if not txt:
+        return None
+    sc = FIG_W / max(1.0, fig.bbox.width)
+    try:
+        r = fig.canvas.get_renderer()
+        ext = lambda t: t.get_window_extent(renderer=r)
+    except Exception:
+        return None
+    t = ax_hud.text(0, y_px, txt, color=col, fontsize=10.5, fontweight="bold", va="center", ha="left", gid=gid)
+    for _ in range(40):
+        vx1 = ext(val_t).x1 * sc
+        t.set_x(vx1 + 8.0)
+        if vx1 + 8.0 + ext(t).width * sc <= right_px:
+            break
+        if t.get_fontsize() > 8.0:
+            t.set_fontsize(t.get_fontsize() - 0.5)
+        elif val_t.get_fontsize() > 11.0:
+            val_t.set_fontsize(val_t.get_fontsize() - 0.5)
+        else:
+            break
+    return t
+
+
+def _fit_text(t, max_w, fig, min_size=9.0):
+    """Shrink a text artist's font until it fits max_w pixels (figure px)."""
+    try:
+        r = fig.canvas.get_renderer()
+        while t.get_fontsize() > min_size and t.get_window_extent(renderer=r).width * (FIG_W / max(1.0, fig.bbox.width)) > max_w:
+            t.set_fontsize(t.get_fontsize() - 0.5)
+    except Exception:
+        pass
+    return t
+
+
+def _gauge_meta(fig, ax_gauge, hero, otag, pal, track_col, hero_col, data, cfg, bar, latest_base, hx, hw):
+    """Geometry + colours of the hero gauge in image pixels (SVG orientation, y down), so the served page can lay
+    an animated overlay exactly over the static PNG. The PNG itself is never changed by this."""
+    sc = FIG_W / max(1.0, fig.bbox.width)
+    try:
+        ax_gauge.apply_aspect()
+        (x0, y0), (x1, _y1) = ax_gauge.transData.transform([(0.0, 0.0), (1.0, 0.0)])
+        unit = (x1 - x0) * sc
+        gcx, gcy = x0 * sc, FIG_H - y0 * sc
+    except Exception:
+        unit, gcx, gcy = 90.0, (0.032 + 0.066) * FIG_W, FIG_H - (0.728 + 0.074) * FIG_H
+    try:
+        bb = hero.get_window_extent(renderer=fig.canvas.get_renderer())
+        nx, ny, nw, nh = bb.x0 * sc, FIG_H - bb.y1 * sc, bb.width * sc, bb.height * sc
+    except Exception:
+        nx, ny, nw, nh = hero.get_position()[0], FIG_H - hero.get_position()[1] - 30.0, 140.0, 60.0
+    pb_x0, pb_y, pb_w, pb_h, used_r, proj_r, base_r = bar
+    rows = data.get("rows") or []
+    raw = float(rows[-1]["pct"]) if rows else 0.0
+    pace = float(cfg.get("pace") or 14.0)
+    return {
+        "v": 1, "w": FIG_W, "h": FIG_H,
+        "pct": round(float(data["latest_pct"]), 3), "raw": round(raw, 3),
+        "off": int(cfg.get("display_offset") or 0), "base": round(float(latest_base), 3),
+        "pace": pace, "day": int(data["latest_day"]),
+        "ring": {"cx": round(gcx, 2), "cy": round(gcy, 2), "u": round(unit, 3),
+                 "r_in": 0.78, "r_out": 1.0, "glow_in": 0.76, "glow_out": 1.04},
+        "num": {"x": round(nx, 1), "y": round(ny, 1), "w": round(nw, 1), "h": round(nh, 1),
+                "size": round(28.5 * 150.0 / 72.0, 2), "tag": otag or "",
+                "cover_w": round((hx + hw - 0.012) * FIG_W - nx, 1)},
+        "bar": {"x": round(pb_x0, 1), "y": round(FIG_H - pb_y - pb_h, 1), "w": round(pb_w, 1), "h": pb_h,
+                "proj_r": round(proj_r, 4), "base_r": round(base_r, 4)},
+        "col": {"hero": hero_col, "over": pal["purple"], "under": pal["green"], "track": track_col,
+                "border": pal["card_border"], "fill": pal["card_fill"], "base": pal["orange"], "dim": pal["text_dim"]},
+    }
+
+
 def draw_card(ax_hud, x0, y0, w, h, pal, accent=None, radius=14.0, brackets=False):
     px, py, pw, ph = x0 * FIG_W, y0 * FIG_H, w * FIG_W, h * FIG_H
     card = FancyBboxPatch(
@@ -807,12 +1026,14 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
     d_rem = max(1, t_info["days_rem_stat"])
     daily_budget = rem_pct / d_rem
     eta_day = (100.0 / avg_day) if avg_day > 0 else 7.0
+    left_days = exhaust_days(latest_pct, avg_day)
 
     fmt_ctx = {
         "reset_wd": t_info.get("reset_wd", ""),
         "reset_date": t_info.get("reset_date", ""),
         "tz_label": t_info.get("tz_label_reset", t_info.get("tz_label", "")),
-        "d": latest_day,
+        "d": t_info.get("day_now", latest_day),
+        "data_d": latest_day,
         "day": eta_day,
         "pace": pace,
         "base": latest_base,
@@ -823,6 +1044,7 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
         "proj": proj_7d,
         "val": proj_7d,
         "d_rem": d_rem,
+        "left": left_days or 0.0,
         "now": t_info["now_str"],
         "reset_hm": t_info["reset_hm"],
     }
@@ -894,7 +1116,10 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
     )
 
     if avg_day > 0 and proj_7d > 100.0:
-        ax_hud.text(rx, (hy + 0.036) * FIG_H, sfmt(L["hits_100"], **fmt_ctx), color=pal["purple"], fontsize=9.2, fontweight="bold", va="center")
+        # projection beyond 100%: say when the quota runs out instead of a 392%-style number
+        key = "exhausted_now" if latest_pct >= 100.0 else "exhaust_main"
+        _fit_text(ax_hud.text(rx, (hy + 0.036) * FIG_H, sfmt(L[key], **fmt_ctx), color=pal["purple"], fontsize=9.2, fontweight="bold", va="center",
+                              gid="hero_exhaust"), (hx + hw - 0.010) * FIG_W - rx, fig, 7.0)
     else:
         ax_hud.text(rx, (hy + 0.036) * FIG_H, sfmt(L["within_cap"], **fmt_ctx), color=pal["green"], fontsize=9.2, fontweight="bold", va="center")
 
@@ -914,16 +1139,38 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
     bx_tick = pb_x0 + pb_w * base_r
     ax_hud.plot([bx_tick, bx_tick], [pb_y - 2.5, pb_y + pb_h + 2.5], color=pal["orange"], lw=2.2, zorder=6)
 
+    t_info.setdefault("meta", {}).update(_gauge_meta(fig, ax_gauge, hero, otag, pal, track_col, hero_col, data, cfg,
+                                                     (pb_x0, pb_y, pb_w, pb_h, used_r, proj_r, base_r), latest_base, hx, hw))
+
     budget_val_str = f"{daily_budget:.1f}%" if is_num else f"{daily_budget:.1f}%/d"
     reset_sub_str = f"@ {t_info['reset_date']}" if is_num else sfmt(L["stat_reset_sub"], **fmt_ctx)
 
+    vs_val, vs_note, _vs_state = vs_base_text(latest_diff, L, is_num)
+    vs_sub = sfmt(L["stat_vs_base_sub"], **fmt_ctx)
+    if vs_note:
+        cjk = any(ord(ch) > 0x2E80 for ch in vs_note)
+        vs_sub = f"（{vs_note}）{vs_sub}" if cjk else f"({vs_note}) {vs_sub}"
+    exhaust = avg_day > 0 and proj_7d > 100.0
+    # the ▲/▼ of these two cards sits in a small tag beside the number, e.g. 「61%  ［▼未超標］」
+    if exhaust:
+        proj_val = sfmt(L["proj_exhaust_val"], **fmt_ctx)
+        # 「額度剩約 N 天」 when it fits beside the tag, else the short 「剩約 N 天」 (the small line still says 「額度提前耗盡」)
+        proj_alt = sfmt(L.get("proj_exhaust_val_short") or L["proj_exhaust_val"], **fmt_ctx)
+        proj_sub = sfmt(L["proj_exhaust_sub"], **fmt_ctx)
+        proj_tag = (stat_tag(L["tag_exhaust"]), pal["purple"])
+    else:
+        proj_val = f"{proj_7d:.0f}%"
+        proj_alt = None
+        proj_sub = sfmt(L["stat_proj_sub"], **fmt_ctx)
+        proj_tag = (stat_tag(L["tag_proj_over" if proj_over else "tag_proj_under"]), pal["purple"] if proj_over else pal["green"])
+    avg_tag = (stat_tag(L["tag_avg_over" if avg_day > pace else "tag_avg_under"]), pal["purple"] if avg_day > pace else pal["green"])
     stats = [
         (
             str(L["stat_vs_base"]),
-            f"{'▲' if latest_diff > 0 else '▼'} {latest_diff:+.0f}%",
+            vs_val,
             pal["purple"] if latest_diff > 0 else pal["green"],
             pal["purple"] if latest_diff > 0 else pal["green"],
-            sfmt(L["stat_vs_base_sub"], **fmt_ctx),
+            vs_sub,
             pal["text_dim"],
         ),
         (
@@ -936,19 +1183,22 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
         ),
         (
             str(L["stat_avg"]),
-            ("▲ " if avg_day > pace else "▼ ") + f"{avg_day:.1f}%",
+            f"{avg_day:.1f}%",
             pal["purple"] if avg_day > pace else pal["green"],
             pal["purple"] if avg_day > pace else pal["green"],
             sfmt(L["stat_avg_sub"], **fmt_ctx),
             pal["text_dim"],
+            avg_tag,
         ),
         (
             str(L["stat_proj"]),
-            ("▲ " if proj_over else "▼ ") + f"{proj_7d:.0f}%",
+            proj_val,
             pal["purple"] if proj_over else pal["green"],
             pal["purple"] if proj_over else pal["green"],
-            sfmt(L["stat_proj_sub"], **fmt_ctx),
+            proj_sub,
             pal["text_dim"],
+            proj_tag,
+            proj_alt,
         ),
         (
             str(L["stat_reset"]),
@@ -970,14 +1220,28 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
 
     sx0, sy_top, sy_bot = 0.370, 0.799, 0.696
     cw, ch, gap_x = 0.193, 0.091, 0.013
-    for idx, (st_title, st_val, val_col, acc_col, st_sub, sub_col) in enumerate(stats):
+    for idx, (st_title, st_val, val_col, acc_col, st_sub, sub_col, *st_tag) in enumerate(stats):
         row, col = divmod(idx, 3)
         cx = sx0 + col * (cw + gap_x)
         cy = sy_top if row == 0 else sy_bot
         draw_card(ax_hud, cx, cy, cw, ch, pal, accent=acc_col, radius=11.0)
         ax_hud.text((cx + 0.014) * FIG_W, (cy + 0.070) * FIG_H, st_title, color=pal["text_dim"], fontsize=11.5 if is_num else 10.5, fontweight="bold", va="center")
-        ax_hud.text((cx + 0.014) * FIG_W, (cy + 0.041) * FIG_H, st_val, color=val_col, fontsize=19, fontweight="bold", va="center")
-        ax_hud.text((cx + 0.014) * FIG_W, (cy + 0.015) * FIG_H, st_sub, color=sub_col, fontsize=9.5, fontweight="bold", va="center")
+        vt = _fit_text(ax_hud.text((cx + 0.014) * FIG_W, (cy + 0.041) * FIG_H, st_val, color=val_col, fontsize=19, fontweight="bold", va="center",
+                                   gid=f"stat_val_{idx}"), (cw - 0.024) * FIG_W, fig, 11.0)
+        if st_tag:
+            tag_right, tag_y = (cx + cw - 0.016) * FIG_W, (cy + 0.041) * FIG_H
+            tt = _place_tag(fig, ax_hud, vt, st_tag[0], tag_right, tag_y, f"stat_tag_{idx}")
+            alt = st_tag[1] if len(st_tag) > 1 else None
+            if alt and alt != st_val and vt.get_fontsize() < STAT_LONG_MIN_FS:
+                # the long wording only squeezes in at a tiny size: use the short one instead
+                if tt is not None:
+                    tt.remove()
+                vt.set_text(alt)
+                vt.set_fontsize(19)
+                _fit_text(vt, (cw - 0.024) * FIG_W, fig, 11.0)
+                _place_tag(fig, ax_hud, vt, st_tag[0], tag_right, tag_y, f"stat_tag_{idx}")
+        _fit_text(ax_hud.text((cx + 0.014) * FIG_W, (cy + 0.015) * FIG_H, st_sub, color=sub_col, fontsize=9.5, fontweight="bold", va="center",
+                              gid=f"stat_sub_{idx}"), (cw - 0.022) * FIG_W, fig, 7.0)
 
 
 def draw_cumulative_panel(fig, ax_hud, data, cfg, L, pal):
@@ -1039,22 +1303,7 @@ def draw_cumulative_panel(fig, ax_hud, data, cfg, L, pal):
     glow_plot(ax, bx, by, color=pal["orange"], is_light=pal["is_light"], lw=2.5, zorder=4)
     ax.scatter([n - 0.5 for n in range(1, 8)], [pace * n for n in range(1, 8)], color=pal["orange"], s=22, alpha=0.85, zorder=4)
 
-    cand_x = max(
-        [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
-        key=lambda cx_i: min([abs(cx_i - x) + abs(pace * (cx_i + 0.5) - yp) / 14.0 for x, yp in zip(xs, ys_plot)] or [99]),
-    )
-    under_count = sum(1 for d, p in zip(days, pcts) if p <= pace * d)
-    if under_count >= max(1, len(days) // 2) and pace * (cand_x + 0.5) + 12.0 < 98.0:
-        base_lbl_y = pace * (cand_x + 0.5) + 4.5
-        base_lbl_va = "bottom"
-    else:
-        base_lbl_y = min(pace * (cand_x + 0.5) - 5.0, Y_MAX - 9.0)
-        base_lbl_va = "top"
-    ax.text(
-        cand_x, base_lbl_y, sfmt(L["baseline_line"], pace=pace, base7=base7),
-        color=pal["orange"], fontsize=9.5, fontweight="bold", ha="center", va=base_lbl_va,
-        bbox=dict(boxstyle="round,pad=0.18", facecolor=pal["card_fill"], edgecolor=pal["orange"], alpha=0.90, lw=0.9), zorder=6,
-    )
+    # no floating 「基準線 每天N%」 label on the chart itself: it could cover data points; the top legend names the line
 
     for i in range(1, len(xs)):
         seg_over = pcts[i] > pace * days[i]
@@ -1125,10 +1374,16 @@ def draw_cumulative_panel(fig, ax_hud, data, cfg, L, pal):
         ax.scatter([6.5], [proj_y], facecolors=pal["card_fill"], edgecolors=proj_col, s=58, lw=1.6, alpha=0.90, zorder=6)
         proj_off = (0, 10) if (proj_7d > base7 and proj_y <= Y_CAP - 6.0) else (0, -11)
         proj_va = "bottom" if proj_off[1] > 0 else "top"
+        if avg_day > 0 and proj_7d > 100.0:
+            proj_txt = sfmt(L.get("proj_exhaust_chart", L["proj_label"]), val=proj_7d, proj=proj_7d, left=exhaust_days(latest_pct, avg_day) or 0.0)
+            proj_ha = "right"  # longer text: end at the point so it stays inside the panel
+        else:
+            proj_txt = sfmt(L["proj_label"], val=proj_7d, proj=proj_7d, pace=pace, base7=base7)
+            proj_ha = "center"
         ax.annotate(
-            sfmt(L["proj_label"], val=proj_7d, proj=proj_7d, pace=pace, base7=base7),
-            xy=(6.5, proj_y), textcoords="offset points", xytext=proj_off,
-            color=proj_col, fontsize=9.5, fontweight="bold", ha="center", va=proj_va,
+            proj_txt,
+            xy=(6.5, proj_y), textcoords="offset points", xytext=(proj_off[0] + (8 if proj_ha == "right" else 0), proj_off[1]),
+            color=proj_col, fontsize=9.5, fontweight="bold", ha=proj_ha, va=proj_va, gid="proj_label",
             bbox=dict(boxstyle="round,pad=0.16", facecolor=pal["card_fill"], edgecolor=proj_col, alpha=0.88, lw=0.8), zorder=7,
         )
 
@@ -1294,7 +1549,7 @@ def draw_daily_log_panel(ax_hud, data, cfg, L, pal, t_info):
         if d in row_map:
             r = row_map[d]
             info = inc_map[d]
-            p = float(r["pct"])
+            p = data.get("pct_map", {}).get(d, float(r["pct"]))  # shown value (display offset applied)
             raw_inc = info["raw_inc"]
             gap = info["gap"]
             inc_over = raw_inc > pace * gap
@@ -1323,7 +1578,9 @@ def draw_daily_log_panel(ax_hud, data, cfg, L, pal, t_info):
             ax_hud.text(x_day, ry_mid - 9.0, sub_txt, color=pal["text_dim"], fontsize=9.5, fontweight="bold", va="center", zorder=4)
 
             ax_hud.text(x_cum, ry_mid + 3.0, f"{p:.0f}%", color=pal["text"], fontsize=12.5, fontweight="bold", ha="right", va="center", zorder=4)
-            ax_hud.text(x_inc, ry_mid + 3.0, f"{'▲' if inc_over else '▼'}{raw_inc:+.0f}%", color=inc_col, fontsize=12.5, fontweight="bold", ha="right", va="center", zorder=4)
+            # plain signed value; the colour carries over/under (pattern mode keeps a shape cue for colour-blind use)
+            inc_txt = (("▲" if inc_over else "▼") if pal.get("patterns") else "") + f"{raw_inc:+.0f}%"
+            ax_hud.text(x_inc, ry_mid + 3.0, inc_txt, color=inc_col, gid=f"log_inc_{d}", fontsize=12.5, fontweight="bold", ha="right", va="center", zorder=4)
 
             fill_w = bar_w_max * (min(max(p, 0.0), 100.0) / 100.0)
             ax_hud.plot([bar_x0, bar_x0 + bar_w_max], [ry_bot + 9.0, ry_bot + 9.0], color=pal["card_border"], lw=2.2, solid_capstyle="round", zorder=3)
@@ -1463,6 +1720,7 @@ def render(rows, out_png, week_start, cfg=None):
     data = {
         "rows": sorted_rows, "days": days, "pcts": pcts, "xs": xs, "ys_plot": ys_plot,
         "row_map": row_map, "inc_map": inc_map, "latest_day": latest_day, "latest_pct": latest_pct,
+        "pct_map": dict(zip(days, pcts)),
     }
 
     tz, tz_spec = resolve_tz(cfg.get("tz"))
@@ -1496,13 +1754,12 @@ def render(rows, out_png, week_start, cfg=None):
             range_str = f"{start_dt.strftime('%Y-%m-%d')} {wday} {reset_hm}  ->  {reset_dt.strftime('%Y-%m-%d')} {r_wday} {reset_hm}"
         for d in range(1, 8):
             day_dates[d] = (start_dt + timedelta(days=d - 1)).strftime("%m-%d")
+        cyc_rem = None
         if start_dt <= now_dt < reset_dt:
-            rem_sec = int((reset_dt - now_dt).total_seconds())
-            countdown_short = format_duration(rem_sec, L=L)
-            days_rem_stat = max(1, int(np.ceil(rem_sec / 86400.0)))
+            cyc_rem = int((reset_dt - now_dt).total_seconds())
+            countdown_short = format_duration(cyc_rem, L=L)
         else:
             countdown_short = format_duration(0, L=L)
-            days_rem_stat = max(1, 7 - latest_day)
     except Exception:
         short_range_str = f"{wstart[-5:]} → +7"
         wday = weekdays_list[5]
@@ -1513,7 +1770,7 @@ def render(rows, out_png, week_start, cfg=None):
         else:
             range_str = f"{wstart} {wday} {reset_hm}  ->  +7d {wday} {reset_hm}"
         countdown_short = format_duration(0, L=L)
-        days_rem_stat = max(1, 7 - latest_day)
+        cyc_rem = None
 
     # The next reset to show: the exact value given (e.g. /usage 'Resets:'), never rolled or corrected; else start + 7 days.
     shown_reset = _explicit_reset(cfg.get("reset_at"), tz)
@@ -1521,11 +1778,11 @@ def render(rows, out_png, week_start, cfg=None):
         cmp_now = now_dt if shown_reset.tzinfo is not None else now_dt.replace(tzinfo=None)
         rem_sec = max(0, int((shown_reset - cmp_now).total_seconds()))
         countdown_short = format_duration(rem_sec, L=L)
-        if rem_sec > 0:
-            days_rem_stat = max(1, int(np.ceil(rem_sec / 86400.0)))
+        cyc_rem = rem_sec if rem_sec > 0 else None
         reset_wd = weekdays_list[shown_reset.weekday()]
     else:
         shown_reset = reset_dt
+    day_now, days_rem_stat = cycle_days(cyc_rem, latest_day)
     reset_date = _sibling("usage_dates").reset_date(shown_reset, "numeric" if is_num else eff_lang) if shown_reset else ""
 
     t_info = {
@@ -1533,6 +1790,7 @@ def render(rows, out_png, week_start, cfg=None):
         "range_str": range_str,
         "countdown_short": countdown_short,
         "days_rem_stat": days_rem_stat,
+        "day_now": day_now,
         "day_dates": day_dates,
         "now_str": now_str,
         "reset_hm": reset_hm,
@@ -1562,6 +1820,7 @@ def render(rows, out_png, week_start, cfg=None):
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(str(out_path), dpi=150, facecolor=bg)
     plt.close(fig)
+    return t_info.get("meta", {})
 
 
 def main():

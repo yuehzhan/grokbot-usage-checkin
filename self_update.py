@@ -11,16 +11,28 @@ Used by the page's "Check for updates" / "Update" buttons (``usage_history.py se
   ``<data_dir>/update.log``. If a step fails it still starts the dashboard (old or new code), so the
   page is not left dead.
 
-Only fast-forwards: no force, no reset, no stash. ``usage-data/`` is gitignored and never touched.
+Only fast-forwards: no force, no stash. ``usage-data/`` is gitignored and never touched.
+
+Before an update the current commit and version are saved to ``<data_dir>/update_prev.json`` (local, not in
+git). ``rollback`` (the page's "Roll back to previous version") moves the ``main`` branch back to that commit
+with ``git reset --keep`` -- still on ``main``, no detached HEAD, so the next update is a normal fast-forward
+again. It refuses when program files have local edits (they are never discarded), when the saved commit is not
+an ancestor of HEAD, or when it is not on ``main``. Untracked / ignored files (usage-data/, usage_config.json)
+are never touched.
+
+``changelog_since(repo, lang)`` reads the CHANGELOG of the version that the last check fetched
+(``git show origin/main:CHANGELOG.md``): no extra network request, only what ``git fetch`` already brought.
 The *check* runs by itself about once a day unless ``"update_check": "off"`` (or the page's switch is off);
 an *update* only happens when someone presses the button.
 
     python self_update.py check  [--no-fetch]
-    python self_update.py run    --data-dir DIR [--config FILE] [--wait-pid PID]   # what the button starts
+    python self_update.py run    --data-dir DIR [--config FILE] [--wait-pid PID] [--rollback]   # what the buttons start
+    python self_update.py previous --data-dir DIR   # the commit "Roll back" would return to
 """
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -235,6 +247,169 @@ def auto_due(last_checked, now=None):
     return (time.time() if now is None else now) - (last_checked or 0) >= AUTO_EVERY
 
 
+# ------------------------------------------------------------------ version and changelog
+VERSION_FILE = "VERSION"
+CHANGELOG = {"en": "CHANGELOG.md", "zh-TW": "CHANGELOG.zh-TW.md"}
+NOTES_MAX_CHARS, NOTES_MAX_ENTRIES = 3000, 6
+_HEAD_RE = re.compile(r"^## \[v?(\d+(?:\.\d+){0,3})\][^\n]*$", re.M)
+_CTRL_RE = re.compile(r"[\x00-\x08\x0b-\x1f\x7f\u200b-\u200f\u202a-\u202e\u2066-\u2069]")
+
+
+def parse_version(v):
+    """"1.2.3" / "v1.2" -> (1, 2, 3) / (1, 2, 0); None when it is not a version."""
+    m = re.fullmatch(r"\s*v?(\d+(?:\.\d+){0,3})\s*", str(v or ""))
+    if not m:
+        return None
+    t = tuple(int(x) for x in m.group(1).split("."))
+    return t + (0,) * (3 - len(t)) if len(t) < 3 else t
+
+
+def read_version(repo=HERE, rev=None, git_bin="git"):
+    """Version string from the VERSION file of the working tree, or of commit ``rev``; None if missing."""
+    try:
+        text = git(repo, "show", f"{rev}:{VERSION_FILE}", git_bin=git_bin) if rev else \
+            (Path(repo) / VERSION_FILE).read_text(encoding="utf-8")
+    except (OSError, GitError):
+        return None
+    text = text.strip().splitlines()[0].strip() if text.strip() else ""
+    return text if parse_version(text) else None
+
+
+def parse_changelog(text):
+    """[(version tuple, entry text)] for every ``## [x.y.z] - date`` heading, in file order (newest first)."""
+    text = str(text or "").replace("\r\n", "\n")
+    heads = list(_HEAD_RE.finditer(text))
+    out = []
+    for i, m in enumerate(heads):
+        end = heads[i + 1].start() if i + 1 < len(heads) else len(text)
+        nxt = re.search(r"^(?:## |\[[^\]]+\]:\s)", text[m.end():end], re.M)  # stop at link references
+        body = text[m.start():m.end() + nxt.start() if nxt else end]
+        out.append((parse_version(m.group(1)), body.strip()))
+    return out
+
+
+def _plain_inline(t):
+    """Markdown inline syntax -> plain words: [text](url) -> text, `code` -> code, **b** / *i* / __b__ -> b."""
+    t = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", t)
+    t = re.sub(r"\[([^\]]+)\]\[[^\]]*\]", r"\1", t)
+    t = t.replace("`", "")
+    t = re.sub(r"(\*\*|__)(.+?)\1", r"\2", t)
+    return re.sub(r"(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])", r"\1", t)
+
+
+def to_plain(entry, cjk=False):
+    """One CHANGELOG entry as clean plain text: "## [1.1.0] - 2026-10-25" -> "v1.1.0 (2026-10-25)"
+    (CJK: "v1.1.0（2026-10-25）"), "### Added" -> "Added:" ("新增："), "- item" -> "・item" with wrapped
+    continuation lines joined; backticks, emphasis and link syntax removed."""
+    out = []
+    for raw in entry.splitlines():
+        line = raw.rstrip()
+        m = re.match(r"^##\s+\[v?([^\]]+)\]\s*(?:[-–—]\s*)?(.*)$", line)
+        if m:
+            date = _plain_inline(m.group(2)).strip()
+            out.append(f"v{m.group(1)}" + ((f"（{date}）" if cjk else f" ({date})") if date else ""))
+            continue
+        m = re.match(r"^#{1,6}\s+(.*?)\s*#*$", line)
+        if m:
+            h = _plain_inline(m.group(1)).strip().rstrip(":：")
+            if out and out[-1] != "":
+                out.append("")
+            out.append(h + ("：" if cjk else ":"))
+            continue
+        m = re.match(r"^\s*[-*+]\s+(.*)$", line)
+        if m:
+            out.append("・" + _plain_inline(m.group(1)).strip())
+            continue
+        if line.strip() and raw[:1].isspace() and out and out[-1].startswith("・"):  # wrapped bullet text
+            out[-1] += ("" if cjk else " ") + _plain_inline(line.strip())
+            continue
+        out.append(_plain_inline(line.strip()))
+    text = re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
+    return text
+
+
+def notes_between(text, current, cap=NOTES_MAX_CHARS, max_entries=NOTES_MAX_ENTRIES, cjk=False):
+    """Plain text (see ``to_plain``) of the entries newer than ``current`` (only the newest one when ``current``
+    is unknown), control / bidi characters removed, at most ``cap`` characters."""
+    cur = parse_version(current)
+    entries = [e for v, e in parse_changelog(text) if cur is None or v > cur]
+    entries = entries[:1] if cur is None else entries[:max_entries]
+    out = "\n\n".join(to_plain(_CTRL_RE.sub("", e), cjk) for e in entries)
+    return out if len(out) <= cap else out[:cap - 1].rstrip() + "…"
+
+
+def changelog_since(repo=HERE, lang="en", ref=f"{REMOTE}/{BRANCH}", current=None, git_bin="git"):
+    """What changed between this version and ``ref`` (normally origin/main as fetched by the last check),
+    in the page language when that CHANGELOG exists, else English. "" when there is nothing to show.
+    Reads git objects only (``git show``): no network."""
+    current = current if current is not None else read_version(repo)
+    names = [CHANGELOG[lang]] if lang in CHANGELOG and lang != "en" else []
+    if lang == "zh-CN":
+        names.append(CHANGELOG["zh-TW"])
+    for name in names + [CHANGELOG["en"]]:
+        try:
+            text = git(repo, "show", f"{ref}:{name}", git_bin=git_bin)
+        except (OSError, GitError):
+            continue
+        return notes_between(text, current, cjk=name != CHANGELOG["en"])
+    return ""
+
+
+# ------------------------------------------------------------------ previous version (rollback)
+PREV_FILE = "update_prev.json"
+NO_PREVIOUS, ALREADY, NOT_ANCESTOR, MISSING = "no_previous", "already_there", "not_ancestor", "missing_commit"
+
+
+def record_previous(repo, data_dir, git_bin="git"):
+    """Save the current commit, branch and version to <data_dir>/update_prev.json (called right before an update)."""
+    rec = {"commit": git(repo, "rev-parse", "HEAD", git_bin=git_bin),
+           "branch": git(repo, "rev-parse", "--abbrev-ref", "HEAD", git_bin=git_bin),
+           "version": read_version(repo), "saved_at": time.strftime("%Y-%m-%dT%H:%M:%S%z")}
+    Path(data_dir).mkdir(parents=True, exist_ok=True)
+    _write_json(Path(data_dir) / PREV_FILE, rec)
+    return rec
+
+
+def load_previous(data_dir):
+    d = _read_json(Path(data_dir) / PREV_FILE) or {}
+    c = str(d.get("commit") or "")
+    return d if re.fullmatch(r"[0-9a-f]{40}([0-9a-f]{24})?", c) else None
+
+
+def rollback_check(repo, data_dir, git_bin="git"):
+    """{"can_rollback", "state", "commit", "short", "version", "eol_only", "detail"}; local git only."""
+    repo = Path(repo)
+    prev = load_previous(data_dir)
+    out = {"can_rollback": False, "state": NO_PREVIOUS, "commit": None, "short": None, "version": None, "detail": ""}
+    if not prev:
+        return out
+    out.update(commit=prev["commit"], short=prev["commit"][:7], version=prev.get("version"))
+    if not (repo / ".git").exists():
+        return dict(out, state=NOT_GIT)
+    try:
+        if git(repo, "rev-parse", "HEAD", git_bin=git_bin) == prev["commit"]:
+            return dict(out, state=ALREADY)
+        cur = git(repo, "rev-parse", "--abbrev-ref", "HEAD", git_bin=git_bin)
+        if cur != BRANCH or prev.get("branch") not in (None, BRANCH):
+            return dict(out, state=WRONG_BRANCH, detail=f"current branch is {cur}")
+        try:
+            git(repo, "cat-file", "-e", prev["commit"] + "^{commit}", git_bin=git_bin)
+        except GitError:
+            return dict(out, state=MISSING)
+        try:  # only ever go back along the history the update moved forward on
+            git(repo, "merge-base", "--is-ancestor", prev["commit"], "HEAD", git_bin=git_bin)
+        except GitError:
+            return dict(out, state=NOT_ANCESTOR)
+        files, eol_only = changed_files(repo, git_bin=git_bin)
+        if files:
+            return dict(out, state=LOCAL_CHANGES, detail="changed: " + ", ".join(files[:5]) + (" …" if len(files) > 5 else ""))
+        return dict(out, state="ok", can_rollback=True, eol_only=eol_only)
+    except FileNotFoundError:
+        return dict(out, state=NO_GIT)
+    except GitError as exc:
+        return dict(out, state=GIT_ERROR, detail=str(exc))
+
+
 # ------------------------------------------------------------------ updater
 def updater_busy(data_dir):
     """Pid of a running updater (from <data_dir>/update.lock), else None."""
@@ -388,8 +563,9 @@ def _wait_gone(pid, timeout, say):
         proc_util.terminate(pid)
 
 
-def run(repo, data_dir, config=None, wait_pid=None, runner=None, delay=2.0):
-    """The detached updater. Returns True when every step worked. ``runner(argv, timeout, say, cwd)`` is for tests."""
+def run(repo, data_dir, config=None, wait_pid=None, runner=None, delay=2.0, rollback=False):
+    """The detached updater (``rollback=True``: back to the commit in update_prev.json). Returns True when every
+    step worked. ``runner(argv, timeout, say, cwd)`` is for tests."""
     repo, data_dir = Path(repo), Path(data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
     runner = runner or _run_step
@@ -401,7 +577,7 @@ def run(repo, data_dir, config=None, wait_pid=None, runner=None, delay=2.0):
     lock.write_text(str(os.getpid()), encoding="utf-8")
     ok = True
     try:
-        say(f"update started (pid {os.getpid()}, folder {repo})")
+        say(f"{'rollback' if rollback else 'update'} started (pid {os.getpid()}, folder {repo})")
         svc = {}
         try:
             svc = json.loads((data_dir / "service.json").read_text(encoding="utf-8"))
@@ -418,14 +594,36 @@ def run(repo, data_dir, config=None, wait_pid=None, runner=None, delay=2.0):
         if not runner(steps["stop"], STEP_TIMEOUT["stop"], say, repo):
             say("stop reported a problem; continuing")
         _wait_gone(wait_pid, 30, say)
-        pre = check(repo, fetch=False)
+        pre = rollback_check(repo, data_dir) if rollback else check(repo, fetch=False)
         eol = _EolOverride(repo, pre.get("eol_only") or [], say)
         pulled = tried = False
         try:
-            if not pre.get("can_update"):
+            if rollback:
+                if not pre.get("can_rollback"):
+                    say(f"not rolling back: {pre.get('state')} {pre.get('detail') or ''}".rstrip())
+                elif eol.files and not eol.apply():
+                    say("not rolling back: real local changes")
+                else:
+                    # stays on main (no detached HEAD); --keep refuses instead of discarding local edits and leaves
+                    # untracked / ignored files (usage-data/, usage_config.json) alone; never --hard
+                    tried = True
+                    say(f"$ git reset --keep {pre['commit']}  (back to {pre.get('version') or pre['short']})")
+                    try:
+                        git(repo, "reset", "--keep", pre["commit"])
+                        pulled = True
+                        say("  reset --keep worked")
+                        try:
+                            (data_dir / PREV_FILE).unlink()
+                        except OSError:
+                            pass
+                    except GitError as exc:
+                        say(f"  reset --keep failed: {exc}")
+            elif not pre.get("can_update"):
                 say(f"not updating: {pre.get('state')} {pre.get('detail') or ''}".rstrip())
             elif eol.files and not eol.apply():
                 say("not updating: real local changes")
+            elif not _record(repo, data_dir, say):
+                say("not updating: could not save the current version for a later rollback")
             elif (tried := True) and runner(steps["pull"], STEP_TIMEOUT["pull"], say, repo):
                 pulled = True
             elif eol.files and not changed_files(repo)[0]:
@@ -442,7 +640,7 @@ def run(repo, data_dir, config=None, wait_pid=None, runner=None, delay=2.0):
             eol.restore()
         if not pulled:
             if tried:
-                say("ERROR: git pull --ff-only failed; starting the current version again")
+                say("ERROR: " + ("git reset --keep" if rollback else "git pull --ff-only") + " failed; starting the current version again")
             ok = False
         else:
             new = None
@@ -451,7 +649,7 @@ def run(repo, data_dir, config=None, wait_pid=None, runner=None, delay=2.0):
                 changed = bool(old and new and git(repo, "diff", "--name-only", old, new, "--", "requirements.txt"))
             except (GitError, OSError):
                 changed = True
-            say(f"updated {(old or '?')[:7]} -> {(new or '?')[:7]}")
+            say(f"{'rolled back' if rollback else 'updated'} {(old or '?')[:7]} -> {(new or '?')[:7]}")
             install = dict(plan(repo, data_dir, config, with_sampler, requirements_changed=changed))["install"]
             if install is None:
                 say("requirements.txt unchanged; skipping pip install")
@@ -467,7 +665,7 @@ def run(repo, data_dir, config=None, wait_pid=None, runner=None, delay=2.0):
         if not runner(steps["start"], STEP_TIMEOUT["start"], say, repo):
             say("ERROR: start failed. Start it by hand (start.ps1 or: python3 service.py start)")
             ok = False
-        say("update finished" if ok else "update finished with problems")
+        say(("rollback" if rollback else "update") + (" finished" if ok else " finished with problems"))
     except Exception as exc:  # last resort: log it and try to bring the dashboard back
         ok = False
         say(f"ERROR: {exc!r}")
@@ -483,6 +681,16 @@ def run(repo, data_dir, config=None, wait_pid=None, runner=None, delay=2.0):
             pass
         log.close()
     return ok
+
+
+def _record(repo, data_dir, say):
+    try:
+        rec = record_previous(repo, data_dir)
+        say(f"saved the current version for rollback: {rec['commit'][:7]} {rec.get('version') or ''} -> {PREV_FILE}".rstrip())
+        return True
+    except (OSError, GitError) as exc:
+        say(f"  could not save {PREV_FILE}: {exc}")
+        return False
 
 
 def _detached_flags():
@@ -503,11 +711,11 @@ def _popen_detached(argv, cwd):
     return subprocess.Popen(argv, **kw)
 
 
-def spawn(repo, data_dir, config=None, wait_pid=None, python=None):
+def spawn(repo, data_dir, config=None, wait_pid=None, python=None, rollback=False):
     """Start the updater through a short-lived launcher, so it is no child of the server: ``stop`` on
     Windows ends the whole process tree (taskkill /T) and must not take the updater with it."""
     args = ["--repo", str(repo), "--data-dir", str(data_dir)] + (["--config", str(config)] if config else []) \
-        + (["--wait-pid", str(wait_pid)] if wait_pid else [])
+        + (["--wait-pid", str(wait_pid)] if wait_pid else []) + (["--rollback"] if rollback else [])
     p = _popen_detached([python or sys.executable, str(Path(__file__).resolve()), "launch"] + args, repo)
     try:
         p.wait(timeout=20)
@@ -518,7 +726,8 @@ def spawn(repo, data_dir, config=None, wait_pid=None, python=None):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description="Check for a newer version / update in place (fast-forward only).")
-    p.add_argument("cmd", choices=["check", "run", "launch"])
+    p.add_argument("cmd", choices=["check", "run", "launch", "previous"])
+    p.add_argument("--rollback", action="store_true", help="run: go back to the version saved before the last update")
     p.add_argument("--repo", default=str(HERE))
     p.add_argument("--data-dir", dest="data_dir")
     p.add_argument("--config")
@@ -530,12 +739,15 @@ def main(argv=None):
         return
     if not a.data_dir:
         p.error("--data-dir is required")
+    if a.cmd == "previous":
+        print(json.dumps(rollback_check(a.repo, a.data_dir), ensure_ascii=False))
+        return
     rest = ["--repo", a.repo, "--data-dir", a.data_dir] + (["--config", a.config] if a.config else []) \
-        + (["--wait-pid", str(a.wait_pid)] if a.wait_pid else [])
+        + (["--wait-pid", str(a.wait_pid)] if a.wait_pid else []) + (["--rollback"] if a.rollback else [])
     if a.cmd == "launch":
         _popen_detached([sys.executable, str(Path(__file__).resolve()), "run"] + rest, a.repo)
         return
-    sys.exit(0 if run(a.repo, a.data_dir, a.config, a.wait_pid) else 1)
+    sys.exit(0 if run(a.repo, a.data_dir, a.config, a.wait_pid, rollback=a.rollback) else 1)
 
 
 if __name__ == "__main__":

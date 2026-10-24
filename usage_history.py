@@ -21,7 +21,7 @@ Files written: samples.csv (timestamp ISO-8601 with UTC offset, pct), checkins.c
 sampler.pid, history_server.json, history_server.token (mode 600), sampler.log.
 Every CSV/JSON write holds <data_dir>/.write.lock (usage_lock.py).
 """
-import argparse, base64, calendar, csv, html, json, math, os, signal, subprocess, sys, threading, time
+import argparse, base64, calendar, csv, html, json, math, os, re, signal, subprocess, sys, threading, time
 from datetime import datetime, timedelta, timezone, tzinfo
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -64,7 +64,7 @@ STR = {
         "clock_note_g": "Times in {z} · colour = day (or week / month / quarter), see the legend · length = % increase in that hour · long gaps skipped",
         "clock_peak": "Peak {h}:00–{h2}:00  avg +{v:.1f}%/h  ({n} intervals)", "clock_none": "No valid intervals yet",
         "collecting": "Collecting data ({n}/{m})", "clock_note": "Times in {z} · length/color = avg % increase in that hour · resets counted from new value · long gaps skipped",
-        "ck_legend": "Check-ins ({n})", "last": "Last update: {t} ({z})", "refresh": "⟳ Refresh", "loading": "Loading…", "refreshing": "⟳ Refreshing… {s} s",
+        "ck_legend": "Check-ins ({n})", "last": "Last update: {t} ({z})", "last_short": "Last update: {t}", "refresh": "⟳ Refresh", "loading": "Loading…", "refreshing": "⟳ Refreshing… {s} s",
         "ph_read": "Reading usage from Grok Build…", "ph_draw": "Drawing charts…",
         "range": "Range", "name": "Name", "all": "All", "note": "Note", "time": "Time", "recent": "Recent check-ins",
         "per_name": "Per name", "top_hour": "Most common hour", "none_ck": "No check-ins yet", "ck_btn": "Check in",
@@ -93,7 +93,7 @@ STR = {
         "clock_note_g": "時刻為 {z} · 顏色 = 不同天（或週／月／季），對照圖例 · 長度 = 該小時用量增加 · 間隔過長略過",
         "clock_peak": "尖峰 {h}:00–{h2}:00　平均 +{v:.1f}%/小時　（{n} 個區間）", "clock_none": "尚無有效區間",
         "collecting": "資料收集中（{n}/{m}）", "clock_note": "時刻為 {z} · 長度/顏色 = 該小時平均用量增加 · 週重置以新值計 · 間隔過長略過",
-        "ck_legend": "打卡（{n} 次）", "last": "最後更新：{t}（{z}）", "refresh": "⟳ 重新整理", "loading": "讀取中…", "refreshing": "⟳ 更新中… {s} 秒",
+        "ck_legend": "打卡（{n} 次）", "last": "最後更新：{t}（{z}）", "last_short": "最後更新：{t}", "refresh": "⟳ 重新整理", "loading": "讀取中…", "refreshing": "⟳ 更新中… {s} 秒",
         "ph_read": "正在從 Grok Build 讀取用量…", "ph_draw": "正在產生圖表…",
         "range": "範圍", "name": "名字", "all": "全部", "note": "備註", "time": "時間", "recent": "最近打卡", "per_name": "各名字統計",
         "top_hour": "最常時段", "none_ck": "尚無打卡", "ck_btn": "打卡",
@@ -126,7 +126,7 @@ STR["numeric"] = dict(STR["en"], **{
     "clock_lo": {"ov": "▤", "sd": "▥"}, "clock_ll": "◫", "clock_fo": {"t": "◌", "s": "●"}, "clock_fl": "◐",
     "clock_wd": ["1", "2", "3", "4", "5", "6", "7"], "clock_day": "{md}", "clock_wkl": "{i}: {a}–{b}", "clock_mon": "{y}-{m:02d}", "clock_q": "{y} Q{q}",
     "clock_today": "{l} ●", "clock_curp": "{l} ●", "clock_note_g": "", "clock_peak": "▲ {h}–{h2}  +{v:.1f}  ({n})", "clock_none": "∅",
-    "collecting": "{n}/{m}", "clock_note": "", "ck_legend": "✓ {n}", "last": "↻ {t}", "refresh": "↻", "loading": "…", "refreshing": "… {s}", "ph_read": "", "ph_draw": "",
+    "collecting": "{n}/{m}", "clock_note": "", "ck_legend": "✓ {n}", "last": "↻ {t}", "last_short": "↻ {t}", "refresh": "↻", "loading": "…", "refreshing": "… {s}", "ph_read": "", "ph_draw": "",
     "range": "", "name": "", "all": "∗", "note": "", "time": "", "recent": "✓", "per_name": "∑", "top_hour": "▲",
     "none_ck": "∅", "ck_btn": "✓", "ck_hint": "", "week": "", "days": "D", "peak": "▲", "pace": "→", "at100": "100",
     "yes": "▲", "month": "", "amount": "$", "weekly_detail": "", "conn_err": "×", "clock_sub": "", "no_clock": "∅", "hour_fmt": "{h}",
@@ -162,6 +162,8 @@ class Ctx:
         self.tz_locked = getattr(a, "tz", None) is not None
         self.lang_setting = page_lang(gp("lang", "lang"))
         self.tz_setting = page_tz(gp("tz", "tz"))
+        self.anim_locked = getattr(a, "anim", None) is not None
+        self.anim_setting = page_anim(gp("anim", "anim"))
         # week files keep being written in the CLI/config zone (machine local otherwise); the page menu alone
         # (page_settings.json) changes only what is shown, so existing week files are never split or renamed
         self.data_tz = self._tz(str(g("tz", "tz", "local") or "local"))
@@ -331,13 +333,30 @@ PAGE_ZONES = ("Asia/Taipei", "Asia/Shanghai", "Asia/Hong_Kong", "Asia/Tokyo", "A
               "Europe/Paris", "Europe/Berlin", "Europe/Moscow", "America/Sao_Paulo", "America/New_York", "America/Chicago",
               "America/Denver", "America/Los_Angeles", "Pacific/Honolulu", "UTC")
 PICK_STR = {  # labels of the language / time zone menus and their "auto" option, in every page language
-    "zh-TW": {"lang": "語言", "tz": "時區", "auto": "自動（跟系統）", "locked": "已由啟動參數指定"},
-    "zh-CN": {"lang": "语言", "tz": "时区", "auto": "自动（跟随系统）", "locked": "已由启动参数指定"},
-    "en": {"lang": "Language", "tz": "Time zone", "auto": "Auto (system)", "locked": "Set by a command-line flag"},
-    "ja": {"lang": "言語", "tz": "タイムゾーン", "auto": "自動（システム）", "locked": "起動オプションで指定済み"},
-    "ko": {"lang": "언어", "tz": "시간대", "auto": "자동(시스템)", "locked": "실행 옵션으로 지정됨"},
-    "numeric": {"lang": "Aa", "tz": "◷", "auto": "auto", "locked": "CLI"},
+    "zh-TW": {"lang": "語言", "tz": "時區", "auto": "自動（跟系統）", "locked": "已由啟動參數指定",
+              "anim": "儀表動畫", "off": "關", "once": "只跑一次", "continuous": "持續", "applying": "套用中…"},
+    "zh-CN": {"lang": "语言", "tz": "时区", "auto": "自动（跟随系统）", "locked": "已由启动参数指定",
+              "anim": "仪表动画", "off": "关", "once": "只跑一次", "continuous": "持续", "applying": "应用中…"},
+    "en": {"lang": "Language", "tz": "Time zone", "auto": "Auto (system)", "locked": "Set by a command-line flag",
+           "anim": "Gauge animation", "off": "Off", "once": "Once", "continuous": "Continuous", "applying": "Applying…"},
+    "ja": {"lang": "言語", "tz": "タイムゾーン", "auto": "自動（システム）", "locked": "起動オプションで指定済み",
+           "anim": "ゲージ演出", "off": "オフ", "once": "1回だけ", "continuous": "連続", "applying": "適用中…"},
+    "ko": {"lang": "언어", "tz": "시간대", "auto": "자동(시스템)", "locked": "실행 옵션으로 지정됨",
+           "anim": "게이지 애니메이션", "off": "끄기", "once": "한 번만", "continuous": "계속", "applying": "적용 중…"},
+    "numeric": {"lang": "Aa", "tz": "◷", "auto": "auto", "locked": "CLI",
+                "anim": "◔", "off": "0", "once": "1", "continuous": "∞", "applying": "…"},
 }
+
+# Gauge "rev up" animation on the served page (the PNG never changes): off, once (default) or continuous
+ANIM_MODES = ("off", "once", "continuous")
+ANIM_DEFAULT = "once"
+
+
+def page_anim(v):
+    """An animation setting as stored: 'off' | 'once' | 'continuous' ('loop' is read as continuous); else the default."""
+    v = str(v if v is not None else "").strip().lower()
+    v = {"loop": "continuous", "on": "continuous", "none": "off", "false": "off"}.get(v, v)
+    return v if v in ANIM_MODES else ANIM_DEFAULT
 
 
 def _slug(v):
@@ -1049,21 +1068,24 @@ def render_current_week(ctx, nowa, names=None):
         rows = [r for r in csv.DictReader(f.open(encoding="utf-8"))] if f.exists() else []
         if not rows:
             for d in ([out] if publish else []) + [dd / "week-current.png" for _, dd in _palette_dirs(ctx, names)]:
-                if d.exists():
-                    d.unlink()
+                for x in (d, d.with_suffix(".json")):
+                    if x.exists():
+                        x.unlink()
             return False
         import chart_hud
         for name, d in _palette_dirs(ctx, names):
             d.mkdir(parents=True, exist_ok=True)
             base, pat = usage_palette.split_key(strip_offset(name))
-            chart_hud.render(rows, str(d / "week-current.png"), f"{ws.astimezone(ctx.tz):%Y-%m-%d}",
+            meta = chart_hud.render(rows, str(d / "week-current.png"), f"{ws.astimezone(ctx.tz):%Y-%m-%d}",
                              {"lang": "numeric" if ctx.privacy else ctx.lang, "privacy": ctx.privacy, "pace": ctx.pace,
                               "palette": base, "reset_hm": f"{ws.astimezone(ctx.tz):%H:%M}",
                               "accent_color": _theme_explicit_value(ctx.theme_path, "accent"),
                               "patterns": pat or bool(_theme_file(ctx.theme_path).get("patterns")),
-                              "display_offset": ctx.display_offset, "reset_at": shown_reset(ctx)})
+                              "display_offset": ctx.display_offset, "reset_at": shown_reset(ctx), "tz": ctx.tz_spec})
+            # gauge geometry/colours for the page's animated overlay (the PNG stays the static export)
+            _write_text(d / "week-current.json", json.dumps(meta or {}, ensure_ascii=False))
         if publish:
-            _publish_default(ctx, ["week-current.png"])
+            _publish_default(ctx, ["week-current.png", "week-current.json"])
         return True
     except Exception as exc:
         print(f"Warning: current week chart failed: {exc}", file=sys.stderr)
@@ -1094,6 +1116,14 @@ def render_history(ctx):
     write_html(ctx, sums, now, nowa, zl, gen)
     return {"ok": True, "html": str(ctx.hist_dir / "index.html"),
             "ranges": {S["key"]: {"weeks": S["n"], "sparse": S["sparse"]} for S in sums}}
+
+
+def rewrite_page(ctx):
+    """Rebuild only index.html (no chart drawing), e.g. after a page-only switch such as the gauge animation."""
+    ctx.hist_dir.mkdir(parents=True, exist_ok=True)
+    nowa, zl, now, sums = _history_inputs(ctx)
+    write_html(ctx, sums, now, nowa, zl, _read_text(ctx.hist_dir / GEN_FILE))
+    return {"ok": True, "html": str(ctx.hist_dir / "index.html")}
 
 
 def render_palette(ctx, name, clock=None, mode=None, patterns=False):
@@ -1132,7 +1162,7 @@ def render_palette(ctx, name, clock=None, mode=None, patterns=False):
 # Ledger status bar + browser notifications (Web Notifications API; permission is asked from a button,
 # never on load). When served, polls /api/ledger every 3 minutes; each alert id (one per day) fires once
 # (seen ids kept in localStorage).
-LEDGER_JS = "(function(){var $=id=>document.getElementById(id),served=/^https?:$/.test(location.protocol),led=null,S=JSON.parse($('ledgerstr').textContent),OFF=S.off||0,adj=function(p){return p==null?p:Math.max(0,Math.round((+p+OFF)*10)/10);};\ntry{led=JSON.parse($('ledgerdata').textContent);}catch(e){}\nfunction f(t,o){return String(t).replace(/\\{(\\w+)\\}/g,function(_,k){return o[k]!=null?o[k]:'';});}\nfunction el(t,x,c){var e=document.createElement(t);if(x!=null)e.textContent=x;if(c)e.className=c;return e;}\nfunction parts(iso){if(!iso)return null;var d=new Date(iso);if(isNaN(d))return null;var m=/([+-])(\\d\\d):(\\d\\d)$/.exec(iso);\nvar off=m?(m[1]=='-'?-1:1)*(+m[2]*60+ +m[3]):0,w=new Date(d.getTime()+off*60000),p=n=>String(n).padStart(2,'0');\nreturn {wd:S.wd[(w.getUTCDay()+6)%7],t:p(w.getUTCMonth()+1)+'-'+p(w.getUTCDate())+' '+p(w.getUTCHours())+':'+p(w.getUTCMinutes()),\nhm:p(w.getUTCHours())+':'+p(w.getUTCMinutes()),date:RD(w,S.dl),z:m?'UTC'+m[1]+(+m[2])+(+m[3]?':'+m[3]:''):'UTC'};}\nfunction render(L){var box=$('ledger');box.textContent='';if(!L){box.appendChild(el('div',S.none,'info'));return;}\nvar a=parts(L.asOf),at=a?a.t+(S.showz?' ('+a.z+')':''):'?',r=parts(L.resetsAt);\nif(L.status!=='ok'){var w=el('div',null,'warn'),lg=L.lastGood,lp=lg&&parts(lg.asOf);w.appendChild(el('b',S.unavailable));\nw.appendChild(document.createTextNode(' · '+f(S.tried,{t:at})+(L.error&&!S.privacy?' · '+f(S.reason,{e:L.error}):'')+' · '+\n(lg&&lg.weeklyPercentUsed!=null?f(S.last_good,{p:adj(lg.weeklyPercentUsed),t:lp?lp.t:'?'}):S.no_last)+' · '+S.reset_unknown));box.appendChild(w);}\nelse{var i=el('div',null,'info');i.appendChild(el('b',f(S.now,{p:adj(L.weeklyPercentUsed)})));if(S.otag)i.appendChild(el('span',' '+S.otag,'otag'));\ni.appendChild(document.createTextNode(' · '+(r?f(S.reset,{wd:r.wd,hm:r.hm,date:r.date,z:r.z}):S.reset_unknown)+' · '+f(S.read_at,{t:at})));box.appendChild(i);}\nvar bs=el('div',null,'badges');\nif(L.spike&&L.spike.flag){var s=parts(L.spike.since);bs.appendChild(el('span',f(S.spike,{p:L.spike.points,t:s?s.t:'?'}),'badge'));}\nif(L.overBudget&&L.overBudget.flag)bs.appendChild(el('span',f(S.budget,{p:adj(L.weeklyPercentUsed),th:L.overBudget.threshold}),'badge'));\nif(L.status!=='ok'&&L.consecutiveFailures)bs.appendChild(el('span',f(S.fails,{n:L.consecutiveFailures}),'badge note'));\nvar age=a?(Date.now()-new Date(L.asOf).getTime())/3600000:null;\nif(age!=null&&age>(L.staleAfterHours||6))bs.appendChild(el('span',f(S.stale,{h:Math.floor(age)}),'badge note'));\nif(bs.children.length)box.appendChild(bs);}\nrender(led);\nvar nb=$('notifybtn'),KEY='usage.alertsSeen';\nfunction seen(){try{return JSON.parse(localStorage.getItem(KEY)||'[]');}catch(e){return [];}}\nfunction fire(L){if(!L||!L.alerts||!('Notification' in window)||Notification.permission!=='granted')return;\nvar s=seen(),ch=false;L.alerts.forEach(function(x){if(s.indexOf(x.id)>=0)return;try{new Notification(x.title,{body:x.message,tag:x.id});}catch(e){}s.push(x.id);ch=true;});\nif(ch){try{localStorage.setItem(KEY,JSON.stringify(s.slice(-60)));}catch(e){}}}\nfunction poll(){fetch('/api/ledger',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(L=>{if(L){led=L;render(L);fire(L);}}).catch(()=>{});}\nif(served){if('Notification' in window&&Notification.permission==='default'){nb.hidden=false;\nnb.onclick=function(){Notification.requestPermission().then(function(p){nb.hidden=(p!=='default');if(p==='granted')fire(led);});};}\nfire(led);poll();setInterval(poll,180000);}})();\n"
+LEDGER_JS = "(function(){var $=id=>document.getElementById(id),served=/^https?:$/.test(location.protocol),led=null,S=JSON.parse($('ledgerstr').textContent),OFF=S.off||0,adj=function(p){return p==null?p:Math.max(0,Math.round((+p+OFF)*10)/10);};\ntry{led=JSON.parse($('ledgerdata').textContent);}catch(e){}\nfunction f(t,o){return String(t).replace(/\\{(\\w+)\\}/g,function(_,k){return o[k]!=null?o[k]:'';});}\nfunction el(t,x,c){var e=document.createElement(t);if(x!=null)e.textContent=x;if(c)e.className=c;return e;}\nfunction parts(iso){if(!iso)return null;var d=new Date(iso);if(isNaN(d))return null;var m=/([+-])(\\d\\d):(\\d\\d)$/.exec(iso);\nvar off=m?(m[1]=='-'?-1:1)*(+m[2]*60+ +m[3]):0,w=new Date(d.getTime()+off*60000),p=n=>String(n).padStart(2,'0');\nreturn {wd:S.wd[(w.getUTCDay()+6)%7],t:p(w.getUTCMonth()+1)+'-'+p(w.getUTCDate())+' '+p(w.getUTCHours())+':'+p(w.getUTCMinutes()),\nhm:p(w.getUTCHours())+':'+p(w.getUTCMinutes()),date:RD(w,S.dl),z:m?'UTC'+m[1]+(+m[2])+(+m[3]?':'+m[3]:''):'UTC'};}\nfunction render(L){var box=$('ledger');box.textContent='';if(!L){box.appendChild(el('div',S.none,'info'));return;}\nvar a=parts(L.asOf),at=a?a.t+(S.showz?' ('+a.z+')':''):'?',r=parts(L.resetsAt);\nif(L.status!=='ok'){var w=el('div',null,'warn'),lg=L.lastGood,lp=lg&&parts(lg.asOf);w.appendChild(el('b',S.unavailable));\nw.appendChild(document.createTextNode(' · '+f(S.tried,{t:at})+(L.error&&!S.privacy?' · '+f(S.reason,{e:L.error}):'')+' · '+\n(lg&&lg.weeklyPercentUsed!=null?f(S.last_good,{p:adj(lg.weeklyPercentUsed),t:lp?lp.t:'?'}):S.no_last)+' · '+S.reset_unknown));box.appendChild(w);}\nelse{var i=el('div',null,'info');i.appendChild(el('b',f(S.now,{p:adj(L.weeklyPercentUsed)})));if(S.otag)i.appendChild(el('span',' '+S.otag,'otag'));\ni.appendChild(document.createTextNode(' · '+(r?f(S.reset,{wd:r.wd,hm:r.hm,date:r.date,z:r.z}):S.reset_unknown)+' · '+f(S.read_at,{t:at})));box.appendChild(i);}\nvar bs=el('div',null,'badges');\nif(L.spike&&L.spike.flag){var s=parts(L.spike.since);bs.appendChild(el('span',f(S.spike,{p:L.spike.points,t:s?s.t:'?'}),'badge'));}\nif(L.overBudget&&L.overBudget.flag)bs.appendChild(el('span',f(S.budget,{p:adj(L.weeklyPercentUsed),th:L.overBudget.threshold}),'badge'));\nif(L.status!=='ok'&&L.consecutiveFailures)bs.appendChild(el('span',f(S.fails,{n:L.consecutiveFailures}),'badge note'));\nvar age=a?(Date.now()-new Date(L.asOf).getTime())/3600000:null;\nif(age!=null&&age>(L.staleAfterHours||6))bs.appendChild(el('span',f(S.stale,{h:Math.floor(age)}),'badge note'));\nif(bs.children.length)box.appendChild(bs);}\nrender(led);\nwindow.usageLedgerOffset=function(o){OFF=o;S.otag=o?'('+(o>0?'+':'\\u2212')+Math.abs(o)+')':'';render(led);};\nvar nb=$('notifybtn'),KEY='usage.alertsSeen';\nfunction seen(){try{return JSON.parse(localStorage.getItem(KEY)||'[]');}catch(e){return [];}}\nfunction fire(L){if(!L||!L.alerts||!('Notification' in window)||Notification.permission!=='granted')return;\nvar s=seen(),ch=false;L.alerts.forEach(function(x){if(s.indexOf(x.id)>=0)return;try{new Notification(x.title,{body:x.message,tag:x.id});}catch(e){}s.push(x.id);ch=true;});\nif(ch){try{localStorage.setItem(KEY,JSON.stringify(s.slice(-60)));}catch(e){}}}\nfunction poll(){fetch('/api/ledger',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(L=>{if(L){led=L;render(L);fire(L);}}).catch(()=>{});}\nif(served){if('Notification' in window&&Notification.permission==='default'){nb.hidden=false;\nnb.onclick=function(){Notification.requestPermission().then(function(p){nb.hidden=(p!=='default');if(p==='granted')fire(led);});};}\nfire(led);poll();setInterval(poll,180000);}})();\n"
 MANUAL_STR = {  # "Enter manually" form (POST /api/manual); shown only when served by usage_history.py serve
     "en": {"btn": "Enter manually", "pct": "Weekly %", "reset": "Next reset (optional)",
            "reset_ph": "Sat 09:00 / Oct 31, 09:00 / 2026-10-31 09:00", "save": "Save",
@@ -1151,23 +1181,23 @@ LEDGER_STR = {
     "en": {"wd": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], "now": "Now {p}%", "reset": "resets {date} ({z})", "dl": "en",
            "reset_unknown": "reset unknown", "read_at": "read {t}", "unavailable": "⚠ Usage unavailable", "tried": "tried {t}",
            "reason": "reason: {e}", "last_good": "last good {p}% ({t})", "no_last": "no good reading yet",
-           "spike": "▲ +{p} pts in 24h (since {t})", "budget": "● {p}% (≥ {th}%)", "fails": "{n} failed reads in a row",
-           "stale": "data is {h}h old", "none": "No ledger yet (run a sample once)", "notify": "Enable desktop notifications", "showz": True},
+           "spike": "▲ +{p}% in 24h (since {t})", "budget": "● {p}% (≥ {th}%)", "fails": "{n} failed reads in a row",
+           "stale": "data is {h}h old", "none": "No usage history details yet (available after the first background reading)", "notify": "Enable desktop notifications", "showz": True},
     "zh-TW": {"wd": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"], "now": "目前 {p}%", "reset": "重置 {date}（{z}）", "dl": "zh-TW",
               "reset_unknown": "重置時間未知", "read_at": "讀取於 {t}", "unavailable": "⚠ 無法取得目前用量", "tried": "嘗試於 {t}",
               "reason": "原因：{e}", "last_good": "最後成功 {p}%（{t}）", "no_last": "尚無成功紀錄",
-              "spike": "▲ 24 小時暴增 +{p} 點（自 {t}）", "budget": "● 已達 {p}%（門檻 {th}%）", "fails": "連續 {n} 次無法取得",
-              "stale": "資料已 {h} 小時未更新", "none": "尚無 ledger（取樣一次後出現）", "notify": "開啟桌面通知", "showz": True},
+              "spike": "▲ 24 小時內用量激增 +{p}%（自 {t}）", "budget": "● 已達 {p}%（門檻 {th}%）", "fails": "連續 {n} 次無法取得",
+              "stale": "資料已 {h} 小時未更新", "none": "尚無歷史明細（首次背景記錄後啟用）", "notify": "開啟桌面通知", "showz": True},
     "numeric": {"wd": ["1", "2", "3", "4", "5", "6", "7"], "now": "{p}%", "reset": "↻ {date}", "dl": "numeric", "reset_unknown": "↻ ?", "read_at": "@ {t}",
                 "unavailable": "∅", "tried": "@ {t}", "reason": "", "last_good": "✓ {p}% @ {t}", "no_last": "✓ —",
-                "spike": "▲ +{p} / 24h", "budget": "● {p}% ≥ {th}%", "fails": "∅ ×{n}", "stale": "⌛ {h}h", "none": "∅",
+                "spike": "▲ +{p}% / 24h", "budget": "● {p}% ≥ {th}%", "fails": "∅ ×{n}", "stale": "⌛ {h}h", "none": "∅",
                 "notify": "🔔", "showz": False, "privacy": True},
 }
 LEDGER_STR["zh-CN"] = dict(LEDGER_STR["zh-TW"], wd=["周一", "周二", "周三", "周四", "周五", "周六", "周日"], dl="zh-CN",
                            now="目前 {p}%", reset="重置 {date}（{z}）", reset_unknown="重置时间未知", read_at="读取于 {t}",
                            unavailable="⚠ 无法获取当前用量", tried="尝试于 {t}", reason="原因：{e}", last_good="最后成功 {p}%（{t}）",
-                           no_last="尚无成功记录", spike="▲ 24 小时暴增 +{p} 点（自 {t}）", budget="● 已达 {p}%（阈值 {th}%）",
-                           fails="连续 {n} 次无法获取", stale="数据已 {h} 小时未更新", none="尚无 ledger（取样一次后出现）",
+                           no_last="尚无成功记录", spike="▲ 24 小时内用量激增 +{p}%（自 {t}）", budget="● 已达 {p}%（阈值 {th}%）",
+                           fails="连续 {n} 次无法获取", stale="数据已 {h} 小时未更新", none="尚无历史明细（首次后台记录后启用）",
                            notify="开启桌面通知")
 
 
@@ -1188,7 +1218,16 @@ UPDATE_STR = {  # "Check for updates" / "Update" (POST /api/update/check, /api/u
            "busy": "An update is already running.", "confirm": "Update and restart the dashboard now? Your data is kept.",
            "updating": "Updating… (about 1–3 minutes; the page reloads by itself)",
            "slow": "The update is taking too long. See update.log in the data folder, or update with the commands in the README.",
-           "failed": "The update did not start: {e}", "auto": "Check for updates automatically"},
+           "failed": "The update did not start: {e}", "auto": "Auto-check for updates",
+           "notes": "What's new:", "back": "Roll back to previous version",
+           "back_confirm": "Go back to the version you had before the last update ({v}) and restart the dashboard? Your data and settings are kept. You can update again later.",
+           "back_running": "Rolling back… (about 1–3 minutes; the page reloads by itself)",
+           "back_failed": "Could not roll back: {e}",
+           "back_states": {"no_previous": "No previous version was saved.", "already_there": "This is already the previous version.",
+                           "local_changes": "Program files in this folder were changed; roll back by hand (see the README) so your changes are not lost.",
+                           "not_ancestor": "The saved version is not part of this folder's history; roll back by hand (see the README).",
+                           "missing_commit": "The saved version is no longer in this folder; roll back by hand (see the README).",
+                           "wrong_branch": "This folder is not on the main branch.", "not_git": "This folder was not installed with git clone."}},
     "zh-TW": {"btn": "檢查更新", "go": "更新", "checking": "檢查中…",
               "new": "有新版本：{h} {s}（落後 {n} 個）", "up_to_date": "已經是最新版本。",
               "not_git": "這個資料夾不是用 git clone 安裝的（例如從 ZIP 解壓縮），所以不能自動更新。"
@@ -1203,11 +1242,21 @@ UPDATE_STR = {  # "Check for updates" / "Update" (POST /api/update/check, /api/u
               "busy": "已經在更新了。", "confirm": "要現在更新並重新啟動儀表板嗎？你的資料會保留。",
               "updating": "更新中…（大約 1–3 分鐘，完成後頁面會自動重新整理）",
               "slow": "更新等太久了。請看資料資料夾裡的 update.log，或照 README 的指令手動更新。",
-              "failed": "更新沒有開始：{e}", "auto": "自動檢查更新"},
+              "failed": "更新沒有開始：{e}", "auto": "自動檢查更新",
+              "notes": "這次更新的內容：", "back": "回到上一版",
+              "back_confirm": "要回到上次更新前的版本（{v}）並重新啟動儀表板嗎？你的資料和設定都會保留，之後還可以再更新。",
+              "back_running": "正在回到上一版…（大約 1–3 分鐘，完成後頁面會自動重新整理）",
+              "back_failed": "無法回到上一版：{e}",
+              "back_states": {"no_previous": "沒有存到上一版的紀錄。", "already_there": "目前已經是上一版。",
+                              "local_changes": "這個資料夾裡的程式檔被改過；為了不蓋掉你的修改，請照 README 手動回復。",
+                              "not_ancestor": "存下來的版本不在這個資料夾的歷史裡，請照 README 手動回復。",
+                              "missing_commit": "這個資料夾裡已經找不到存下來的版本，請照 README 手動回復。",
+                              "wrong_branch": "這個資料夾目前不在 main 分支。", "not_git": "這個資料夾不是用 git clone 安裝的。"}},
     "numeric": {"btn": "⇪", "go": "⇪ ↻", "checking": "…", "new": "⇪ {h} (−{n})", "up_to_date": "✓",
                 "not_git": "× zip", "no_git": "× git", "no_remote": "× git", "fetch_failed": "× ⇅", "local_changes": "× ✎",
                 "diverged": "× ⑂", "wrong_branch": "× ⑂", "git_error": "×", "cooldown": "⌛ {s}s", "busy": "↻ …",
-                "confirm": "⇪ ↻ ?", "updating": "↻ …", "slow": "× log", "failed": "×", "auto": "⇪ ⏱", "privacy": True},
+                "confirm": "⇪ ↻ ?", "updating": "↻ …", "slow": "× log", "failed": "×", "auto": "⇪ ⏱", "privacy": True,
+                "notes": "", "back": "⟲", "back_confirm": "⟲ {v} ?", "back_running": "⟲ …", "back_failed": "× {e}", "back_states": {}},
 }
 UPDATE_CHECK_COOLDOWN = 30  # seconds between real "git fetch" runs; a repeat click inside it gets the last answer
 UPDATE_AUTO_FIRST_DELAY = 60  # automatic check: first look a minute after start (then about once a day)
@@ -1224,17 +1273,154 @@ T=(document.querySelector('meta[name="usage-token"]')||{}).content||'',K='usage.
 try{localStorage.setItem(K,s.value);}catch(e){}
 if(!served){s.disabled=true;return;}
 s.onchange=function(){var v=parseInt(s.value,10);s.disabled=true;try{localStorage.setItem(K,String(v));}catch(e){}
+if(window.usageApplying)usageApplying(true);if(window.usageLedgerOffset)usageLedgerOffset(v);if(window.usageGaugePreview)usageGaugePreview(v);
 fetch('/api/display-offset',{method:'POST',headers:{'X-Usage-Token':T,'Content-Type':'application/json'},body:JSON.stringify({offset:v})})
-.then(function(r){return r.json();}).then(function(j){if(j&&j.ok)location.reload();else s.disabled=false;}).catch(function(){s.disabled=false;});};})();"""
+.then(function(r){return r.json();}).then(function(j){if(j&&j.ok)location.reload();else fail();}).catch(fail);};
+function fail(){s.disabled=false;if(window.usageApplying)usageApplying(false);}})();"""
 # Language / time zone menus: same as the offset menu (browser: usage.lang / usage.tz; server: POST /api/lang,
 # /api/tz, saved as "lang" / "tz" in usage_config.json or page_settings.json); the page reloads redrawn.
+def _app_version():
+    try:
+        v = (HERE / "VERSION").read_text(encoding="utf-8").strip().splitlines()[0].strip()
+        return v if re.fullmatch(r"\d+(\.\d+){1,3}", v) else ""
+    except (OSError, IndexError):
+        return ""
+
+
+APP_VERSION = _app_version()  # VERSION file (also the CHANGELOG headings)
+
+# Link to the project page at the end of toolbar row 2. The mark is the Octicons "mark-github" 16px icon
+# (MIT, (c) GitHub), inlined unmodified; per GitHub's logo policy it is shown in white/grey only, icon only,
+# and only links to the repository. See "Third-party notices" in README.md.
+REPO_URL = "https://github.com/yuehzhan/grokbot-usage-checkin"
+GH_MARK_PATH = ("M6.766 11.328c-2.063-.25-3.516-1.734-3.516-3.656 0-.781.281-1.625.75-2.188-.203-.515-.172-1.609.063-2.062"
+                ".625-.078 1.468.25 1.968.703.594-.187 1.219-.281 1.985-.281.765 0 1.39.094 1.953.265.484-.437 1.344-.765 "
+                "1.969-.687.218.422.25 1.515.046 2.047.5.593.766 1.39.766 2.203 0 1.922-1.453 3.375-3.547 3.64.531.344.89 "
+                "1.094.89 1.954v1.625c0 .468.391.734.86.547C13.781 14.359 16 11.53 16 8.03 16 3.61 12.406 0 7.984 0 3.563 0 "
+                "0 3.61 0 8.031a7.88 7.88 0 0 0 5.172 7.422c.422.156.828-.125.828-.547v-1.25c-.219.094-.5.156-.75.156-1.031 "
+                "0-1.64-.562-2.078-1.609-.172-.422-.36-.672-.719-.719-.187-.015-.25-.093-.25-.187 0-.188.313-.328.625-.328"
+                ".453 0 .844.281 1.25.86.313.452.64.655 1.031.655s.641-.14 1-.5c.266-.265.47-.5.657-.656")
+GH_LABEL = {"zh-TW": "前往 GitHub 專案頁", "zh-CN": "前往 GitHub 项目页", "en": "View on GitHub",
+            "ja": "GitHub リポジトリを開く", "ko": "GitHub 저장소 열기"}
+
+
+def gh_css(dark=True):
+    """White/grey only: muted by default, full white (dark page) or dark grey (light page) on hover/focus."""
+    rest, hover = ("rgba(255,255,255,0.6)", "#FFFFFF") if dark else ("#6E7781", "#424A53")
+    return (" .ghlink{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:6px;"
+            f"color:{rest};text-decoration:none;transition:color .15s}}"
+            f" .ghlink:hover,.ghlink:focus-visible{{color:{hover}}} .ghlink:focus-visible{{outline:2px solid currentColor;outline-offset:1px}}"
+            " .ghlink svg{display:block;width:16px;height:16px;fill:currentColor}")
+
+
+def gh_link_html(lang):
+    """Icon-only link to the repository (no text next to the mark); not shown in the numeric/privacy view."""
+    if lang == "numeric":
+        return ""
+    t = html.escape(GH_LABEL.get(lang) or GH_LABEL["en"])
+    return (f'<a class="ghlink" id="ghlink" href="{REPO_URL}" target="_blank" rel="noopener noreferrer" title="{t}" aria-label="{t}">'
+            f'<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="{GH_MARK_PATH}"/></svg></a>')
+
+
 PICK_JS = r"""(function(){var T=(document.querySelector('meta[name="usage-token"]')||{}).content||'',served=/^https?:$/.test(location.protocol);
-[].forEach.call(document.querySelectorAll('select[data-api]'),function(s){var K=s.dataset.k,F=s.dataset.f;
+[].forEach.call(document.querySelectorAll('select[data-api]'),function(s){var K=s.dataset.k,F=s.dataset.f,live=!!s.dataset.live,A=window.usageApplying||function(){};
+function apply(){if(live&&window.usageGaugeMode)usageGaugeMode(s.value);}
+if(s.dataset.locked){s.disabled=true;return;}
+if(!served){if(!live){try{localStorage.setItem(K,s.value);}catch(e){}s.disabled=true;return;}
+try{var ls=localStorage.getItem(K);if(ls&&[].some.call(s.options,function(o){return o.value==ls;}))s.value=ls;}catch(e){}
+s.onchange=function(){try{localStorage.setItem(K,s.value);}catch(e){}apply();};return;}
 try{localStorage.setItem(K,s.value);}catch(e){}
-if(!served||s.dataset.locked){s.disabled=true;return;}
-s.onchange=function(){var v=s.value,b={};b[F]=v;s.disabled=true;try{localStorage.setItem(K,v);}catch(e){}
+s.onchange=function(){var v=s.value,b={};b[F]=v;s.disabled=true;try{localStorage.setItem(K,v);}catch(e){}if(!live)(window.usageApplying||A)(true);
 fetch(s.dataset.api,{method:'POST',headers:{'X-Usage-Token':T,'Content-Type':'application/json'},body:JSON.stringify(b)})
-.then(function(r){return r.json();}).then(function(j){if(j&&j.ok)location.reload();else s.disabled=false;}).catch(function(){s.disabled=false;});};});})();"""
+.then(function(r){return r.json();}).then(function(j){if(j&&j.ok&&!live){location.reload();return;}s.disabled=false;if(j&&j.ok)apply();else (window.usageApplying||A)(false);})
+.catch(function(){s.disabled=false;(window.usageApplying||A)(false);});};});})();"""
+# Gauge "rev up" overlay (served page only; the PNG is the static export): an SVG laid over the hero gauge of
+# week-current.png using the geometry chart_hud writes to week-current.json. Once: on open / refresh / offset change
+# the ring sweeps 0 -> value with a small overshoot (~1 s) while the big % counts up and the progress bar fills, then
+# the overlay fades away. Continuous: after the sweep the ring's leading edge idles (tiny CSS-transform jitter) with a
+# breathing glow; the numbers never move, and the CSS animations pause while the tab is hidden. prefers-reduced-motion:
+# no sweep and no jitter; an explicit Continuous keeps only a static glow on the leading edge.
+GAUGE_JS = r"""(function(){var $=function(i){return document.getElementById(i);},G={};try{G=JSON.parse($('gaugedata').textContent)||{};}catch(e){}
+var NS='http://www.w3.org/2000/svg',served=/^https?:$/.test(location.protocol),K='usage.anim',M=G.meta,mode=G.mode||'once',
+mq=window.matchMedia?matchMedia('(prefers-reduced-motion: reduce)'):null,RM=!!(mq&&mq.matches),
+img=document.querySelector("#p-wk img[data-f='week-current.png']"),svg=null,raf=0,shown=M?M.pct:0;
+window.usageApplying=function(on){var a=$('applying');if(a)a.hidden=!on;document.documentElement.classList.toggle('applying',!!on);};
+if(!served&&!G.locked){try{var ls=localStorage.getItem(K);if(['off','once','continuous'].indexOf(ls)>=0)mode=ls;}catch(e){}}
+function mk(t,a,p){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e;}
+function C(){return 2*Math.PI*0.89*M.ring.u;}
+function col(v){return v>M.base?M.col.over:M.col.under;}
+function pt(r,ratio){var a=(-90+360*ratio)*Math.PI/180;return [M.ring.cx+r*M.ring.u*Math.cos(a),M.ring.cy+r*M.ring.u*Math.sin(a)];}
+var E={};
+function build(){if(!img||!M||!M.ring)return false;if(svg)return true;var R=M.ring,u=R.u,w=img.parentNode;
+if(!w.classList.contains('gwrap')){w=document.createElement('div');w.className='gwrap';img.parentNode.insertBefore(w,img);w.appendChild(img);}
+svg=mk('svg',{viewBox:'0 0 '+M.w+' '+M.h,'aria-hidden':'true',class:'gsvg'},w);
+E.cover=mk('g',{class:'gcover'},svg);
+mk('circle',{cx:R.cx,cy:R.cy,r:0.8975*u,fill:'none',stroke:M.col.fill,'stroke-width':0.30*u},E.cover);
+mk('circle',{cx:R.cx,cy:R.cy,r:0.89*u,fill:'none',stroke:M.col.track,'stroke-width':0.22*u},E.cover);
+var rot='rotate(-90 '+R.cx+' '+R.cy+')';
+E.glow=mk('circle',{cx:R.cx,cy:R.cy,r:0.90*u,fill:'none','stroke-width':0.28*u,opacity:.18,transform:rot},E.cover);
+E.arc=mk('circle',{cx:R.cx,cy:R.cy,r:0.89*u,fill:'none','stroke-width':0.22*u,opacity:.95,transform:rot},E.cover);
+var b=pt(0.78,Math.min(1,Math.max(0,M.base/100))),b2=pt(1.10,Math.min(1,Math.max(0,M.base/100)));
+mk('line',{x1:b[0],y1:b[1],x2:b2[0],y2:b2[1],stroke:M.col.base,'stroke-width':6.25},E.cover);
+var N=M.num,cy=N.y+N.h/2;/* cover the PNG number's whole drawn box (from the meta, so any language/font) plus the counting text's em box */var nt=Math.min(N.y,cy-0.42*N.size)-3,nb=Math.max(N.y+N.h,cy+0.42*N.size)+3;mk('rect',{x:N.x-2,y:nt,width:N.cover_w,height:nb-nt,fill:M.col.fill,class:'gnumcover'},E.cover);
+E.num=mk('text',{x:N.x,y:cy,'dominant-baseline':'central','font-size':N.size,'font-weight':700,class:'gnum'},E.cover);
+E.tag=mk('tspan',{'font-size':20.8,dx:10,fill:M.col.dim},null);
+var B=M.bar;mk('rect',{x:B.x-1,y:B.y-6,width:B.w+2,height:B.h+12,fill:M.col.fill},E.cover);
+mk('rect',{x:B.x,y:B.y,width:B.w,height:B.h,fill:M.col.border},E.cover);
+E.proj=mk('rect',{x:B.x,y:B.y,width:0,height:B.h,opacity:.30},E.cover);E.used=mk('rect',{x:B.x,y:B.y,width:0,height:B.h,opacity:.95},E.cover);
+var bx=B.x+B.w*B.base_r;mk('line',{x1:bx,y1:B.y-5.2,x2:bx,y2:B.y+B.h+5.2,stroke:M.col.base,'stroke-width':4.6},E.cover);
+E.idle=mk('g',{class:'gidle'},svg);E.jit=mk('g',{class:'gjit'},E.idle);
+E.tipglow=mk('path',{fill:'none','stroke-width':0.40*u,'stroke-linecap':'round',class:'gbreath'},E.idle);
+E.tip=mk('path',{fill:'none','stroke-width':0.22*u},E.jit);
+document.addEventListener('visibilitychange',function(){svg.classList.toggle('paused',document.hidden);});
+return true;}
+function arcd(r,a0,a1){var p0=pt(r,a0),p1=pt(r,a1),lg=(a1-a0)>0.5?1:0;return 'M'+p0[0]+' '+p0[1]+' A'+r*M.ring.u+' '+r*M.ring.u+' 0 '+lg+' 1 '+p1[0]+' '+p1[1];}
+function draw(v,num){var r=Math.min(1,Math.max(0,v/100)),c=col(num),cc=C();
+[E.glow,E.arc].forEach(function(e){e.setAttribute('stroke',c);e.setAttribute('stroke-dasharray',(r*cc)+' '+cc);});
+E.num.setAttribute('fill',c);E.num.textContent=Math.round(num)+'%';var tg=G.otag||'';if(tg){E.tag.textContent=tg;E.num.appendChild(E.tag);}
+E.used.setAttribute('fill',c);E.used.setAttribute('width',M.bar.w*r);
+var pr=Math.max(r,Math.min(1,M.bar.proj_r*(M.pct>0?num/M.pct:1)));E.proj.setAttribute('fill',c);E.proj.setAttribute('x',M.bar.x+M.bar.w*r);E.proj.setAttribute('width',M.bar.w*(pr-r));}
+function idle(v){var r=Math.min(1,Math.max(0,v/100)),c=col(v),R=M.ring;
+E.tip.setAttribute('d',arcd(0.89,Math.max(0,r-0.012),RM?r:r+0.006));E.tip.setAttribute('stroke',c);
+E.tipglow.setAttribute('d',arcd(0.89,Math.max(0,r-0.02),r+0.004));E.tipglow.setAttribute('stroke',c);
+E.jit.style.transformOrigin=E.tipglow.style.transformOrigin=R.cx+'px '+R.cy+'px';
+svg.classList.toggle('still',RM);E.idle.style.display='';}
+function ease(t){var s=1.2;t-=1;return t*t*((s+1)*t+s)+1;}
+function sweep(from,to,ms,done){cancelAnimationFrame(raf);var t0=null;
+function f(ts){if(t0==null)t0=ts;var t=Math.min(1,(ts-t0)/ms),e=ease(t),v=from+(to-from)*e,n=from+(to-from)*Math.min(1,e);
+draw(v,to>=from?Math.min(n,to):Math.max(n,to));if(t<1)raf=requestAnimationFrame(f);else{draw(to,to);done&&done();}}
+raf=requestAnimationFrame(f);}
+function finish(v){if(mode==='continuous'){E.cover.style.display='none';idle(v);svg.style.opacity='';}
+else{svg.classList.add('fade');setTimeout(function(){if(svg.classList.contains('fade')){svg.style.display='none';}},400);}}
+function reset(){svg.style.display='';svg.classList.remove('fade');E.idle.style.display='none';E.cover.style.display='';}
+function play(){if(!build())return;reset();if(mode==='off'){svg.style.display='none';return;}
+if(RM){if(mode==='continuous'){E.cover.style.display='none';idle(shown);}else svg.style.display='none';return;}
+draw(0,0);sweep(0,shown,1000,function(){finish(shown);});}
+window.usageGaugeMode=function(m){mode=m;if(!served){try{localStorage.setItem(K,m);}catch(e){}}play();};
+window.usageGaugePreview=function(off){if(!build())return;var v=Math.max(0,Math.round((M.raw+off)*10)/10),from=shown;shown=v;
+G.otag=off?'('+(off>0?'+':'\u2212')+Math.abs(off)+')':'';reset();
+if(RM||mode==='off'){draw(v,v);return;}sweep(from,v,450,function(){});};
+if(img&&M&&served&&window.MutationObserver){new MutationObserver(function(){var s=img.getAttribute('src')||'';
+if(/^data:/.test(s)||!/week-current\.png/.test(s))return;fetch(s.replace(/\.png(\?|$)/,'.json$1'),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;})
+.then(function(j){if(j&&j.col&&M){M.col=j.col;if(svg&&E.idle.style.display!=='none')idle(shown);}}).catch(function(){});}).observe(img,{attributes:true,attributeFilter:['src']});}
+if(mq&&mq.addEventListener)mq.addEventListener('change',function(e){RM=e.matches;play();});
+play();})();"""
+GAUGE_CSS = (".gwrap{position:relative} .gsvg{position:absolute;left:1px;top:1px;width:100%;height:auto;pointer-events:none;transition:opacity .35s}"
+             " .gsvg.fade{opacity:0} .gjit{animation:gjit .46s linear infinite} .gbreath{opacity:.22;animation:gbr 2.6s ease-in-out infinite}"
+             " .gsvg.still .gjit,.gsvg.still .gbreath{animation:none} .gsvg.still .gbreath{opacity:.4} .gsvg.paused *{animation-play-state:paused}"
+             " @keyframes gjit{0%{transform:rotate(0)}18%{transform:rotate(.9deg)}36%{transform:rotate(-.35deg)}55%{transform:rotate(1.3deg)}"
+             "74%{transform:rotate(.15deg)}88%{transform:rotate(.7deg)}100%{transform:rotate(0)}}"
+             " @keyframes gbr{0%,100%{opacity:.18}50%{opacity:.55}}"
+             " @media (prefers-reduced-motion: reduce){.gjit,.gbreath{animation:none!important}}"
+             " html.applying section img{opacity:.55;transition:opacity .2s} .applying-msg{color:var(--accent);font-size:13px;font-weight:700}"
+             " .upd{flex:1 1 100%;display:flex;flex-direction:column;align-items:stretch;gap:8px}"
+             # two deliberate rows (settings / actions); each label+control is one unit that never shrinks or wraps
+             # inside, so on a narrow window whole units move to the next line instead of characters stacking
+             " .upd .trow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 7px;min-width:0}"
+             " .upd .trow>*{flex:0 0 auto;white-space:nowrap} .upd .trow>script{display:none}"
+             " .upd label.pal{display:inline-flex;align-items:center;gap:4px} .upd .psel{gap:4px} .upd .pbtn{padding:4px 8px} .upd .btn{white-space:nowrap}"
+             " .upd .trow{font-size:12.5px} .upd .trow select{font:inherit} #langsel{max-width:140px} #tzsel{max-width:170px} @media (max-width:1100px){.wrap{padding-left:14px;padding-right:14px}} .upd .btn{padding:5px 11px} #rmsg:empty{display:none}"
+             " .upd [hidden]{display:none!important}")
 PALETTE_JS = r"""(function(){var $=function(i){return document.getElementById(i);},P=JSON.parse($('paldata').textContent),KEY='usage.palette',PKEY='usage.patterns',pchk=$('patchk'),CK={r:'usage.clockRange',l:'usage.clockLayout',f:'usage.clockFill'},D={r:'wk',l:'ov',f:'t'},
 served=/^https?:$/.test(location.protocol),btn=$('palbtn'),msg=$('palmsg'),V=P.light?'light':'dark',cur=P.base,pat=!!P.pat,CR={r:'wk',l:'ov',f:'t'},seq=0,
 TKN=(document.querySelector('meta[name="usage-token"]')||{}).content||'',clk=$('clkimg'),
@@ -1304,19 +1490,20 @@ window.usageClockLayout=function(v,save){go(cur,with_('l',v),save,pat);};window.
 # itself only ever happens after a click.
 UPDATE_JS = """(function(){var $=id=>document.getElementById(id),S=JSON.parse($('updstr').textContent),
 TK=(document.querySelector('meta[name="usage-token"]')||{}).content||'',cb=$('updbtn'),gb=$('updgo'),um=$('umsg'),ur=$('urow'),
-ab=$('updauto'),al=$('updautol'),busy=false;
+ab=$('updauto'),al=$('updautol'),nb=$('updback'),nt=$('unotes'),prev=null,busy=false;
 if(!/^https?:$/.test(location.protocol))return;
 function f(t,o){return String(t).replace(/\\{(\\w+)\\}/g,function(_,k){return o[k]!=null?o[k]:'';});}
-function say(t){um.textContent=t||'';ur.hidden=!t;}
+function say(t){um.textContent=t||'';ur.hidden=!t&&nb.hidden&&nt.hidden;}
+function notes(j){var t=(!S.privacy&&j&&typeof j.notes==='string')?j.notes.slice(0,3200):'';nt.textContent=t?S.notes+'\\n'+t:'';nt.hidden=!t;if(t)ur.hidden=false;}
 function post(p,b){return fetch(p,{method:'POST',headers:{'X-Usage-Token':TK,'Content-Type':'application/json'},body:b?JSON.stringify(b):''}).then(r=>r.json());}
 function newer(j){var l=j.latest||{};return f(S['new'],{h:l.hash||'',s:S.privacy?'':(l.subject||''),n:j.behind}).replace(/\\s+(\\(|（)/,' $1');}
-function show(j,quiet){gb.hidden=true;var st=j.state||'git_error';
+function show(j,quiet){gb.hidden=true;notes(j);var st=j.state||'git_error';
 if(st==='behind'){say(newer(j));gb.hidden=false;return;}
 if(quiet&&st!=='local_changes'&&st!=='diverged')return;
 var m=S[st]||S.git_error;if((st==='local_changes'||st==='diverged')&&j.latest&&!S.privacy)m=newer(j)+' · '+m;
 say(m+(j.detail&&!S.privacy?' ('+j.detail+')':''));}
 function load(){if(busy)return;fetch('/api/update/state',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{if(!j||!j.ok||busy)return;
-cb.hidden=false;al.hidden=false;ab.checked=!!j.auto;if(j.auto&&j.result)show(j.result,true);}).catch(()=>{});}
+cb.hidden=false;al.hidden=false;ab.checked=!!j.auto;prev=j.previous||null;nb.hidden=!prev;if(prev)ur.hidden=false;if(j.auto&&j.result)show(j.result,true);}).catch(()=>{});}
 load();setInterval(load,1800000);
 ab.onchange=function(){ab.disabled=true;post('/api/update/settings',{auto:ab.checked}).then(j=>{ab.disabled=false;
 if(j.ok)ab.checked=!!j.auto;else{ab.checked=!ab.checked;say(j.error||S.git_error);}}).catch(()=>{ab.disabled=false;ab.checked=!ab.checked;});};
@@ -1327,11 +1514,17 @@ if(j.error==='busy'){say(S.checking);return;}show(j,false);}).catch(()=>{cb.disa
 gb.onclick=function(){if(!confirm(S.confirm))return;gb.disabled=cb.disabled=true;
 post('/api/update/apply').then(j=>{if(!j.ok){gb.disabled=cb.disabled=false;
 say(j.error==='busy'?S.busy:f(S.failed,{e:S.privacy?'':(S[j.state]||j.error||'')}));return;}
-busy=true;gb.hidden=cb.hidden=true;say(S.updating);var old=j.boot,t0=Date.now();
+wait(j.boot,S.updating);})
+.catch(()=>{gb.disabled=cb.disabled=false;say(S.failed.replace('{e}',''));});};
+function wait(old,msg){busy=true;gb.hidden=cb.hidden=nb.hidden=true;nt.hidden=true;say(msg);var t0=Date.now();
 (function poll(){if(Date.now()-t0>600000){say(S.slow);busy=false;cb.hidden=false;cb.disabled=false;return;}
 fetch('/api/status',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(s=>{if(s&&s.ok&&s.boot&&s.boot!==old){location.reload();return;}
-setTimeout(poll,3000);}).catch(()=>{setTimeout(poll,3000);});})();})
-.catch(()=>{gb.disabled=cb.disabled=false;say(S.failed.replace('{e}',''));});};})();"""
+setTimeout(poll,3000);}).catch(()=>{setTimeout(poll,3000);});})();}
+nb.onclick=function(){if(!prev)return;if(!confirm(f(S.back_confirm,{v:prev.version?'v'+prev.version:prev.short})))return;
+nb.disabled=gb.disabled=cb.disabled=true;
+post('/api/update/rollback').then(j=>{if(!j.ok){nb.disabled=gb.disabled=cb.disabled=false;
+say(j.error==='busy'?S.busy:f(S.back_failed,{e:S.privacy?'':((S.back_states||{})[j.error]||j.error||'')}));return;}
+wait(j.boot,S.back_running);}).catch(()=>{nb.disabled=gb.disabled=cb.disabled=false;say(S.back_failed.replace('{e}',''));});};})();"""
 
 def _theme_file(path):
     if not path:
@@ -1418,11 +1611,17 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
     ledjson = json.dumps(ledger, ensure_ascii=False).replace("<", "\\u003c")
     lsjson = json.dumps(dict(LS, off=ctx.display_offset, otag=usage_offset.tag(ctx.display_offset)), ensure_ascii=False).replace("<", "\\u003c")
     usjson = json.dumps(US, ensure_ascii=False).replace("<", "\\u003c")
+    try:
+        gmeta = json.loads((ctx.hist_dir / "week-current.json").read_text(encoding="utf-8")) if (ctx.hist_dir / "week-current.png").exists() else None
+    except (OSError, ValueError):
+        gmeta = None
+    gjson = json.dumps({"meta": gmeta or None, "mode": ctx.anim_setting, "locked": ctx.anim_locked,
+                        "otag": usage_offset.tag(ctx.display_offset)}, ensure_ascii=False).replace("<", "\\u003c")
     b64 = lambda p: base64.b64encode(p.read_bytes()).decode() if p.exists() else ""
     tabs, panes = [], []
     wk = ctx.hist_dir / "week-current.png"
     tabs.append(f"<button data-k='wk' class='on'>{html.escape(L['rwk'])}</button>")
-    panes.append(f"<section id='p-wk' class='on'>" + (f"<img alt='' data-f='week-current.png' src='data:image/png;base64,{b64(wk)}'>"
+    panes.append(f"<section id='p-wk' class='on'>" + (f"<div class='gwrap'><img alt='' data-f='week-current.png' src='data:image/png;base64,{b64(wk)}'></div>"
                  if wk.exists() else f"<div class='warn'>{html.escape(L['week_empty'])}</div>") + "</section>")
     for i, S in enumerate(sums):
         rows = "".join(f"<tr><td>{w['start']:%Y-%m-%d}</td><td>{w['last']}/{ctx.period_days}</td><td class='{'over' if w['over'] else 'under'}'>"
@@ -1489,9 +1688,13 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
     tz_opts = (f"<option value='auto'{' selected' if ctx.tz_setting == 'auto' else ''}>{html.escape(PK['auto'])} ({tz_option_label('local')})</option>"
                + "".join(f"<option value='{html.escape(z)}'{' selected' if z == ctx.tz_setting else ''}>{html.escape(z)} ({tz_option_label(z) if valid_zone(z) else '?'})</option>"
                          for z in zones))
+    anim_opts = "".join(f"<option value='{m}'{' selected' if m == ctx.anim_setting else ''}>{html.escape(PK[m])}</option>" for m in ANIM_MODES)
     lock_attr = lambda on: f" data-locked='1' title='{html.escape(PK['locked'])}'" if on else ""
+    # toolbar row 1 (settings) gets language + time zone; row 2 (actions) gets the animation menu + Applying status
     pick_html = (f"<label class=\"pal\" id=\"langl\">{html.escape(PK['lang'])} <select id=\"langsel\" class=\"offsel\" data-api=\"/api/lang\" data-k=\"usage.lang\" data-f=\"lang\"{lock_attr(ctx.lang_locked)}>{lang_opts}</select></label>"
-                 f"<label class=\"pal\" id=\"tzl\">{html.escape(PK['tz'])} <select id=\"tzsel\" class=\"offsel\" data-api=\"/api/tz\" data-k=\"usage.tz\" data-f=\"tz\"{lock_attr(ctx.tz_locked)}>{tz_opts}</select></label>"
+                 f"<label class=\"pal\" id=\"tzl\">{html.escape(PK['tz'])} <select id=\"tzsel\" class=\"offsel\" data-api=\"/api/tz\" data-k=\"usage.tz\" data-f=\"tz\"{lock_attr(ctx.tz_locked)}>{tz_opts}</select></label>")
+    act_html = (f"<label class=\"pal\" id=\"animl\">{html.escape(PK['anim'])} <select id=\"animsel\" class=\"offsel\" data-api=\"/api/anim\" data-k=\"usage.anim\" data-f=\"anim\" data-live=\"1\"{lock_attr(ctx.anim_locked)}>{anim_opts}</select></label>"
+                 f"<span id=\"applying\" class=\"applying-msg\" role=\"status\" aria-live=\"polite\" hidden><span class=\"spin\"></span>{html.escape(PK['applying'])}</span>"
                  f"<script>{PICK_JS}</script>")
     onac, hl = _on_colour(ac), _blend(bg, tx, 0.14)
     doc = f"""<!doctype html><html lang="{ {'zh-TW': 'zh-Hant', 'zh-CN': 'zh-Hans', 'ja': 'ja', 'ko': 'ko'}.get(ctx.lang, 'en') }" data-patterns="{'1' if T.get('patterns') else ''}"><head><meta charset="utf-8"><title>{html.escape(title or '↻')}</title>
@@ -1516,7 +1719,8 @@ input,select{{background:{card};color:{tx};border:1px solid var(--bd);border-rad
 #ckr button.on,.btn{{border-color:var(--accent)}} .btn:disabled{{opacity:.6;cursor:wait}}
 .btn.primary{{background:var(--accent);color:var(--on-accent);border-color:var(--accent);padding:6px 18px}} .btn.primary:hover{{filter:brightness(1.1)}}
 .btn.updgo{{background:#A5F3FC;color:#06303A;border:2px solid #22D3EE;padding:6px 18px}} .btn.updgo:hover{{filter:brightness(1.06)}}
-.urow{{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 10px;font-size:13px}} #umsg{{font-weight:700;color:{dim}}} #ckmsg,#rmsg,#mmsg{{color:var(--notice);font-weight:700}} [hidden]{{display:none!important}}
+.urow{{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 10px;font-size:13px}} .unotes{{flex:1 1 100%;white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;color:{dim};font-size:12.5px;line-height:1.5}}
+.top .ver{{color:{dim};font-weight:400;letter-spacing:0;margin-left:6px}} #umsg{{font-weight:700;color:{dim}}} #ckmsg,#rmsg,#mmsg{{color:var(--notice);font-weight:700}} [hidden]{{display:none!important}}
 .spin{{display:inline-block;width:12px;height:12px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px;margin-right:6px}}
 @keyframes sp{{to{{transform:rotate(360deg)}}}}
 .info{{background:{card};border:1px solid var(--bd);border-left:3px solid var(--accent);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:14px}}
@@ -1534,21 +1738,24 @@ html[data-patterns="1"] .badge:not(.note)::before{{content:"▲ "}} .pal{{color:
 .plist li.pnote{{cursor:default;color:{dim};font-size:12px;line-height:1.45;border-top:1px solid var(--bd);border-radius:0;margin-top:4px;padding:7px 8px 4px;white-space:normal;position:sticky;bottom:-4px;background:{card}}}
 .ptog{{display:inline-flex;align-items:center;gap:5px;cursor:pointer}} .ptog input{{margin:0}} .offsel{{padding:3px 6px}} .otag{{color:{dim};font-size:.85em;font-weight:400}}
 {usage_checkins_ui.CSS}
-</style></head><body><div class="wrap"><div class="top">{html.escape(L['eyebrow'])}</div><h1>{html.escape(title)}</h1>
-<div class="bar"><nav>{''.join(tabs)}</nav><div class="upd"><span id="last">{html.escape(L['last'].format(t=f'{now:%H:%M}', z=zl))}</span>
+{GAUGE_CSS}{gh_css(_on_colour(bg) == "#FFFFFF")}
+</style></head><body><div class="wrap"><div class="top">{html.escape(L['eyebrow'])}{f' <span class="ver" id="appver">v{APP_VERSION}</span>' if APP_VERSION else ''}</div><h1>{html.escape(title)}</h1>
+<div class="bar"><nav>{''.join(tabs)}</nav><div class="upd"><div class="trow tset" id="tset"><span id="last" title="{html.escape(L['last'].format(t=f'{now:%H:%M}', z=zl))}">{html.escape(L.get('last_short', L['last']).format(t=f'{now:%H:%M}', z=zl))}</span>
 <span class="pal psel" id="psel"><span id="pall">{html.escape(pal_label)}</span><button type="button" class="pbtn" id="palbtn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="pall palcur"><span id="palcur">{palcur}</span></button>
 <ul class="plist" id="pallist" role="listbox" tabindex="-1" aria-labelledby="pall" hidden>{''.join(palrows)}{f"<li role='none' class='pnote' id='palnote'>{html.escape(star_note)}</li>" if star_note else ""}</ul><span id="palmsg" role="status"></span></span>
 <label class="pal ptog" id="patl"><input type="checkbox" id="patchk"{" checked" if ctx.patterns else ""}> {html.escape(pat_label)}</label>
-<label class="pal" id="offl">{html.escape(off_label)} <select id="offsel" class="offsel">{off_opts}</select></label><script>{OFFSET_JS}</script>{pick_html}
-<button class="btn" id="manualbtn" hidden>{html.escape(MS['btn'])}</button><button class="btn" id="notifybtn" hidden>{html.escape(LS['notify'])}</button><button class="btn primary" id="refresh" hidden>{html.escape(L['refresh'])}</button><span id="rmsg" role="status" aria-live="polite"></span>
-<button class="btn" id="updbtn" hidden>{html.escape(US['btn'])}</button><label class="pal" id="updautol" hidden><input type="checkbox" id="updauto"> {html.escape(US['auto'])}</label></div></div>
-<div id="urow" class="urow" hidden><span id="umsg"></span><button class="btn updgo" id="updgo" hidden>{html.escape(US['go'])}</button></div>
+<label class="pal" id="offl">{html.escape(off_label)} <select id="offsel" class="offsel">{off_opts}</select></label><script>{OFFSET_JS}</script>{pick_html}</div>
+<div class="trow tact" id="tact">{act_html}<button class="btn" id="manualbtn" hidden>{html.escape(MS['btn'])}</button><button class="btn" id="notifybtn" hidden>{html.escape(LS['notify'])}</button><button class="btn primary" id="refresh" hidden>{html.escape(L['refresh'])}</button><span id="rmsg" role="status" aria-live="polite"></span>
+<button class="btn" id="updbtn" hidden>{html.escape(US['btn'])}</button><label class="pal" id="updautol" hidden><input type="checkbox" id="updauto"> {html.escape(US['auto'])}</label>{gh_link_html("numeric" if ctx.privacy else ctx.lang)}</div></div></div>
+<div id="urow" class="urow" hidden><span id="umsg"></span><button class="btn updgo" id="updgo" hidden>{html.escape(US['go'])}</button><button class="btn" id="updback" hidden>{html.escape(US['back'])}</button>
+<div id="unotes" class="unotes" role="region" aria-label="{html.escape(US['notes'] or US['go'])}" hidden></div></div>
 <form id="manualform" class="ckform" hidden><label>{html.escape(MS['pct'])} <input id="mpct" type="number" min="0" max="200" step="0.1" required style="width:6em"> <span class="sub">{html.escape(MS.get('pct_note', ''))}</span></label>
 <label>{html.escape(MS['reset'])} <input id="mreset" maxlength="64" placeholder="{html.escape(MS['reset_ph'])}" style="width:22em"></label>
 <button class="btn" type="submit">{html.escape(MS['save'])}</button><span class="sub">{html.escape(MS['hint'])}</span><span id="mmsg"></span></form>
 <div id="ledger"></div>{''.join(panes)}</div>
 <script type="application/json" id="ckdata">{ckdata}</script><script>{usage_checkins_ui.JS}</script>
 <script type="application/json" id="ledgerdata">{ledjson}</script><script type="application/json" id="ledgerstr">{lsjson}</script><script>{LEDGER_JS}</script>
+<script type="application/json" id="gaugedata">{gjson}</script><script>{GAUGE_JS}</script>
 <script type="application/json" id="paldata">{paldata}</script><script>{PALETTE_JS}</script>
 <script type="application/json" id="updstr">{usjson}</script><script>{UPDATE_JS}</script>
 <script>
@@ -1560,7 +1767,7 @@ var rb=$('refresh'),rm=$('rmsg');
 var mb=$('manualbtn'),mf=$('manualform'),mm=$('mmsg');
 if(served)fetch('/api/status').then(r=>r.ok?r.json():null).then(j=>{{if(!j||!j.ok)return;mb.hidden=false;if(j.pct_source!=='manual')rb.hidden=false;
 if(j.pct_source==='manual')mf.hidden=false;
-if(j.last_update)$('last').textContent=j.last_update;}}).catch(()=>{{}});
+if(j.last_update){{$('last').textContent=j.last_update_short||j.last_update;$('last').title=j.last_update;}}}}).catch(()=>{{}});
 mb.onclick=function(){{mf.hidden=!mf.hidden;if(!mf.hidden)$('mpct').focus();}};
 mf.onsubmit=function(e){{e.preventDefault();mm.textContent=T.loading;
 fetch('/api/manual',{{method:'POST',headers:{{'X-Usage-Token':TK,'Content-Type':'application/json'}},body:JSON.stringify({{pct:$('mpct').value,reset:$('mreset').value}})}})
@@ -1817,13 +2024,13 @@ def print_search(ctx, res):
     L = ctx.ck_strings()
     print(f"{res['count']} match(es) · {ctx.zlabel()}")
     for d in res["days"]:
-        u = "unavailable" if d["usage_rise"] is None else f"+{d['usage_rise']:g} pt"
+        u = "unavailable" if d["usage_rise"] is None else f"+{d['usage_rise']:g}%"
         print(f"\n{d['date']}  {d['count']} session(s) · {usage_checkins.fmt_duration(d['total_min'] * 60)} · usage {u}")
         for x in d["sessions"]:
             t1 = x["start"][11:16]
             t2 = ("–" + x["end"][11:16]) if x["end"] else ""
             ud = x["usage"]
-            us = "—" if not ud else (f"{ud['delta']:+g} pt" if ud["status"] == "ok" else "unavailable")
+            us = "—" if not ud else (f"{ud['delta']:+g}%" if ud["status"] == "ok" else "unavailable")
             dur = usage_checkins.fmt_duration(x["duration_min"] * 60) if x["duration_min"] is not None else "—"
             note = " / ".join(v for v in (x["note"], x["end_note"]) if v)
             print(f"  {t1}{t2}  {x['name']}  [{', '.join(x['category_labels'])}]  {dur}  {L.get(x['state'], x['state'])}"
@@ -1842,6 +2049,11 @@ def serve(ctx, allow_remote=False):
     busy = threading.Lock(); state = {"last_refresh": 0.0, "ck": {}, "upd_at": 0.0, "upd": None, "updating": False, "phase": None}
     upd_lock = threading.Lock()
     boot = f"{os.getpid()}-{time.time():.0f}"  # changes on every start: the page reloads once a new server answers
+    try:  # the commit this server runs; a saved "previous version" equal to it is not offered
+        import self_update as _su
+        boot_head = _su.git(HERE, "rev-parse", "HEAD") if (HERE / ".git").exists() else None
+    except Exception:
+        boot_head = None
     port_box = {"port": 0}
     token = local_guard.new_token()
     token_file = ctx.data_dir / "history_server.token"
@@ -1885,6 +2097,14 @@ def serve(ctx, allow_remote=False):
         t = datetime.fromtimestamp(p.stat().st_mtime, ctx.tz)
         return ctx.L["last"].format(t=f"{t:%H:%M}", z=ctx.zlabel(t))
 
+    def last_update_short():
+        # the toolbar shows the time only (the zone is in the Time zone menu beside it); the full text is the tooltip
+        p = ctx.hist_dir / "index.html"
+        if not p.exists():
+            return None
+        t = datetime.fromtimestamp(p.stat().st_mtime, ctx.tz)
+        return ctx.L.get("last_short", ctx.L["last"]).format(t=f"{t:%H:%M}", z=ctx.zlabel(t))
+
     def checkin(d):
         name = _clean(d.get("name"), 40)
         phase = str(d.get("phase") or "point").strip().lower()
@@ -1904,13 +2124,15 @@ def serve(ctx, allow_remote=False):
         return 200, {"ok": True, "checkin": r}
 
     WRITE_PATHS = ("/api/checkin", "/api/refresh", "/api/manual", "/api/update/check", "/api/update/apply", "/api/update/settings",
-                   "/api/palette/render", "/api/patterns", "/api/display-offset", "/api/lang", "/api/tz")
+                   "/api/update/rollback", "/api/palette/render", "/api/patterns", "/api/display-offset", "/api/lang", "/api/tz", "/api/anim")
 
     def pick_setting(key, d):
         """POST /api/lang {"lang": "auto"|"zh-TW"|"zh-CN"|"en"|"ja"|"ko"|"numeric"} or /api/tz {"tz": "auto"|<IANA zone>}:
         saved as "lang" / "tz" in usage_config.json (or <data_dir>/page_settings.json); charts and page are redrawn
         before this returns. A --lang / --tz flag given at start still wins ("locked": true)."""
         v = d.get(key)
+        if key == "anim" and v not in ANIM_MODES:
+            return 400, {"ok": False, "error": "anim must be off, once or continuous"}
         if key == "lang" and v not in PAGE_LANGS:
             return 400, {"ok": False, "error": "unknown language"}
         if key == "tz" and not (v == "auto" or (v in PAGE_ZONES or valid_zone(v))):
@@ -1922,6 +2144,13 @@ def serve(ctx, allow_remote=False):
                 ctx.reload()
         except Exception as exc:
             return 500, {"ok": False, "error": "write failed" if ctx.privacy else f"could not save the setting: {exc}"}
+        if key == "anim":  # page-only switch: rebuild the page, no chart redraw
+            with draw_lock:
+                try:
+                    rewrite_page(ctx)
+                except Exception as exc:
+                    print(f"Warning: {exc}", file=sys.stderr)
+            return 200, {"ok": True, key: ctx.anim_setting, "locked": ctx.anim_locked}
         regen()
         return 200, {"ok": True, key: v, "locked": ctx.lang_locked if key == "lang" else ctx.tz_locked}
 
@@ -1959,12 +2188,26 @@ def serve(ctx, allow_remote=False):
         return 200, {"ok": True, "patterns": ctx.patterns}
 
     def update_public(r):
+        import self_update
         r = dict(r)
+        r.pop("notes", None)
+        if r.get("state") in ("behind", "local_changes", "diverged") and not ctx.privacy:
+            try:  # CHANGELOG of the fetched origin/main (git show: no extra network), plain text, capped
+                r["notes"] = self_update.changelog_since(HERE, ctx.lang)
+            except Exception:
+                r["notes"] = ""
         if ctx.privacy:  # commit subjects and git messages may name services: hash and counts only
             r["detail"] = ""
             if r.get("latest"):
                 r["latest"] = {"hash": r["latest"].get("hash"), "subject": ""}
         return r
+
+    def rollback_public():
+        import self_update
+        p = self_update.load_previous(ctx.data_dir)
+        if not p or p["commit"] == boot_head:
+            return None
+        return {"short": p["commit"][:7], "version": p.get("version") or ""}
 
     def update_check():
         """POST /api/update/check -> self_update.check() (git fetch origin main, then compare with HEAD)."""
@@ -2014,6 +2257,7 @@ def serve(ctx, allow_remote=False):
         """GET /api/update/state: the switch and the last result (read-only, never runs git)."""
         import self_update
         return {"ok": True, "auto": self_update.auto_enabled(ctx.cfg, ctx.data_dir), "result": state["upd"],
+                "version": APP_VERSION, "previous": rollback_public(),
                 "checked_at": datetime.fromtimestamp(state["upd_at"], ctx.tz).isoformat(timespec="minutes") if state["upd_at"] else None}
 
     def update_settings(d):
@@ -2052,6 +2296,31 @@ def serve(ctx, allow_remote=False):
             return 200, {"ok": True, "boot": boot, "behind": r.get("behind"), "log": "update.log"}
         except Exception as exc:
             return 500, {"ok": False, "error": "updater failed" if ctx.privacy else f"could not start the updater: {exc}"}
+        finally:
+            upd_lock.release()
+
+    def update_rollback(client_ip):
+        """POST /api/update/rollback -> start the detached updater in rollback mode (back to update_prev.json)."""
+        import self_update
+        if ctx.host not in ("127.0.0.1", "localhost", "::1") or client_ip not in ("127.0.0.1", "::1", "::ffff:127.0.0.1"):
+            return 403, {"ok": False, "error": "rollback can only be started from this computer"}
+        if not upd_lock.acquire(blocking=False):
+            return 409, {"ok": False, "error": "busy"}
+        try:
+            if state["updating"] or self_update.updater_busy(ctx.data_dir):
+                return 409, {"ok": False, "error": "busy"}
+            r = self_update.rollback_check(HERE, ctx.data_dir)
+            if not r.get("can_rollback"):
+                return 409, {"ok": False, "error": r.get("state"), "detail": "" if ctx.privacy else r.get("detail", "")}
+            cfg = str(Path(ctx.cfg_path).resolve()) if ctx.cfg_path else None
+            if not ctx.port:
+                (ctx.data_dir / "update.port").write_text(str(port_box["port"]), encoding="utf-8")
+            if not self_update.spawn(HERE, ctx.data_dir, cfg, wait_pid=os.getpid(), rollback=True):
+                return 500, {"ok": False, "error": "could not start the updater"}
+            state["updating"] = True
+            return 200, {"ok": True, "boot": boot, "version": r.get("version"), "short": r.get("short")}
+        except Exception as exc:
+            return 500, {"ok": False, "error": "updater failed" if ctx.privacy else f"could not start the rollback: {exc}"}
         finally:
             upd_lock.release()
 
@@ -2104,6 +2373,9 @@ def serve(ctx, allow_remote=False):
                 page = local_guard.inject_token(p.read_text(encoding="utf-8"), token)
                 return self._send(200, page.encode("utf-8"), "text/html; charset=utf-8")
             parts = u.path[1:].split("/")
+            if parts[-1] == "week-current.json" and (len(parts) == 1 or (len(parts) == 3 and parts[0] == "pal" and is_dir_key(parts[1]))):
+                p = ctx.hist_dir.joinpath(*parts)  # gauge overlay geometry (no usage details beyond the shown %)
+                return self._send(200, p.read_bytes()) if p.is_file() else self._send(404, {"ok": False, "error": "not found"})
             if u.path.endswith(".png") and (len(parts) == 1 or (len(parts) == 3 and parts[0] == "pal" and is_dir_key(parts[1]))) \
                     and all(x and x not in (".", "..") for x in parts):
                 p = ctx.hist_dir.joinpath(*parts)
@@ -2114,7 +2386,7 @@ def serve(ctx, allow_remote=False):
                 lp = Path(ctx.ledger_path)
                 return self._send(200, lp.read_bytes()) if lp.exists() else self._send(404, {"ok": False, "error": "no ledger yet; run: usage_history.py sample"})
             if u.path == "/api/status":
-                return self._send(200, {"ok": True, "last_update": last_update(), "busy": busy.locked(), "timezone": ctx.zlabel(),
+                return self._send(200, {"ok": True, "last_update": last_update(), "last_update_short": last_update_short(), "busy": busy.locked(), "timezone": ctx.zlabel(),
                                         "sample_interval_minutes": ctx.interval, "pct_source": "manual" if manual_mode(ctx) else "auto",
                                         "boot": boot, "updating": state["updating"],
                                         "phase": state["phase"] if busy.locked() else None})
@@ -2155,6 +2427,8 @@ def serve(ctx, allow_remote=False):
                 return self._send(*update_check())
             if u.path == "/api/update/apply":
                 return self._send(*update_apply(self.client_address[0]))
+            if u.path == "/api/update/rollback":
+                return self._send(*update_rollback(self.client_address[0]))
             if u.path == "/api/palette/render":
                 try:
                     n = int(self.headers.get("Content-Length") or 0); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
@@ -2164,7 +2438,7 @@ def serve(ctx, allow_remote=False):
                 if not isinstance(d, dict):
                     return self._send(400, {"ok": False, "error": "bad json"})
                 return self._send(*palette_render(d))
-            if u.path in ("/api/lang", "/api/tz"):
+            if u.path in ("/api/lang", "/api/tz", "/api/anim"):
                 try:
                     n = int(self.headers.get("Content-Length") or 0); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
                     d = json.loads(raw or "{}")
@@ -2283,6 +2557,7 @@ def main(argv=None):
     p.add_argument("rest", nargs="*", help="checkin/start/end: NAME [NOTE...]; search: WORDS...")
     p.add_argument("--config"); p.add_argument("--data-dir", dest="data_dir"); p.add_argument("--tz")
     p.add_argument("--lang"); p.add_argument("--theme"); p.add_argument("--pace", type=float)
+    p.add_argument("--anim", choices=ANIM_MODES, help="page gauge animation (default: config 'anim' or once)")
     p.add_argument("--palette", choices=usage_palette.names(), help="chart/page colours (default: config 'palette' or orange-teal)")
     p.add_argument("--privacy", action="store_true", default=None)
     p.add_argument("--pct", help="sample: use this weekly %% (0-200) instead of reading Grok Build (manual entry)")

@@ -1,7 +1,16 @@
 # Grok Bot Usage & Check-in（用量・打卡・搜尋）
 
+<p align="center">
+  <img src="docs/media/gauge-rev.gif" alt="儀表動畫" width="360">
+</p>
+
+![儀表板截圖（繁體中文）](docs/media/screenshot-zh-TW.png)
+
+*動畫和截圖都是虛構的範例資料。*
+
 在自己電腦上記錄 Grok 每週用量 %、誰在做什麼（打卡），並能搜尋「哪幾天做了哪些事、花了多少用量」。
-資料只存在本機資料夾，網頁只在 `127.0.0.1` 開，不會上傳到任何地方。完整說明（英文）見 [README.md](./README.md)。
+用量和打卡資料只存在本機資料夾，網頁只在 `127.0.0.1` 開。唯一的例外是可關閉的「自動檢查更新」：大約每天一次向 GitHub
+（對這個專案 `git fetch`）查詢有沒有新版本，不會附帶任何用量資料；可在網頁上取消勾選「自動檢查更新」，或設定 `"update_check": "off"` 關閉。完整說明（英文）見 [README.md](./README.md)。
 
 ## 建議：安裝在 Grok Bot 的電腦上（Linux 版）
 
@@ -70,6 +79,26 @@ python3 service.py start        # 背景啟動網頁與每小時取樣；停止�
    powershell -ExecutionPolicy Bypass -File .\start.ps1
    ```
    Linux 上網頁按鈕的用法一樣。手動：`python3 service.py stop && git pull && python3 -m pip install -r requirements.txt && python3 service.py start`
+   - **每次改了什麼：**都寫在 [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md)（英文：[CHANGELOG.md](CHANGELOG.md)）。網頁發現新版本時，
+     按「更新」之前會先顯示「這次更新的內容」。內容取自檢查更新時 `git fetch` 已經下載的更新紀錄（不會另外連線），以純文字顯示；
+     關掉自動檢查又沒按「檢查更新」時，什麼都不會下載或顯示。目前的版本號（`VERSION`）小小地顯示在網頁最上方。
+   - **回到上一版：**更新前，網頁會先把目前的版本記在 `usage-data\update_prev.json`（只存在本機，不在 git 裡）。更新後會出現
+     「回到上一版」按鈕；按下並確認後，儀表板會停止、用 `git reset --keep` 把 `main` 分支移回原本的版本（仍在 `main` 上，
+     之後按「更新」一樣是一般的快轉更新）、`requirements.txt` 不同時重新安裝，再重新啟動。`usage-data\` 和 `usage_config.json`
+     都不會動到。如果程式檔被改過，會說明原因並拒絕，不會蓋掉你的修改。每個步驟都記在 `usage-data\update.log`。
+   - 手動回到上一版（例如網頁打不開時）：先看更新前存下的版本（`usage-data\update_prev.json` 裡的 `"commit"`；沒有這個檔案時，
+     `git reflog` 會列出之前的版本），然後在安裝資料夾執行：
+   ```powershell
+   cd C:\path\to\grokbot-usage-checkin
+   Get-Content usage-data\update_prev.json
+   powershell -ExecutionPolicy Bypass -File .\stop.ps1
+   git reset --keep <commit>
+   powershell -ExecutionPolicy Bypass -File .\install.ps1
+   powershell -ExecutionPolicy Bypass -File .\start.ps1
+   ```
+   Linux：`cd ~/grokbot-usage-checkin && cat usage-data/update_prev.json`，再執行
+   `python3 service.py stop && git reset --keep <commit> && python3 -m pip install -r requirements.txt && python3 service.py start`。
+   `git reset --keep` 遇到被改過的檔案會直接報錯停止，不會覆蓋；之後要再更新，按「更新」或執行 `git pull` 即可。
 
 ## Windows 常見問題（實際安裝時遇到的）
 
@@ -121,7 +150,7 @@ python3 service.py start        # 背景啟動網頁與每小時取樣；停止�
 - 每次重新整理只畫設定裡的配色；其他配色在網頁第一次選到時才畫（約 1–2 秒），之後到下次重新整理前都直接沿用。
   `render_all_palettes: true` 則每次都畫全部配色（切換即時，但重新整理較慢）。
 - **顯示校正**（設定 `display_offset`，「加上紋路」旁的選單：−2～+2，預設 +0）。Grok 桌面版顯示的本週用量可能比 `/usage`
-  多 1%，因為兩邊對小數的四捨五入方式不同。選 **+1（同桌面版）** 就會和桌面版一致。校正值只在顯示和計算時加上（目前用量、
+  高一點，因為兩邊對小數的四捨五入方式不同；差距不是固定的（常見是 0 或 1%），所以 −2～+2 維持手動選擇。想保守一點可以調 +1 或 +2。校正值只在顯示和計算時加上（目前用量、
   與基準差、剩餘、平均、預估、超過／低於的顏色、本週和歷史圖、ledger 那一行）；`samples.csv`、每週 CSV 和 `latest.json`
   都保持原始值，兩次讀數之間的差（打卡開始／結束、時鐘圖每小時增量）不受影響（校正值會互相抵消）。顯示值不會低於 0；
   有校正時主要百分比旁會有小小的 `(+1)`。設定存在 `usage_config.json`（沒有設定檔時存在 `<data_dir>/page_settings.json`）
@@ -131,7 +160,24 @@ python3 service.py start        # 背景啟動網頁與每小時取樣；停止�
   沒有設定檔時存在 `<data_dir>/page_settings.json`，瀏覽器另存 `usage.lang` / `usage.tz`），不用重開服務就生效（圖、標籤、
   重置和週期日期都會重畫；非自動的選擇是圖片快取的一部分，例如 `-Lja-Zasia_tokyo`），原始 CSV／JSON 不會改變。
   啟動時明確給了 `--lang` / `--tz` 參數時以參數為準，選單會變成不能選。只有 `page_settings.json` 時，每週檔案仍依參數／設定檔的
-  時區（否則用本機時區）歸檔，選單只改變顯示方式。「平均每日用量」和「預估週末總量」卡片一律顯示 ▲／▼。
+  時區（否則用本機時區）歸檔，選單只改變顯示方式。「平均每日用量」和「預估週末總量」卡片一律顯示 ▲／▼，放在數字旁的小標籤裡，
+  例如「8.7% ［▼慢於基準］」、「61% ［▼未超標］」、「［▲超標］」。切換選單時頁面會先顯示「套用中…」，校正值的數字立刻更新，
+  重畫好的圖準備好再換上。所有百分比（包括「24 小時內用量激增 +56%」）都用 % 表示。
+- **儀表動畫**（「時區」旁的選單：關／只跑一次／持續，預設只跑一次；設定 `anim` = `"off"`／`"once"`／`"continuous"`，
+  參數 `--anim`，瀏覽器另存 `usage.anim`，`POST /api/anim` 和 `/api/lang` 一樣要 token、檢查 Host／Origin）。開啟頁面、重新整理、
+  改顯示校正時，環形圖從 0 掃到目前值、稍微衝過頭再回穩（約 1 秒），大字百分比和下方進度條同步跑。「持續」在掃完後讓環的前緣
+  輕微抖動加上緩慢的呼吸光暈，數字不會跳動。這是網頁上的 HTML／SVG／CSS 疊層（位置取自 `history/week-current.json`），只用 CSS
+  transform／opacity，分頁在背景時暫停；PNG 本身不變，所以匯出的靜態圖不受影響。系統開了「減少動態效果」（`prefers-reduced-motion`）
+  時不掃描也不抖動：「只跑一次」等於關閉，明確選了「持續」則只保留前緣的靜態光暈。啟動參數 `--anim` 優先（選單不能選）。
+- **卡片文字**：「比基準差異」改成文字，不加箭頭，例如「落後基準 16%（用量充裕）」、「超前基準 5%（消耗較快）」。7 天預估超過 100% 時，
+  主卡片寫「預估額度提前耗盡，剩約 N 天」（N = 剩餘 % ÷ 目前每日平均 %，取到小數一位），「預估週末總量」卡片顯示「額度剩約 N 天 ［▲即將用罄］」
+  （和標籤放不下時改成較短的「剩約 N 天」），下方小字寫「額度提前耗盡 · 原始預估 145%」。「剩餘日均配額」卡片的小字是
+  「距重置 N 天（含今天）」，和「額度剩約 N 天」（到額度用完）區分開來。每日紀錄的單日增量只寫 +/−數字（用顏色分超過／低於；勾「加上紋路」時才加 ▲／▼），
+  累計值也套用顯示校正。折線圖上不再浮貼「基準線 每天14%」標籤（會擋到資料點），上方圖例、環形圖下的「基準線 N%」、主卡片底部進度條
+  和頁尾「基準 每天14% ‧ 上限 100%」都保留。
+- **天數只算一次**：今天是第幾天和剩幾天都從重置時間推算。週期進行中，剩餘天數 = 距離重置的時間 ÷ 24 小時、無條件進位（含今天），
+  「第 N / 7 天」的 N = 8 − 剩餘天數，所以兩者相加一定是 8（例如「第 3/7 天」、「距離重置 4天1小時」、「距重置 5 天（含今天）」）。
+  週期外或沒有重置時間時，用最新一筆紀錄的天數。基準（每天基準 × 第幾天）和「比基準差異」仍以最新紀錄那天為準，卡片小字會寫出是第幾天。
 - **每日基準**（設定 `pace` 或參數 `--pace`，預設每天 14%）：環形圖上的基準刻度是「每天基準 × 第幾天」，環形圖下方的小圖例
   會寫出當天的值，例如「基準線 42%」。平均分配的話是 100 ÷ 7 ≈ 每天 14.3%，預設取整數每天 14%（第 7 天 = 98%），保留約 2% 的餘裕；
   想要不同的值可以改設定 `pace` 或用 `--pace`。
@@ -197,3 +243,10 @@ Grok Build 沒有「不開畫面就印出用量」的指令；`grok -p "/usage"`
 取樣器就不再啟動 Grok Build，網頁會請你輸入數值。
 
 記錄檔：`usage-data\service.log`、`usage-data\server.log`、`usage-data\sampler.log`。回報問題時附上這些檔案即可（裡面不含帳號資料）。
+
+
+## 第三方聲明
+
+- 網頁工具列最後的小 GitHub 圖示只用來連到本專案的 GitHub 頁面。圖示是 Octicons 的 `mark-github`（© GitHub, Inc.，MIT 授權，
+  https://github.com/primer/octicons），原樣內嵌、未修改。GitHub 標誌是 GitHub, Inc. 的商標，這裡只依 GitHub 的標誌使用規範
+  （https://github.com/logos）以白色／灰色顯示、用來連到專案頁；本專案與 GitHub 沒有合作或背書關係。

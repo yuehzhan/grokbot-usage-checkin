@@ -1,10 +1,18 @@
 # Grok Bot Usage & Check-in
 
+<p align="center">
+  <img src="docs/media/gauge-rev-en.gif" alt="Gauge rev-up animation" width="360">
+</p>
+
+![Dashboard screenshot (English)](docs/media/screenshot-en.png)
+
+*Animation and screenshot use made-up sample data.*
+
 **Usage · Check-in · Search** (zh-TW: 用量・打卡・搜尋) — track weekly quota usage, log who works on what, and search
 "which days did which things, and how much usage they cost". Formerly called *usage-hud*; folder, file, command,
 config-key and API names are unchanged.
 
-Recommended on Linux (your Grok Bot's computer); macOS should work but is untested; Windows is not yet fully tested. Nothing is sent anywhere; all data stays in a local folder.
+Recommended on Linux (your Grok Bot's computer); macOS should work but is untested; Windows is not yet fully tested. All usage and check-in data stays in a local folder and the page is served only on `127.0.0.1`. The one exception is the optional update check: about once a day it asks GitHub (`git fetch` from this repository) whether a newer version exists; turn it off with the page's **Auto-check for updates** switch or `"update_check": "off"`. No usage data is sent with it.
 
 A cross-platform, multi-panel sci-fi HUD dashboard renderer (`chart_hud.py`), bot-first idempotent recorder (`usage_record.py`), lightweight local web viewer (`usage_view.py`), and optional Grok Build `/usage` reader (`grok_usage_reader.py`) that tracks cumulative and daily weekly-quota usage percentages (`0%–100%+`) and outputs both a high-resolution PNG (`1800×1500 px`) and a machine-readable `latest.json` summary.
 
@@ -62,7 +70,7 @@ to PATH"). No administrator rights. Everything stays on your PC; the page listen
      (for example `New version: abc1234 Fix the clock (2 behind)`) and a light-blue **Update** button. Press
      **Update**: the dashboard stops, updates, reinstalls and starts again by itself; the page shows *Updating…* and
      reloads when it is back (about 1–3 minutes). Nothing is installed unless you press **Update**.
-   - To turn the automatic check off, untick **Check for updates automatically** on the page (saved as
+   - To turn the automatic check off, untick **Auto-check for updates** on the page (saved as
      `"update_check": "off"` in `usage_config.json`, so it stays off after a restart), or set that key yourself.
      The **Check for updates** button keeps working.
    - This needs an install made with `git clone`. A ZIP install cannot update itself: download the new ZIP by hand
@@ -78,6 +86,31 @@ to PATH"). No administrator rights. Everything stays on your PC; the page listen
    powershell -ExecutionPolicy Bypass -File .\start.ps1
    ```
    On Linux the page buttons work the same way. By hand: `python3 service.py stop && git pull && python3 -m pip install -r requirements.txt && python3 service.py start`.
+   - **What changed:** every release is listed in [CHANGELOG.md](CHANGELOG.md) (zh-TW: [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md)).
+     When the page finds a newer version it shows the new entries (*What's new*) before you press **Update**. They come
+     from the CHANGELOG that the update check's `git fetch` already downloaded (no extra connection), shown as plain
+     text, and nothing is shown or fetched when the update check is off and you do not press the button. The current
+     version (`VERSION`) is shown small at the top of the page.
+   - **Roll back:** right before an update the page saves the current commit and version in
+     `usage-data\update_prev.json` (local, not in git). After the update a **Roll back to previous version** button
+     appears; it asks for confirmation, stops the dashboard, moves the `main` branch back with `git reset --keep`
+     (still on `main`, so the next **Update** is a normal fast-forward again), reinstalls if `requirements.txt`
+     differs and starts again. Your `usage-data\` and `usage_config.json` are not touched. If program files were
+     edited it refuses and says so instead of discarding the edits. Steps are logged in `usage-data\update.log`.
+   - Roll back by hand (for example if the page does not start). Open the commit saved before the update
+     (`"commit"` in `usage-data\update_prev.json`; without that file, `git reflog` lists the earlier commits) and run,
+     in the install folder:
+   ```powershell
+   cd C:\path\to\grokbot-usage-checkin
+   Get-Content usage-data\update_prev.json
+   powershell -ExecutionPolicy Bypass -File .\stop.ps1
+   git reset --keep <commit>
+   powershell -ExecutionPolicy Bypass -File .\install.ps1
+   powershell -ExecutionPolicy Bypass -File .\start.ps1
+   ```
+   On Linux: `cd ~/grokbot-usage-checkin && cat usage-data/update_prev.json`, then
+   `python3 service.py stop && git reset --keep <commit> && python3 -m pip install -r requirements.txt && python3 service.py start`.
+   `git reset --keep` stops with an error instead of overwriting changed files; to update again later, use **Update** or `git pull`.
 
 **What works on Windows**
 
@@ -146,11 +179,12 @@ If the automatic read keeps failing, set `"pct_source": "manual"` in `usage_conf
 ### Panels
 1. **Header Bar**: `WEEKLY USAGE // TELEMETRY` eyebrow, localized dashboard title (`Usage Dashboard` by default, customizable via `--title`), full weekly cycle window (`YYYY-MM-DD Sat 09:00 -> YYYY-MM-DD Sat 09:00`), and decorative segmented view tabs (`Cumulative | Daily | Week`).
 2. **Row 1 — Hero Card & 6 Telemetry Stat Cards**:
-   - **Hero Card (left ~1/3)**: Ring gauge (capped visually at `100%` with a grey tick at today's target baseline `pace × day` and a small legend under the ring, e.g. `Baseline 42%`, showing `Day N / 7` and `% left` in the center), large current `%` readout, burn rate (`burn rate X.X%/day`), auto-sized status pill (`▼ ON PACE` in the cool colour or `▲ AHEAD OF PACE` in orange), time-to-cap forecast (`Hits 100% ~Day X.X` when projected usage exceeds `100%`), and a padded bottom multi-segment progress bar (used quota + pale forecast-to-reset + remaining track + grey baseline tick).
-   - **6 Stat Cards (`2 × 3` grid)**: **vs Baseline** (`+/-%`), **Remaining** (`0%` and `+X% over cap` when `> 100%`), **Avg / Day**, **Projected (7d)**, **Reset In** (`Xd Yh` plus the explicit date, e.g. `Sat, Oct 31, 01:41`), and **Daily Budget Left** (`remaining / max(1, days_left)`).
-3. **Row 2 Left — Cumulative Usage vs. Baseline Line Chart**: 7 framed daily cells (`x = 0..7`, points at `N - 0.5`), grey baseline `pace × (x + 0.5)`, segment-by-segment cool/orange usage line, dashed forecast to Day 7 (`proj X%`), `100%` limit line, `> 100%` cap triangle markers with anti-collision label placement, and `No Data` indicators in missing cells.
+   - **Hero Card (left ~1/3)**: Ring gauge (capped visually at `100%` with a grey tick at today's target baseline `pace × day` and a small legend under the ring, e.g. `Baseline 42%`, showing `Day N / 7` and `% left` in the center), large current `%` readout, burn rate (`burn rate X.X%/day`), auto-sized status pill (`▼ ON PACE` in the cool colour or `▲ AHEAD OF PACE` in orange), time-to-cap forecast (when the 7-day projection exceeds `100%`: `Runs out early, ~N days left`, with N = remaining % ÷ current average %/day, one decimal), and a padded bottom multi-segment progress bar (used quota + pale forecast-to-reset + remaining track + grey baseline tick).
+   - **6 Stat Cards (`2 × 3` grid)**: **vs Baseline** in words, no arrow (`16% under baseline` + `(plenty left)`, `5% over baseline` + `(using it fast)`; zh-TW 「落後基準 16%（用量充裕）」 / 「超前基準 5%（消耗較快）」), **Remaining** (`0%` and `+X% over cap` when `> 100%`), **Avg / Day** and **Projected (7d)** (the ▲/▼ sits in a small tag beside the number, e.g. `8.7% [▼ slower]`, `61% [▼ within]`, `[▲ over]`; past `100%` the projection card shows `Quota ~N d left [▲ running out]` when that fits beside the tag, otherwise the shorter `~N d left [▲ running out]`, and its small second line reads `Quota runs out early · raw 145%`), **Reset In** (`Xd Yh` plus the explicit date, e.g. `Sat, Oct 31, 01:41`), and **Daily Budget Left** (`remaining / days_left`, sub line `over N d to reset (incl. today)`; zh-TW 「距重置 N 天（含今天）」, so it is not mistaken for the projection card's days until the quota runs out).
+   - **One day index**: today's day number and the days left both come from the reset time. While the cycle runs, `days_left = ceil(time to reset ÷ 24 h)` (today included) and `Day N / 7` uses `N = 8 − days_left`, so the two always add up to 8 (e.g. `Day 3 / 7`, reset in `4d 1h`, `over 5d to reset (incl. today)`). Outside the cycle (or without a reset time) the day of the latest reading is used. The baseline (`pace × day`) and the vs-Baseline card stay on the day of the latest reading, which their sub line names (`Day 2 baseline: 28%`).
+3. **Row 2 Left — Cumulative Usage vs. Baseline Line Chart**: 7 framed daily cells (`x = 0..7`, points at `N - 0.5`), grey baseline `pace × (x + 0.5)`, segment-by-segment cool/orange usage line, dashed forecast to Day 7 (`proj X%`, or `out in ~N d` once it passes `100%`), `100%` limit line, `> 100%` cap triangle markers with anti-collision label placement, and `No Data` indicators in missing cells.
 4. **Row 3 Left — Daily Usage Skyscraper Bar Chart**: Aligned with the 7 day-cells above, showing each day's increment (`pct - prev_pct`) in the cool colour (`<= pace × gap_days`) or orange (`> pace × gap_days`) against the dashed grey daily baseline (`14%`), with `(Nd)` gap tags on multi-day spans.
-5. **Row 2+3 Right — Daily Log Card**: 7 daily rows (`Day 1..Day 7`) with date (`MM-DD`), note/timestamp, cumulative `%`, daily increment (`+N%`), and a clipped mini progress bar per row.
+5. **Row 2+3 Right — Daily Log Card**: 7 daily rows (`Day 1..Day 7`) with date (`MM-DD`), note/timestamp, cumulative `%`, daily increment (plain `+N%`, coloured; ▲/▼ are added only with **Add patterns**), and a clipped mini progress bar per row. Every value is the shown value (display offset included).
 6. **Footer**: Generation timestamp, target daily pace, and weekly cap summary.
 
 ### Colour Rule & Palettes
@@ -200,8 +234,9 @@ black or aqua; every preset has its own notice colour.
   `"patterns": true` also turns them on.
 
 **Display offset** (`display_offset`, menu **Display offset** next to **Add patterns**: −2 … +2, default +0). The Grok
-desktop app may show the weekly % about 1 point higher than `/usage` for the same moment, because the two round a
-fractional value differently. Pick **+1 (match desktop app)** to make the dashboard match the app. The offset is only
+desktop app may show a slightly higher weekly % than `/usage` for the same moment, because the two round a fractional
+value differently; the gap is not constant (often 0 or 1 %), so the offset stays a manual choice from −2 to +2. To be on
+the safe side, pick +1 or +2. The offset is only
 added when values are shown or calculated (current %, Δ vs baseline, remaining, average, projection, over/under
 colouring, the weekly HUD and history charts, the ledger line); `samples.csv`, the week CSVs and `latest.json` stay
 raw, and differences between two readings (check-in start/end, the clock dial's hourly increases) are unchanged
@@ -217,7 +252,21 @@ without a config file, plus the browser keys `usage.lang` / `usage.tz`), take ef
 labels, reset and period dates are redrawn; a non-auto choice is part of the image cache key, e.g. `-Lja-Zasia_tokyo`),
 and never change the stored CSV/JSON data. An explicit `--lang` / `--tz` flag still wins and the menu is disabled. With
 only `page_settings.json`, week files keep using the CLI/config zone (machine local otherwise), so the menu changes
-what is shown, not how weeks are filed. The Avg / Day and Projected cards always show ▲ / ▼.
+what is shown, not how weeks are filed. The Avg / Day and Projected cards always show ▲ / ▼, in a small tag next to
+the number. All percentages, including the 24-hour spike notice, are shown as `%`. While a menu change is being
+applied the page shows **Applying…**, updates the shown numbers at once (offset) and swaps in the redrawn charts when
+they are ready.
+
+**Gauge animation** (menu next to **Time zone**: Off / Once / Continuous, default Once; config key `anim` =
+`"off"` | `"once"` | `"continuous"`, flag `--anim`, browser key `usage.anim`, endpoint `POST /api/anim` with the same
+token and Host/Origin checks as `/api/lang`). On page open, refresh and display-offset change the ring sweeps from 0 to
+the value with a small overshoot and settles (about 1 s) while the big % counts up and the progress bar fills in step.
+Continuous then keeps a tiny idle jitter on the ring's leading edge plus a slow breathing glow; the numbers never move.
+It is an HTML/SVG/CSS overlay on the served page (geometry from `history/week-current.json`), CSS transforms and
+opacity only, paused while the tab is hidden; the PNG itself is unchanged, so static exports stay still. With the
+system setting **reduce motion** (`prefers-reduced-motion`) there is no sweep and no jitter: Once behaves as Off, and an
+explicit Continuous keeps only a static glow on the leading edge. A `--anim` flag wins over the menu (menu disabled);
+opened as a plain file the menu only changes the browser's choice.
 
 - PNGs (`chart_hud.py`, history and clock charts) and web pages follow the palette. `over_color`, `under_color` and
   `baseline_color` in the config still override single colours.
@@ -469,12 +518,14 @@ cat usage-data/history_server.json             # {"url": "http://127.0.0.1:PORT/
 | `/api/checkins` | GET | Sessions grouped by day plus per-category summary; same filters as search. |
 | `/api/checkins/search` | GET | Read-only search (see below). |
 | `/api/ledger`, `/ledger.json` | GET | The usage ledger (see below); `404` until the first sample. |
+| `/api/lang`, `/api/tz`, `/api/anim` | POST | Page menus: JSON `{"lang": …}`, `{"tz": …}`, `{"anim": "off"\|"once"\|"continuous"}` (token required; `400` for an unknown value). `anim` only rebuilds the page, no chart redraw. |
+| `/week-current.json`, `/pal/<key>/week-current.json` | GET | Gauge geometry and colours for the animation overlay (shown % only). |
 
 - Binds `127.0.0.1` by default. Any non-loopback `history_host`/`--host` is refused unless `--allow-remote` is passed.
 - See **Local Server Security** below for the write token and Host/Origin checks.
 - The page shows a **⟳ Refresh** button (accent colour, with spinner; it reads the usage again; while it runs it is disabled and counts the seconds, e.g. "⟳ Refreshing… 12 s"), an **Enter manually** button and the check-in form only when it is served by this server; opened as a plain file, it is read-only. In manual mode **⟳ Refresh** is hidden.
 - A refresh usually takes about 10–60 seconds depending on the computer and network, mostly waiting for Grok Build to read the usage; the button shows the elapsed seconds. The server log (`server.log`) records how long the read and the drawing took for each refresh.
-- When served, the page also shows **Check for updates**, the **Check for updates automatically** switch, and a light-blue **Update** button when a newer version exists (see step 5 of the Windows quick start). After an update the server comes back on the same port, so the open page can reload itself.
+- When served, the page also shows **Check for updates**, the **Auto-check for updates** switch, and a light-blue **Update** button when a newer version exists (see step 5 of the Windows quick start). After an update the server comes back on the same port, so the open page can reload itself.
 - `history/index.html` is self-contained (PNGs embedded), so it can be copied or opened offline.
 
 ### Check-ins: sessions, categories and search
@@ -781,3 +832,13 @@ network.
   - Windows `os.startfile` / macOS `open` image auto-launch.
   - `install.ps1`, `start.ps1`, `stop.ps1`, `register-task.ps1` (parsed, not executed).
   - The page's **Update** button on Windows (`self_update.py` running `stop.ps1` → `git pull --ff-only` → `install.ps1` → `start.ps1` hidden); the same flow with `service.py` was run end to end on Linux.
+  - The page's **Roll back to previous version** button on Windows (same scripts, with `git reset --keep <saved commit>` instead of the pull); the rollback logic itself is covered by tests against a temporary git repository on Linux.
+
+
+## Third-party notices
+
+- The page's toolbar ends with a small GitHub mark that only links to this project's repository. The mark is
+  the Octicons `mark-github` icon, © GitHub, Inc., MIT License (https://github.com/primer/octicons), inlined
+  unmodified. The GitHub logo and mark are trademarks of GitHub, Inc.; they are used here only to link to the
+  repository, in white/grey, as GitHub's logo policy allows (https://github.com/logos). This project is not
+  affiliated with or endorsed by GitHub.

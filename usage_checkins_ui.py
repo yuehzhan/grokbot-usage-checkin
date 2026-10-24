@@ -33,7 +33,7 @@ EN = {
     "per_cat": "Per category", "per_name": "Per name", "by_day": "By day",
     "day_sub": "{n} session(s) · {t} · usage {u}", "max_cats": "Pick at most {n} categories",
     "loading": "Saving…", "conn_err": "Cannot reach local server", "time": "Time", "hint": "",
-    "need_name": "Enter a name", "pick_cat": "Pick 1–{n}", "pt": "pt",
+    "need_name": "Enter a name", "pick_cat": "Pick 1–{n}", "pt": "%",
 }
 ZH_TW = {
     "name": "名字", "note": "備註", "category": "類別", "all": "全部", "none_ck": "尚無打卡",
@@ -47,7 +47,7 @@ ZH_TW = {
     "per_cat": "各類別統計", "per_name": "各名字統計", "by_day": "依日期",
     "day_sub": "{n} 段 · {t} · 用量 {u}", "max_cats": "最多選 {n} 個類別",
     "loading": "儲存中…", "conn_err": "無法連線到本機服務", "time": "時間", "hint": "",
-    "need_name": "請輸入名字", "pick_cat": "選 1–{n} 個", "pt": "點",
+    "need_name": "請輸入名字", "pick_cat": "選 1–{n} 個", "pt": "%",
 }
 NUMERIC = dict(EN, **{
     "name": "", "note": "", "category": "", "all": "∗", "none_ck": "∅", "range": "", "start_btn": "▶",
@@ -122,7 +122,7 @@ var TK=(document.querySelector('meta[name="usage-token"]')||{}).content||'';
 function el(t,x,c){var e=document.createElement(t);if(x!=null)e.textContent=x;if(c)e.className=c;return e;}
 function f(t,o){return String(t).replace(/\{(\w+)\}/g,function(_,k){return o[k]!=null?o[k]:'';});}
 function dur(m){if(m==null)return '—';m=Math.round(m);return m>=60?Math.floor(m/60)+'h'+String(m%60).padStart(2,'0')+'m':m+'m';}
-function pts(v){if(v==null)return T.unavailable;var r=Math.round(v*10)/10;return (r>0?'▲ +'+r:(r<0?'▼ '+r:'±0'))+' '+(T.pt||'pt');}
+function pts(v){if(v==null)return T.unavailable;var r=Math.round(v*10)/10;return (r>0?'▲ +'+r:(r<0?'▼ '+r:'±0'))+(T.pt||'%');}
 var CL={};D.cats.forEach(function(c){CL[c.id]=c.label;});
 function chips(box,onchange,limit){D.cats.forEach(function(c){var l=el('label',c.label),i=el('input');i.type='checkbox';i.value=c.id;l.prepend(i);
  l.onclick=function(ev){ev.preventDefault();var on=box.querySelectorAll('input:checked').length;

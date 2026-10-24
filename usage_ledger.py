@@ -51,13 +51,13 @@ DEFAULTS = {"daily_spike_points": 20.0, "over_budget_percent": 90.0, "unavailabl
             "stale_after_hours": 6.0, "desktop_notify": True}
 
 TEXT = {
-    "en": {"title": "Usage alert", "spike": "+{p:g} pts in 24h, now {pct:g}% · {reset}",
+    "en": {"title": "Usage alert", "spike": "+{p:g}% in 24h, now {pct:g}% · {reset}",
            "budget": "Weekly usage {pct:g}% (≥ {th:g}%) · {reset}",
            "unavail": "Usage unavailable {n}× in a row · {last}",
            "resets": "resets {date} ({z})", "reset_unknown": "reset unknown",
            "last": "last good {pct:g}% at {t}", "no_last": "no good reading yet",
            "wd": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], "dl": "en"},
-    "zh-TW": {"title": "用量提醒", "spike": "24 小時內上升 {p:g} 點，目前 {pct:g}%・{reset}",
+    "zh-TW": {"title": "用量提醒", "spike": "24 小時內用量激增 +{p:g}%，目前 {pct:g}%・{reset}",
               "budget": "每週用量 {pct:g}%（≥ {th:g}%）・{reset}",
               "unavail": "連續 {n} 次無法取得用量・{last}",
               "resets": "重置 {date}（{z}）", "reset_unknown": "重置時間未知",
@@ -67,7 +67,7 @@ TEXT = {
                 "unavail": "∅ ×{n} · {last}", "resets": "↻ {date}", "reset_unknown": "↻ ?",
                 "last": "✓ {pct:g}% @ {t}", "no_last": "✓ —", "wd": ["1", "2", "3", "4", "5", "6", "7"], "dl": "numeric"},
 }
-TEXT["zh-CN"] = dict(TEXT["zh-TW"], title="用量提醒", spike="24 小时内上升 {p:g} 点，目前 {pct:g}%・{reset}",
+TEXT["zh-CN"] = dict(TEXT["zh-TW"], title="用量提醒", spike="24 小时内用量激增 +{p:g}%，目前 {pct:g}%・{reset}",
                      budget="每周用量 {pct:g}%（≥ {th:g}%）・{reset}", unavail="连续 {n} 次无法获取用量・{last}",
                      resets="重置 {date}（{z}）", reset_unknown="重置时间未知", last="最后成功 {pct:g}%（{t}）",
                      no_last="尚无成功记录", wd=["周一", "周二", "周三", "周四", "周五", "周六", "周日"], dl="zh-CN")
