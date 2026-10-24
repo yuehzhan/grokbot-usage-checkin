@@ -45,12 +45,12 @@ class PeriodColourTests(unittest.TestCase):
                 self.assertEqual(len(cols), 8, n)
                 self.assertEqual(len({c.upper() for c in cols}), 8, n)
                 self.assertNotIn(up.get(n, light)["over"].upper(), [c.upper() for c in cols], n)
-                if n == "colorblind":  # clock periods stay pure Okabe-Ito; the dark under blue is a lighter #3C8FD6
+                if n == "orange-deepblue":  # clock periods stay pure Okabe-Ito; the under blue is tuned separately
                     self.assertIn(cols[0], ("#56B4E9", "#0072B2"))
                 else:
                     self.assertEqual(cols[0], up.get(n, light)["under"])
         okabe_ito = {"#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "#000000"}
-        self.assertTrue(set(up.period_colors("colorblind")[:6]) <= okabe_ito)
+        self.assertTrue(set(up.period_colors("orange-deepblue")[:6]) <= okabe_ito)
 
 
 class PeriodGroupTests(unittest.TestCase):
@@ -194,9 +194,9 @@ class LazyPaletteServerTests(unittest.TestCase):
 
     def test_bad_requests(self):
         self.assertEqual(self._render({"name": "nope"})[0], 400)
-        self.assertEqual(self._render({"name": "colorblind", "clock": "2w"})[0], 400)
-        self.assertEqual(self._render({"name": "colorblind", "clock": "wk", "mode": "zz"})[0], 400)
-        self.assertEqual(self._render({"name": "colorblind"}, token=False)[0], 403)
+        self.assertEqual(self._render({"name": "orange-deepblue", "clock": "2w"})[0], 400)
+        self.assertEqual(self._render({"name": "orange-deepblue", "clock": "wk", "mode": "zz"})[0], 400)
+        self.assertEqual(self._render({"name": "orange-deepblue"}, token=False)[0], 403)
 
 
 if __name__ == "__main__":
