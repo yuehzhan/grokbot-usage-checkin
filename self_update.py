@@ -68,6 +68,41 @@ def git(repo, *args, timeout=30, git_bin="git"):
     return r.stdout.decode("utf-8", "replace").strip()
 
 
+def git_bytes(repo, *args, timeout=30, git_bin="git"):
+    """Raw stdout bytes of ``git -C repo args`` (no decoding, no stripping); GitError on failure."""
+    try:
+        r = subprocess.run([git_bin, "-C", str(repo)] + list(args), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE, timeout=timeout, env=_git_env(), **_no_window())
+    except subprocess.TimeoutExpired:
+        raise GitError(f"git {args[0]} timed out after {timeout}s")
+    if r.returncode != 0:
+        err = r.stderr.decode("utf-8", "replace").strip().splitlines()
+        raise GitError((err[-1] if err else f"git {args[0]} exited with {r.returncode}")[:300])
+    return r.stdout
+
+
+def _lf(b):
+    return b.replace(b"\r\n", b"\n")
+
+
+def changed_files(repo, git_bin="git"):
+    """(real, eol_only): tracked files that differ from HEAD (staged or not). ``eol_only`` are files whose only
+    difference is CRLF vs LF, e.g. a blob committed with CRLF while .gitattributes says ``eol=crlf`` (git then
+    reports the file as modified right after checkout). Compared here byte by byte, CRLF -> LF on both sides."""
+    raw = git_bytes(repo, "diff", "--name-only", "-z", "HEAD", git_bin=git_bin)
+    real, eol = [], []
+    for name in [n.decode("utf-8", "surrogateescape") for n in raw.split(b"\0") if n]:
+        p = Path(repo) / name
+        same = False
+        if p.is_file() and not p.is_symlink() and not any(c.isspace() for c in name):
+            try:
+                same = _lf(p.read_bytes()) == _lf(git_bytes(repo, "show", f"HEAD:{name}", git_bin=git_bin))
+            except (OSError, GitError):
+                same = False
+        (eol if same else real).append(name)
+    return real, eol
+
+
 def _same_path(a, b):
     try:
         return os.path.normcase(str(Path(a).resolve())) == os.path.normcase(str(Path(b).resolve()))
@@ -119,9 +154,11 @@ def check(repo=HERE, fetch=True, git_bin="git", remote=REMOTE, branch=BRANCH, fe
             return dict(out, state=WRONG_BRANCH, detail=f"current branch is {cur}")
         if ahead:
             return dict(out, state=DIVERGED, detail=f"{ahead} local commit(s) not on {remote}/{branch}")
-        files = git(repo, "diff", "--name-only", "HEAD", git_bin=git_bin).splitlines()  # staged + unstaged, tracked files
+        files, eol_only = changed_files(repo, git_bin=git_bin)  # staged + unstaged, tracked files
         if files:
             return dict(out, state=LOCAL_CHANGES, detail="changed: " + ", ".join(files[:5]) + (" …" if len(files) > 5 else ""))
+        if eol_only:  # line endings only (not a real edit): the updater clears these before pulling
+            out["eol_only"] = eol_only
         return dict(out, state=BEHIND, can_update=True)
     except FileNotFoundError:
         return dict(out, state=NO_GIT)
@@ -268,6 +305,75 @@ def _read_bytes(p):
         return None
 
 
+class _EolOverride:
+    """Clear "modified" files whose only difference from HEAD is CRLF/LF, without commits or stashes.
+
+    1. ``git checkout -- <files>`` (enough when the file on disk just has other line endings than the blob).
+    2. If git still lists them, mark them ``-text`` in ``.git/info/attributes`` (local to this clone, never committed)
+       for the duration of the pull: git then compares raw bytes, sees no change, and ``pull --ff-only`` can run.
+       ``git stash`` and ``git reset --keep`` do not help here: with the committed CRLF blob and ``eol=crlf``
+       every checkout produces the same "modified" file again.
+    The original .git/info/attributes is restored afterwards (``restore``)."""
+
+    MARK = "# self_update: temporary, line endings only"
+
+    def __init__(self, repo, files, say):
+        self.repo, self.files, self.say = Path(repo), list(files), say
+        self.path, self.before, self.active = None, None, False
+
+    def apply(self):
+        say = self.say
+        say("line endings only (not real edits): " + ", ".join(self.files))
+        try:
+            git(self.repo, "checkout", "--", *self.files)
+            say("$ git checkout -- " + " ".join(self.files))
+        except GitError as exc:
+            say(f"  git checkout failed: {exc}")
+        real, still = changed_files(self.repo)
+        if real:
+            say("real local changes found: " + ", ".join(real))
+            return False
+        if not still:
+            say("line-ending differences cleared")
+            return True
+        try:
+            self.path = Path(git(self.repo, "rev-parse", "--git-path", "info/attributes"))
+            if not self.path.is_absolute():
+                self.path = self.repo / self.path
+            self.before = self.path.read_bytes() if self.path.exists() else None
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            lines = [self.MARK] + ["/" + f + " -text" for f in still]
+            pre = (self.before or b"")
+            if pre and not pre.endswith(b"\n"):
+                pre += b"\n"
+            self.path.write_bytes(pre + ("\n".join(lines) + "\n").encode("utf-8"))
+            self.active = True
+            say(f"marked {len(still)} file(s) -text in {self.path} for this update")
+            git(self.repo, "update-index", "-q", "--refresh")
+        except (OSError, GitError) as exc:
+            say(f"  could not set the temporary attributes: {exc}")
+        real, still = changed_files(self.repo)
+        if still or real:
+            say("still listed as modified: " + ", ".join(still + real))
+        else:
+            say("line-ending differences cleared")
+        return not real
+
+    def restore(self):
+        if not self.active:
+            return
+        try:
+            if self.before is None:
+                self.path.unlink()
+            else:
+                self.path.write_bytes(self.before)
+            self.say(f"restored {self.path}")
+            git(self.repo, "update-index", "-q", "--refresh")
+        except (OSError, GitError) as exc:
+            self.say(f"  could not restore {self.path}: {exc}")
+        self.active = False
+
+
 def _wait_gone(pid, timeout, say):
     if not pid:
         return
@@ -313,11 +419,30 @@ def run(repo, data_dir, config=None, wait_pid=None, runner=None, delay=2.0):
             say("stop reported a problem; continuing")
         _wait_gone(wait_pid, 30, say)
         pre = check(repo, fetch=False)
-        if not pre.get("can_update"):
-            say(f"not updating: {pre.get('state')} {pre.get('detail') or ''}".rstrip())
-            ok = False
-        elif not runner(steps["pull"], STEP_TIMEOUT["pull"], say, repo):
-            say("ERROR: git pull --ff-only failed; starting the current version again")
+        eol = _EolOverride(repo, pre.get("eol_only") or [], say)
+        pulled = tried = False
+        try:
+            if not pre.get("can_update"):
+                say(f"not updating: {pre.get('state')} {pre.get('detail') or ''}".rstrip())
+            elif eol.files and not eol.apply():
+                say("not updating: real local changes")
+            elif (tried := True) and runner(steps["pull"], STEP_TIMEOUT["pull"], say, repo):
+                pulled = True
+            elif eol.files and not changed_files(repo)[0]:
+                # pull refused although only line endings differ: move the branch with --keep (keeps any local
+                # edit and every untracked / ignored file such as usage_config.json and usage-data/; never --hard)
+                say(f"$ git reset --keep {REMOTE}/{BRANCH}  (pull refused; only line endings differ)")
+                try:
+                    git(repo, "reset", "--keep", f"{REMOTE}/{BRANCH}")
+                    pulled = True
+                    say("  reset --keep worked")
+                except GitError as exc:
+                    say(f"  reset --keep failed: {exc}")
+        finally:
+            eol.restore()
+        if not pulled:
+            if tried:
+                say("ERROR: git pull --ff-only failed; starting the current version again")
             ok = False
         else:
             new = None
