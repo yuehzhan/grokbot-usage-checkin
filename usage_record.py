@@ -415,7 +415,7 @@ def main(argv: Optional[List[str]] = None):
     p.add_argument("--under-color", default=None)
     p.add_argument("--over-color", default=None)
     p.add_argument("--text-color", default=None)
-    p.add_argument("--palette", default=None, help="Colour preset (14, see README): orange-teal (default), orange-blue, colorblind, amber-purple, ...")
+    p.add_argument("--palette", default=None, help="Colour preset (17, see README): orange-teal (default), orange-blue, orange-deepblue, amber-purple, ...")
     p.add_argument("--no-cache", action="store_true", help="Do not write auto-detected reset_at to <data_dir>/state.json")
     p.add_argument("--no-render", action="store_true", help="Update CSV and summary JSON only without rendering PNG")
     p.add_argument("--no-open", action="store_true", help="Do not auto-open rendered PNG")

@@ -164,7 +164,7 @@ If the automatic read keeps failing, set `"pct_source": "manual"` in `usage_conf
 | :--- | :--- | :--- | :--- | :--- |
 | `orange-teal` (default) | Orange / teal | `#FFA51F` / `#C96A00` | `#23C4AE` / `#0B8A7E` | `#B48CFF` / `#7A4FC9` |
 | `orange-blue` | Orange / blue | `#FFA51F` / `#C96A00` | `#4D8DFF` / `#1F5FD1` | `#B48CFF` / `#7A4FC9` |
-| `colorblind` (Okabe-Ito) | Colour-blind safe | `#E69F00` / `#B87F00` | `#3C8FD6` / `#0072B2` | `#CC79A7` / `#A8558A` |
+| `orange-deepblue` ★ (was `colorblind`) | Orange / deep blue ★ | `#E69F00` / `#B87F00` | `#3171C4` / `#1D3972` | `#CC79A7` / `#A8558A` |
 | `amber-purple` | Amber / purple | `#FFB000` / `#B37A00` | `#9B7BFF` / `#6A4BD6` | `#F28CC8` / `#B0487F` |
 | `pink-green` | Pink / green | `#FF5FA2` / `#C2306E` | `#3DDC84` / `#138A4C` | `#B48CFF` / `#7A4FC9` |
 | `gold-sky` | Gold / sky blue | `#FFD23F` / `#9A7400` | `#5EC8FF` / `#0A78B8` | `#C59BFF` / `#7A4FC9` |
@@ -174,18 +174,30 @@ If the automatic read keeps failing, set `"pct_source": "manual"` in `usage_conf
 | `peach-mint` | Peach / mint | `#FFB38A` / `#C0602F` | `#7FE0B0` / `#1E8A5A` | `#B48CFF` / `#7A4FC9` |
 | `tangerine-cyan` | Tangerine / cyan | `#FF8A3D` / `#C55A12` | `#3FD0FF` / `#0A7FAF` | `#C59BFF` / `#7A4FC9` |
 | `rose-lime` | Rose / lime | `#FF6FB5` / `#C23A7E` | `#A8E063` / `#4E8A12` | `#9EC5FF` / `#3F64C2` |
-| `sunflower-navy` | Sunflower / navy | `#FFC93C` / `#9C7200` | `#3A6BD9` / `#2A4FB0` | `#E59BFF` / `#A8558A` |
+| `sunflower-navy` ★ | Sunflower / navy ★ | `#FFC93C` / `#9C7200` | `#3A6BD9` / `#00219E` | `#E59BFF` / `#A8558A` |
 | `high-contrast` | High contrast | `#FFFF00` / `#7A6E00` | `#00BFFF` / `#005F99` | `#FF9BFF` / `#9A2FA0` |
+| `safety-ultramarine` ★ | Safety orange / ultramarine ★ | `#FF832B` / `#EB6100` | `#2A68DE` / `#002599` | `#B48CFF` / `#7A4FC9` |
+| `tangerine-violet` ★ | Tangerine / violet ★ | `#FF9100` / `#CC7400` | `#6C5CE7` / `#3814B8` | `#F28CC8` / `#B0487F` |
+| `amber-cobalt` ★ | Amber orange / cobalt ★ | `#EE7733` / `#EB5500` | `#0077BB` / `#003A66` | `#C59BFF` / `#7A4FC9` |
 
 Each cell is *dark background / light background*. The baseline line is the same neutral grey in every preset
 (`#9AA4AE` / `#6B7480`). "Over" is always a warm colour (orange, amber, gold, pink or yellow), never red, brown, grey,
 black or aqua; every preset has its own notice colour.
 
-- **`colorblind`** = Okabe-Ito colours **plus hatching and symbols**, so over vs under can be read without colour:
-  over-baseline bars are hatched (`///`) and under bars are plain; over line segments are dashed with ▲ markers, under
-  ones solid with ▼; daily-increase bars and stat values carry ▲/▼; over badges on the page get a light stripe and a ▲.
-  On dark backgrounds "under" is a lighter blue `#3C8FD6` (Okabe-Ito `#0072B2` is too dark there, about 3.7:1 on the
-  cards); light backgrounds use `#0072B2`. A theme file can turn the same cues on for any preset with `"patterns": true`.
+- **★ palettes** — `orange-deepblue`, `sunflower-navy`, `safety-ultramarine`, `tangerine-violet` and `amber-cobalt` —
+  were checked with colour-blindness (colour vision deficiency) simulation using [DaltonLens](https://daltonlens.org/)
+  (Machado 2009 model) for protanopia, deuteranopia, tritanopia, protanomaly and deuteranomaly: in every simulated view,
+  and on both dark and light backgrounds, over, under and the grey baseline stay at least **CIEDE2000 ΔE 20** apart.
+  The menu shows ★ after their names, with the note "★ = stronger contrast, easy to tell apart for every kind of colour
+  vision". The old name `colorblind` (and `okabe-ito`) still works in the config, theme files and saved browser choices
+  and means `orange-deepblue`. The check is not part of the test suite (DaltonLens is not a dependency).
+- **Add patterns** (page checkbox next to **Colours**, off by default, works with every preset): over-baseline bars
+  are hatched (`///`) and under bars plain; over line segments are dashed with ▲ markers, under ones solid with ▼;
+  daily-increase bars and stat values carry ▲/▼; over badges on the page get a light stripe and a ▲. The choice is
+  remembered in the browser (`usage.patterns`) and saved as `"patterns": true` / `false` in `usage_config.json` (or
+  `<data_dir>/page_settings.json` without a config file) so refreshes draw the default charts the same way; hatched
+  images are drawn on first use into `history/pal/<palette>-pat/` and cached like palettes. A theme file with
+  `"patterns": true` also turns them on.
 
 - PNGs (`chart_hud.py`, history and clock charts) and web pages follow the palette. `over_color`, `under_color` and
   `baseline_color` in the config still override single colours.
@@ -396,11 +408,11 @@ All commands accept `--config`, `--data-dir`, `--tz`, `--lang`, `--theme`, `--pa
 
 - 24-hour polar charts of the % increase per hour of day; 0:00 is at the top and hours run clockwise.
 - **Left: the last 24 hours**, one bar per hour. This is a magnitude scale, not an over/under state: colours run from the palette's cool colour (low) to orange (high), with a colour bar underneath.
-- **Right: the current reset week** by default. A **Range** menu above it switches to 1 week / 1 month / 1 quarter / 6 months / 1 year / All. In this chart **colour = period, length = % increase in that hour**:
-  - 1 week: one colour per day (up to 8 days touched by the week); 1 month: per reset week; 1 quarter and 6 months: per month; 1 year: per quarter; All: per quarter, or per year when that would be more than 8 quarters (latest 8 kept).
+- **Right: the current reset week** by default. A **Range** menu above it switches to Last week / Last month / Last quarter / Last 6 months / Last year / All. In this chart **colour = period, length = % increase in that hour**:
+  - Last week: one colour per day (up to 8 days touched by the week); Last month: per reset week; Last quarter and Last 6 months: per month; Last year: per quarter; All: per quarter, or per year when that would be more than 8 quarters (latest 8 kept).
   - For weeks / months / quarters / years the length is the average % increase in that hour over the period's days.
   - A legend under the dial lists the periods oldest first (e.g. `Sat 10/24 (today)` / `10/24 週六（今天）`, `Wk 1 10/03–10/09`); the current period is bold, periods without data are dimmed.
-  - Period colours are a set of up to 8 distinct colours per palette (dark and light versions), starting with the palette's cool colour and leaving out hues close to its "over" colour; the colour-blind preset uses the Okabe-Ito colours.
+  - Period colours are a set of up to 8 distinct colours per palette (dark and light versions), starting with the palette's cool colour and leaving out hues close to its "over" colour; `orange-deepblue` uses the Okabe-Ito colours.
 - **Layout** menu: **Overlay** (default) draws every period's bar at the same angle, full width, longest first so a shorter bar is never hidden behind a taller one; **Fill** = **Translucent** (default, ~40 % fill with a solid outline) or **Solid**. **Side by side** splits each hour into thin wedges, one per period (the Fill menu is hidden).
 - Range, layout and fill are remembered in the browser (`usage.clockRange`, `usage.clockLayout`, `usage.clockFill`). Only the default view (week, overlay, translucent) is drawn on every refresh; other views are drawn when first picked (`history/pal/<palette>/clock-<range>-<ot|os|sd>.png`) and reused until the next refresh.
 - Drops in % are treated as a quota reset (the new value counts). Long gaps are skipped.
@@ -699,7 +711,8 @@ network.
 | `stale_after_hours` | `6` | Ledger age after which readers should refresh first. |
 | `desktop_notify` | `true` | Show OS desktop toasts for new alerts (`false` = log only). |
 | `extra_spend_csv` | `null` | Optional CSV of extra paid usage with at least the columns `time,usd_used` (`usd_used` = monthly running total; other columns are ignored); shown per month in the history view. |
-| `palette` | `"orange-teal"` | Colour preset: `orange-teal`, `orange-blue`, `colorblind`, `amber-purple`, `pink-green`, `gold-sky`, `orange-purple`, `magenta-teal`, `yellow-indigo`, `peach-mint`, `tangerine-cyan`, `rose-lime`, `sunflower-navy`, `high-contrast`. |
+| `palette` | `"orange-teal"` | Colour preset: `orange-teal`, `orange-blue`, `orange-deepblue` (old name `colorblind` still accepted), `amber-purple`, `pink-green`, `gold-sky`, `orange-purple`, `magenta-teal`, `yellow-indigo`, `peach-mint`, `tangerine-cyan`, `rose-lime`, `sunflower-navy`, `high-contrast`, `safety-ultramarine`, `tangerine-violet`, `amber-cobalt`. |
+| `patterns` | `false` | **Add patterns**: hatching, dashed over-line and ▲/▼ on charts and badges, for any palette. Set by the page checkbox too. |
 | `over_color`, `under_color`, `baseline_color` | `null` | Optional single-colour overrides for `chart_hud.py` (hex); `null` = take it from the palette. |
 | `render_all_palettes` | `false` | `true` = draw every palette's history/clock PNGs on every refresh (instant switching, slower refreshes). `false` = draw other palettes only when the page asks, then reuse them until the next refresh. |
 | `checkin_categories` | 14 defaults | Category ids in page order; `id:Label` sets a custom label. Unknown ids become `other`. |

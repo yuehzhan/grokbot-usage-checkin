@@ -93,7 +93,7 @@ DEFAULT_CFG = {
     "title": None,
     "tz": "local",
     "reset_hm": "00:00",
-    "patterns": None,  # non-colour cues (hatching, dashed over-line, ▲/▼); on by default for the colour-blind palette
+    "patterns": None,  # non-colour cues (hatching, dashed over-line, ▲/▼); off unless asked for ("Add patterns")
 }
 
 BASE_STRINGS = {
@@ -640,7 +640,7 @@ def parse_config():
     p.add_argument("--pct", type=float, default=None, help="Manual single reading or day override (%%)")
     p.add_argument("--day", type=int, default=None, help="Day number (1..7) for --pct")
     p.add_argument("--theme", default=None, help="Path to JSON theme file")
-    p.add_argument("--palette", default=None, help="Colour preset (14, see README): orange-teal (default), orange-blue, colorblind, amber-purple, ...")
+    p.add_argument("--palette", default=None, help="Colour preset (17, see README): orange-teal (default), orange-blue, orange-deepblue, amber-purple, ...")
     p.add_argument("--baseline-color", default=None)
     p.add_argument("--under-color", default=None)
     p.add_argument("--over-color", default=None)
@@ -1376,7 +1376,7 @@ def render(rows, out_png, week_start, cfg=None):
         "card_border": blend_color(card_fill, accent_col, 0.24 if is_light else 0.22),
         "cell_odd": blend_color(card_fill, accent_col, 0.045 if is_light else 0.028),
         "cell_even": blend_color(card_fill, purple, 0.040 if is_light else 0.024),
-        "patterns": bool(cfg.get("patterns")) or usage_palette.patterns(cfg.get("palette")),
+        "patterns": bool(cfg.get("patterns")),
     }
 
     sorted_rows = sorted(rows, key=lambda r: int(r["day"]))

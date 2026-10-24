@@ -54,8 +54,8 @@ STR = {
         "spend_title": "Extra spend per month (cumulative max within month)", "no_spend": "No extra spend recorded",
         "footer": "generated {t} ({z})  ·  pace {p:g}%/day  ·  * = week not complete",
         "clock_eyebrow": "USAGE CLOCK // PER HOUR", "clock_1d": "Usage Clock — last 24 hours", "clock_r": "Usage Clock — {r}",
-        "clock_rt": {"wk": "this week", "1m": "last month", "3m": "last quarter", "6m": "last 6 months", "1y": "last year", "all": "all time"},
-        "clock_ro": {"wk": "1 week", "1m": "1 month", "3m": "1 quarter", "6m": "6 months", "1y": "1 year", "all": "All"}, "clock_rl": "Range",
+        "clock_rt": {"wk": "last week", "1m": "last month", "3m": "last quarter", "6m": "last 6 months", "1y": "last year", "all": "all"},
+        "clock_ro": {"wk": "Last week", "1m": "Last month", "3m": "Last quarter", "6m": "Last 6 months", "1y": "Last year", "all": "All"}, "clock_rl": "Range",
         "clock_lo": {"ov": "Overlay", "sd": "Side by side"}, "clock_ll": "Layout", "clock_fo": {"t": "Translucent", "s": "Solid"}, "clock_fl": "Fill",
         "clock_wd": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], "clock_day": "{wd} {md}", "clock_wkl": "Wk {i} {a}–{b}",
         "clock_mon": "{mon} {y}", "clock_q": "Q{q} {y}", "clock_today": "{l} (today)", "clock_curp": "{l} (now)",
@@ -83,8 +83,8 @@ STR = {
         "empty": "資料不足 — 此範圍尚無紀錄", "spend_title": "每月額外付費（取當月最高累計）", "no_spend": "此範圍無額外付費紀錄",
         "footer": "產生於 {t}（{z}）· 基準 {p:g}%/天 · * = 該週未滿",
         "clock_eyebrow": "USAGE CLOCK // 每小時用量", "clock_1d": "用量時鐘 — 近 24 小時", "clock_r": "用量時鐘 — {r}",
-        "clock_rt": {"wk": "本週", "1m": "近一個月", "3m": "近一季", "6m": "近半年", "1y": "近一年", "all": "全部"},
-        "clock_ro": {"wk": "一週", "1m": "一個月", "3m": "一季", "6m": "半年", "1y": "一年", "all": "全部"}, "clock_rl": "範圍",
+        "clock_rt": {"wk": "近一週", "1m": "近一月", "3m": "近一季", "6m": "近半年", "1y": "近一年", "all": "全部"},
+        "clock_ro": {"wk": "近一週", "1m": "近一月", "3m": "近一季", "6m": "近半年", "1y": "近一年", "all": "全部"}, "clock_rl": "範圍",
         "clock_lo": {"ov": "疊加", "sd": "並排"}, "clock_ll": "排列", "clock_fo": {"t": "半透明", "s": "實心"}, "clock_fl": "填色",
         "clock_wd": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"], "clock_day": "{md} {wd}", "clock_wkl": "第{i}週 {a}–{b}",
         "clock_mon": "{y}年{m}月", "clock_q": "{y} Q{q}", "clock_today": "{l}（今天）", "clock_curp": "{l}（目前）",
@@ -107,8 +107,8 @@ STR = {
 STR["zh-CN"] = dict(STR["zh-TW"], **{
     "refreshing": "⟳ 更新中… {s} 秒", "ph_read": "正在从 Grok Build 读取用量…", "ph_draw": "正在生成图表…",
     "clock_tab": "时钟", "clock_1d": "用量时钟 — 近 24 小时", "clock_r": "用量时钟 — {r}",
-    "clock_rt": {"wk": "本周", "1m": "近一个月", "3m": "近一季", "6m": "近半年", "1y": "近一年", "all": "全部"},
-    "clock_ro": {"wk": "一周", "1m": "一个月", "3m": "一季", "6m": "半年", "1y": "一年", "all": "全部"}, "clock_rl": "范围",
+    "clock_rt": {"wk": "近一周", "1m": "近一月", "3m": "近一季", "6m": "近半年", "1y": "近一年", "all": "全部"},
+    "clock_ro": {"wk": "近一周", "1m": "近一月", "3m": "近一季", "6m": "近半年", "1y": "近一年", "all": "全部"}, "clock_rl": "范围",
     "clock_lo": {"ov": "叠加", "sd": "并排"}, "clock_ll": "排列", "clock_fo": {"t": "半透明", "s": "实心"}, "clock_fl": "填色",
     "clock_wd": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"], "clock_wkl": "第{i}周 {a}–{b}", "clock_curp": "{l}（当前）",
     "clock_sub": "每小时用量增加（{z}），0 时在上、顺时针。左图：近 24 小时。右图：颜色 = 不同天（或周／月／季），对照下方图例；长度 = 该小时用量增加",
@@ -186,7 +186,18 @@ class Ctx:
         # off: only the configured palette is drawn on every refresh; others are drawn when the page asks for them
         self.render_all_palettes = bool(cfg.get("render_all_palettes", False))
         self.theme_path = g("theme", "theme", None)
-        self.theme = self._theme(self.theme_path, self.palette)
+        # "Add patterns" (hatching, ▲/▼, dashed over-line) for any palette: config key "patterns" (or, without a
+        # config file, <data_dir>/page_settings.json); a theme file with "patterns": true turns it on as well
+        pv = cfg.get("patterns")
+        if pv is None:
+            pv = _read_page_setting(self.data_dir, "patterns")
+        self.patterns = bool(pv) or bool(_theme_file(self.theme_path).get("patterns"))
+        self.theme = self.theme_for(self.pal_key)
+
+    @property
+    def pal_key(self):
+        """Folder / cache key of the configured palette: 'orange-teal' or 'orange-teal-pat' with patterns."""
+        return usage_palette.key(self.palette, self.patterns)
 
     def ck_strings(self):
         if self.lang == "numeric":
@@ -201,7 +212,10 @@ class Ctx:
         return self.categories.label(cid, self.lang)
 
     def theme_for(self, palette):
-        return self._theme(self.theme_path, palette)
+        name, pat = usage_palette.split_key(palette)
+        t = self._theme(self.theme_path, name)
+        t["patterns"] = bool(t["patterns"]) or pat
+        return t
 
     @staticmethod
     def _interval(v):
@@ -245,8 +259,7 @@ class Ctx:
         for k in ("over", "under", "baseline", "notice"):
             t[k + "_color"] = t[k + "_color"] or pal[k]
         t["palette"] = usage_palette.normalize(palette)
-        # non-colour cues (hatching, ▲/▼, line styles): on for the colour-blind preset, or when the theme asks
-        t["patterns"] = bool(t["patterns"]) or usage_palette.patterns(palette)
+        t["patterns"] = bool(t["patterns"])  # theme opt-in; theme_for() adds the page's "Add patterns" choice
         # the accent (frames, tabs, eyebrow text, focus rings) is the palette's cool colour unless the theme pins one
         t["accent_color"] = t["accent_color"] or t["under_color"]
         t["card"] = _blend(t["bg_color"], t["text_color"], 0.05)
@@ -776,8 +789,11 @@ GEN_FILE = ".gen"  # history/.gen: id of the latest render; history/pal/<name>/.
 
 
 def _cycle_palettes(ctx):
-    """Palettes drawn on every refresh: the configured one (all 14 with render_all_palettes)."""
-    return usage_palette.names() if ctx.render_all_palettes else [ctx.palette]
+    """Palette keys drawn on every refresh: the configured one (all presets with render_all_palettes), with the
+    configured patterns choice; the other combinations are drawn lazily (render_palette)."""
+    if ctx.render_all_palettes:
+        return [usage_palette.key(n, ctx.patterns) for n in usage_palette.names()]
+    return [ctx.pal_key]
 
 
 def _palette_dirs(ctx, names=None):
@@ -810,7 +826,7 @@ def _new_gen(ctx, names):
 def _publish_default(ctx, files):
     """Copy the configured palette's images to history/ (what index.html embeds)."""
     import shutil
-    src = ctx.hist_dir / "pal" / ctx.palette
+    src = ctx.hist_dir / "pal" / ctx.pal_key
     for fn in files:
         if (src / fn).exists():
             tmp = ctx.hist_dir / (fn + ".tmp")
@@ -899,7 +915,7 @@ def render_clock_range(ctx, name, key, mode="ot"):
 def render_current_week(ctx, nowa, names=None):
     """'This week' tab: the current week's daily cumulative chart (chart_hud) for the given palettes."""
     out = ctx.hist_dir / "week-current.png"
-    publish = names is None or ctx.palette in names
+    publish = names is None or ctx.pal_key in names
     try:
         ws = _period_start(ctx, nowa)
         f = ctx.data_dir / f"week-{ws.astimezone(ctx.tz):%Y-%m-%d}.csv"
@@ -912,11 +928,12 @@ def render_current_week(ctx, nowa, names=None):
         import chart_hud
         for name, d in _palette_dirs(ctx, names):
             d.mkdir(parents=True, exist_ok=True)
+            base, pat = usage_palette.split_key(name)
             chart_hud.render(rows, str(d / "week-current.png"), f"{ws.astimezone(ctx.tz):%Y-%m-%d}",
                              {"lang": "numeric" if ctx.privacy else ctx.lang, "privacy": ctx.privacy, "pace": ctx.pace,
-                              "palette": name, "reset_hm": f"{ws.astimezone(ctx.tz):%H:%M}",
+                              "palette": base, "reset_hm": f"{ws.astimezone(ctx.tz):%H:%M}",
                               "accent_color": _theme_explicit_value(ctx.theme_path, "accent"),
-                              "patterns": bool(_theme_file(ctx.theme_path).get("patterns")) or None})
+                              "patterns": pat or bool(_theme_file(ctx.theme_path).get("patterns"))})
         if publish:
             _publish_default(ctx, ["week-current.png"])
         return True
@@ -951,11 +968,13 @@ def render_history(ctx):
             "ranges": {S["key"]: {"weeks": S["n"], "sparse": S["sparse"]} for S in sums}}
 
 
-def render_palette(ctx, name, clock=None, mode=None):
-    """Draw one palette's full image set into history/pal/<name>/ when the page switches to it (plus, with
-    clock=<range>, that clock-tab range). Cached: nothing is drawn while the files match the latest render."""
+def render_palette(ctx, name, clock=None, mode=None, patterns=False):
+    """Draw one palette's full image set into history/pal/<key>/ when the page switches to it (plus, with
+    clock=<range>, that clock-tab range); key = name, or name + '-pat' with patterns. Cached: nothing is drawn
+    while the files match the latest render."""
     if name not in usage_palette.names():
         return {"ok": False, "error": "unknown palette"}
+    name = usage_palette.key(name, patterns)
     if clock is not None and clock not in CLOCK_RANGES:
         return {"ok": False, "error": "unknown clock range"}
     if mode is not None and mode not in CLOCK_MODES:
@@ -1062,8 +1081,8 @@ UPDATE_AUTO_FIRST_DELAY = 60  # automatic check: first look a minute after start
 # the server to draw that palette (POST /api/palette/render, cached), preloads its images from history/pal/<name>/,
 # then switches the CSS colour variables (--over/--under/--accent/--bd...) and the images together. The choice is
 # remembered per browser (localStorage 'usage.palette'). Opened as a file, only palettes already on disk can be shown.
-PALETTE_JS = r"""(function(){var $=function(i){return document.getElementById(i);},P=JSON.parse($('paldata').textContent),KEY='usage.palette',CK={r:'usage.clockRange',l:'usage.clockLayout',f:'usage.clockFill'},D={r:'wk',l:'ov',f:'t'},
-served=/^https?:$/.test(location.protocol),btn=$('palbtn'),msg=$('palmsg'),V=P.light?'light':'dark',cur=P.default,CR={r:'wk',l:'ov',f:'t'},seq=0,
+PALETTE_JS = r"""(function(){var $=function(i){return document.getElementById(i);},P=JSON.parse($('paldata').textContent),KEY='usage.palette',PKEY='usage.patterns',pchk=$('patchk'),CK={r:'usage.clockRange',l:'usage.clockLayout',f:'usage.clockFill'},D={r:'wk',l:'ov',f:'t'},
+served=/^https?:$/.test(location.protocol),btn=$('palbtn'),msg=$('palmsg'),V=P.light?'light':'dark',cur=P.base,pat=!!P.pat,CR={r:'wk',l:'ov',f:'t'},seq=0,
 TKN=(document.querySelector('meta[name="usage-token"]')||{}).content||'',clk=$('clkimg'),
 imgs=[].slice.call(document.querySelectorAll('img[data-f]'));imgs.forEach(function(i){i.dataset.orig=i.getAttribute('src');i.dataset.f0=i.dataset.f;});
 function rgb(h){h=String(h).replace('#','');if(h.length==3)h=h.replace(/./g,'$&$&');return [0,2,4].map(function(i){return parseInt(h.substr(i,2),16)||0;});}
@@ -1073,7 +1092,8 @@ function vars(n){var c=P.table[n][V],o={};['over','under','baseline','notice'].f
 var a=P.fixed.accent?P.accent:(P.fixed.under?P.under:c.under);o['--accent']=a;o['--bd']=mix(P.bg,a,0.25);o['--on-accent']=lum(a)>0.4?'#0B0F14':'#FFFFFF';return o;}
 function mode(c){return c.l==='sd'?'sd':'o'+c.f;}function same(a,b){return a.r===b.r&&a.l===b.l&&a.f===b.f;}
 function fileOf(i,c){return i===clk?'clock-'+c.r+'-'+mode(c)+'.png':i.dataset.f0;}
-function src(i,n,r,v){var f=fileOf(i,r);return (n===P.default&&f===i.dataset.f0)?i.dataset.orig:'pal/'+n+'/'+f+(v?'?v='+encodeURIComponent(v):'');}
+function key(n,p){return p?n+'-pat':n;}
+function src(i,k,r,v){var f=fileOf(i,r);return (k===P.default&&f===i.dataset.f0)?i.dataset.orig:'pal/'+k+'/'+f+(v?'?v='+encodeURIComponent(v):'');}
 function pre(u){return new Promise(function(res){var im=new Image();im.onload=function(){(im.decode?im.decode():Promise.resolve()).then(function(){res(true);},function(){res(true);});};
 im.onerror=function(){res(false);};im.src=u;});}
 function say(t,spin){msg.textContent='';if(spin){var e=document.createElement('span');e.className='spin';msg.appendChild(e);}if(t)msg.appendChild(document.createTextNode(t));}
@@ -1094,28 +1114,33 @@ opts.forEach(function(o,i){o.onclick=function(){pick(i);};o.onmousemove=function
 document.addEventListener('click',function(e){if(!list.hidden&&!b.parentNode.contains(e.target))close(false);});
 return {has:function(v){return opts.some(function(o){return o.dataset.v===v;});},
 mark:function(v){opts.forEach(function(o){o.setAttribute('aria-selected',o.dataset.v===v?'true':'false');});label.innerHTML=opts[idx(v)].innerHTML;}};}
-var PL=listbox(btn,$('pallist'),$('palcur'),function(){return cur;},function(v){go(v,CR,true);}),
-CL=listbox($('clkbtn'),$('clklist'),$('clkcur'),function(){return CR.r;},function(v){go(cur,with_('r',v),true);}),
-LL=listbox($('clobtn'),$('clolist'),$('clocur'),function(){return CR.l;},function(v){go(cur,with_('l',v),true);}),
-FL=listbox($('clfbtn'),$('clflist'),$('clfcur'),function(){return CR.f;},function(v){go(cur,with_('f',v),true);});
+var PL=listbox(btn,$('pallist'),$('palcur'),function(){return cur;},function(v){go(v,CR,true,pat);}),
+CL=listbox($('clkbtn'),$('clklist'),$('clkcur'),function(){return CR.r;},function(v){go(cur,with_('r',v),true,pat);}),
+LL=listbox($('clobtn'),$('clolist'),$('clocur'),function(){return CR.l;},function(v){go(cur,with_('l',v),true,pat);}),
+FL=listbox($('clfbtn'),$('clflist'),$('clfcur'),function(){return CR.f;},function(v){go(cur,with_('f',v),true,pat);});
 function with_(k,v){var c={r:CR.r,l:CR.l,f:CR.f};c[k]=v;return c;}
 function marks(c){CL.mark(c.r);LL.mark(c.l);FL.mark(c.f);if($('clfsel'))$('clfsel').hidden=c.l==='sd';}
 // images are fetched and decoded first, then colours and images change in the same task (no half-switched page)
-function commit(n,r,us){var st=document.documentElement.style,o=vars(n);Object.keys(o).forEach(function(k){st.setProperty(k,o[k]);});
-imgs.forEach(function(i,j){i.dataset.f=fileOf(i,r);i.src=us[j];});cur=n;CR=r;PL.mark(n);marks(r);document.documentElement.dataset.palette=n;document.documentElement.dataset.patterns=(P.pf||P.table[n].patterns)?'1':'';
+function commit(n,r,us,p){var st=document.documentElement.style,o=vars(n);Object.keys(o).forEach(function(k){st.setProperty(k,o[k]);});
+imgs.forEach(function(i,j){i.dataset.f=fileOf(i,r);i.src=us[j];});cur=n;pat=p;CR=r;PL.mark(n);marks(r);if(pchk)pchk.checked=p;document.documentElement.dataset.palette=n;document.documentElement.dataset.patterns=p?'1':'';
 document.documentElement.dataset.clock=r.r+'-'+mode(r);}
-function go(n,r,save){if(!P.table[n])n=P.default;r={r:r.r,l:r.l,f:r.f};if(!clk||!CL.has(r.r))r.r=D.r;if(!LL.has(r.l))r.l=D.l;if(!FL.has(r.f))r.f=D.f;
-var my=++seq,need=n!==P.default||!same(r,D);btn.setAttribute('aria-busy','true');if(need)say(P.s.busy,true);
+function go(n,r,save,p){if(!P.table[n])n=P.base;p=!!(p||P.pf);var k=key(n,p);r={r:r.r,l:r.l,f:r.f};if(!clk||!CL.has(r.r))r.r=D.r;if(!LL.has(r.l))r.l=D.l;if(!FL.has(r.f))r.f=D.f;
+var my=++seq,need=k!==P.default||!same(r,D);btn.setAttribute('aria-busy','true');if(need)say(P.s.busy,true);
 var prep=(!need||!served)?Promise.resolve({ok:true,v:''}):fetch('/api/palette/render',{method:'POST',headers:{'X-Usage-Token':TKN,'Content-Type':'application/json'},
-body:JSON.stringify({name:n,clock:r.r,mode:mode(r)})}).then(function(x){return x.json();});
-prep.then(function(j){if(my!==seq)return;if(!j||!j.ok)throw 0;var us=imgs.map(function(i){return src(i,n,r,j.v);});
-return Promise.all(us.map(pre)).then(function(ok){if(my!==seq)return;if(ok.indexOf(false)>=0)throw 0;commit(n,r,us);say('');btn.removeAttribute('aria-busy');
-if(save){try{localStorage.setItem(KEY,n);Object.keys(CK).forEach(function(k){localStorage.setItem(CK[k],r[k]);});}catch(e){}}});}).catch(function(){if(my!==seq)return;btn.removeAttribute('aria-busy');PL.mark(cur);marks(CR);
+body:JSON.stringify({name:n,patterns:p,clock:r.r,mode:mode(r)})}).then(function(x){return x.json();});
+prep.then(function(j){if(my!==seq)return;if(!j||!j.ok)throw 0;var us=imgs.map(function(i){return src(i,k,r,j.v);});
+return Promise.all(us.map(pre)).then(function(ok){if(my!==seq)return;if(ok.indexOf(false)>=0)throw 0;commit(n,r,us,p);say('');btn.removeAttribute('aria-busy');
+if(save){try{localStorage.setItem(KEY,n);localStorage.setItem(PKEY,p?'1':'0');Object.keys(CK).forEach(function(k){localStorage.setItem(CK[k],r[k]);});}catch(e){}}});}).catch(function(){if(my!==seq)return;btn.removeAttribute('aria-busy');PL.mark(cur);marks(CR);if(pchk)pchk.checked=pat;
 say(served?P.s.fail:P.s.file);});}
-var n=P.default,r={r:D.r,l:D.l,f:D.f};try{n=localStorage.getItem(KEY)||P.default;Object.keys(CK).forEach(function(k){r[k]=localStorage.getItem(CK[k])||D[k];});}catch(e){}
-if(!P.table[n])n=P.default;document.documentElement.dataset.palette=P.default;document.documentElement.dataset.clock='wk-ot';if(n!==P.default||!same(r,D))go(n,r,false);
-window.usagePalette=function(v,save){go(v,CR,save);};window.usageClockRange=function(v,save){go(cur,with_('r',v),save);};
-window.usageClockLayout=function(v,save){go(cur,with_('l',v),save);};window.usageClockFill=function(v,save){go(cur,with_('f',v),save);};})();"""
+// saved choices: palette name (P.alias maps names saved by older pages) and the "Add patterns" switch
+var n=P.base,p=pat,r={r:D.r,l:D.l,f:D.f};try{n=localStorage.getItem(KEY)||P.base;var sp=localStorage.getItem(PKEY);if(sp==='1'||sp==='0')p=sp==='1';
+Object.keys(CK).forEach(function(k){r[k]=localStorage.getItem(CK[k])||D[k];});}catch(e){}
+n=P.alias[n]||n;if(!P.table[n])n=P.base;p=!!(p||P.pf);document.documentElement.dataset.palette=P.base;document.documentElement.dataset.clock='wk-ot';
+if(pchk){pchk.checked=pat;pchk.disabled=!!P.pf;pchk.onchange=function(){var on=pchk.checked;go(cur,CR,true,on);
+if(served)fetch('/api/patterns',{method:'POST',headers:{'X-Usage-Token':TKN,'Content-Type':'application/json'},body:JSON.stringify({on:on})}).catch(function(){});};}
+if(key(n,p)!==P.default||!same(r,D))go(n,r,false,p);
+window.usagePalette=function(v,save){go(v,CR,save,pat);};window.usagePatterns=function(on,save){go(cur,CR,save,on);};window.usageClockRange=function(v,save){go(cur,with_('r',v),save,pat);};
+window.usageClockLayout=function(v,save){go(cur,with_('l',v),save,pat);};window.usageClockFill=function(v,save){go(cur,with_('f',v),save,pat);};})();"""
 
 
 # "Check for updates": asks the local server (POST /api/update/check); when GitHub has a newer version
@@ -1163,6 +1188,44 @@ def _theme_file(path):
         return d if isinstance(d, dict) else {}
     except Exception:
         return {}
+
+
+PAGE_SETTINGS = "page_settings.json"  # page switches saved here when the dashboard runs without a config file
+
+
+def _read_page_setting(data_dir, key):
+    try:
+        d = json.loads((Path(data_dir) / PAGE_SETTINGS).read_text(encoding="utf-8"))
+        return d.get(key) if isinstance(d, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
+def save_page_setting(cfg_path, data_dir, key, value):
+    """Save one page switch into usage_config.json (other keys kept as they are) when there is one, else into
+    <data_dir>/page_settings.json. Returns the file written."""
+    def write(p, obj, indent):
+        tmp = p.with_name(p.name + f".{os.getpid()}.tmp")
+        tmp.write_text(json.dumps(obj, ensure_ascii=False, indent=indent), encoding="utf-8")
+        os.replace(tmp, p)
+    if cfg_path and Path(cfg_path).exists():
+        cfg = json.loads(Path(cfg_path).read_text(encoding="utf-8"))
+        if not isinstance(cfg, dict):
+            raise ValueError(f"cannot read {Path(cfg_path).name}")
+        cfg[key] = value
+        write(Path(cfg_path), cfg, 2)
+        return Path(cfg_path)
+    p = Path(data_dir) / PAGE_SETTINGS
+    p.parent.mkdir(parents=True, exist_ok=True)
+    d = {}
+    try:
+        d = json.loads(p.read_text(encoding="utf-8"))
+        d = d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        pass
+    d[key] = value
+    write(p, d, 1)
+    return p
 
 
 def _theme_explicit(path):
@@ -1245,20 +1308,23 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
     # palette switcher: config default, overridden per browser (localStorage 'usage.palette')
     fixed = {k: bool(v) for k, v in _theme_explicit(ctx.theme_path).items()}
     plang = "numeric" if ctx.privacy else ("zh-TW" if ctx.lang == "zh-TW" else ("zh-CN" if ctx.lang.startswith("zh") else "en"))
-    paldata = json.dumps({"default": ctx.palette, "light": T["is_light"], "table": usage_palette.js_table(), "fixed": fixed,
+    paldata = json.dumps({"default": ctx.pal_key, "base": ctx.palette, "pat": ctx.patterns, "light": T["is_light"],
+                          "table": usage_palette.js_table(), "alias": {"colorblind": "orange-deepblue"}, "fixed": fixed,
                           "bg": bg, "accent": ac, "under": T["under_color"], "gen": gen, "pf": bool(_theme_file(ctx.theme_path).get("patterns")), "s": PAL_STR[plang]},
                          ensure_ascii=False).replace("<", "\\u003c")
     variant = "light" if T["is_light"] else "dark"
 
     def pal_row(i, n):
         c = usage_palette.PALETTES[n][variant]
-        name = str(i + 1) if plang == "numeric" else usage_palette.LABELS[n].get(plang, usage_palette.LABELS[n]["en"])
+        name = (str(i + 1) + (" " + usage_palette.STAR if usage_palette.cvd_safe(n) else "")) if plang == "numeric" else usage_palette.label(n, plang)
         return (f"<li role='option' id='po-{n}' data-v='{n}' aria-selected='{'true' if n == ctx.palette else 'false'}'>"
                 f"<i class='dot' style='background:{c['over']}'></i><i class='dot' style='background:{c['under']}'></i>"
                 f"<span>{html.escape(name)}</span></li>")
     palrows = [pal_row(i, n) for i, n in enumerate(usage_palette.names())]
     palcur = palrows[usage_palette.names().index(ctx.palette)].split(">", 1)[1].rsplit("</li>", 1)[0]
     pal_label = {"numeric": "◐", "zh-TW": "配色", "zh-CN": "配色"}.get(plang, "Colours")
+    star_note = "" if plang == "numeric" else usage_palette.STAR_NOTE[plang]
+    pat_label = {"numeric": "▨", "zh-TW": "加上紋路", "zh-CN": "加上纹路"}.get(plang, "Add patterns")
     onac, hl = _on_colour(ac), _blend(bg, tx, 0.14)
     doc = f"""<!doctype html><html lang="{'zh-Hant' if ctx.lang == 'zh-TW' else 'en'}" data-patterns="{'1' if T.get('patterns') else ''}"><head><meta charset="utf-8"><title>{html.escape(title or '↻')}</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"><style>
@@ -1296,11 +1362,15 @@ html[data-patterns="1"] .badge:not(.note)::before{{content:"▲ "}} .pal{{color:
 .plist li{{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:5px;cursor:pointer;color:{tx};font-size:14px}} .plist li.act{{background:{hl}}}
 .plist li[aria-selected=true]{{font-weight:700}} .plist li[aria-selected=true]::after{{content:'✓';margin-left:auto;padding-left:14px;color:var(--accent)}}
 .dot{{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none;box-shadow:0 0 0 1px rgba(128,128,128,.55)}} #palmsg{{color:{dim};font-size:12px}}
+#pallist{{min-width:max(100%,17em);max-height:min(88vh,760px)}}
+.plist li.pnote{{cursor:default;color:{dim};font-size:12px;line-height:1.45;border-top:1px solid var(--bd);border-radius:0;margin-top:4px;padding:7px 8px 4px;white-space:normal;position:sticky;bottom:-4px;background:{card}}}
+.ptog{{display:inline-flex;align-items:center;gap:5px;cursor:pointer}} .ptog input{{margin:0}}
 {usage_checkins_ui.CSS}
 </style></head><body><div class="wrap"><div class="top">{html.escape(L['eyebrow'])}</div><h1>{html.escape(title)}</h1>
 <div class="bar"><nav>{''.join(tabs)}</nav><div class="upd"><span id="last">{html.escape(L['last'].format(t=f'{now:%H:%M}', z=zl))}</span>
 <span class="pal psel" id="psel"><span id="pall">{html.escape(pal_label)}</span><button type="button" class="pbtn" id="palbtn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="pall palcur"><span id="palcur">{palcur}</span></button>
-<ul class="plist" id="pallist" role="listbox" tabindex="-1" aria-labelledby="pall" hidden>{''.join(palrows)}</ul><span id="palmsg" role="status"></span></span>
+<ul class="plist" id="pallist" role="listbox" tabindex="-1" aria-labelledby="pall" hidden>{''.join(palrows)}{f"<li role='none' class='pnote' id='palnote'>{html.escape(star_note)}</li>" if star_note else ""}</ul><span id="palmsg" role="status"></span></span>
+<label class="pal ptog" id="patl"><input type="checkbox" id="patchk"{" checked" if ctx.patterns else ""}> {html.escape(pat_label)}</label>
 <button class="btn" id="manualbtn" hidden>{html.escape(MS['btn'])}</button><button class="btn" id="notifybtn" hidden>{html.escape(LS['notify'])}</button><button class="btn primary" id="refresh" hidden>{html.escape(L['refresh'])}</button><span id="rmsg" role="status" aria-live="polite"></span>
 <button class="btn" id="updbtn" hidden>{html.escape(US['btn'])}</button><label class="pal" id="updautol" hidden><input type="checkbox" id="updauto"> {html.escape(US['auto'])}</label></div></div>
 <div id="urow" class="urow" hidden><span id="umsg"></span><button class="btn updgo" id="updgo" hidden>{html.escape(US['go'])}</button></div>
@@ -1623,6 +1693,9 @@ def serve(ctx, allow_remote=False):
         clock = d.get("clock")
         if name not in usage_palette.names():
             return 400, {"ok": False, "error": "unknown palette"}
+        pat = d.get("patterns", False)
+        if not isinstance(pat, bool):
+            return 400, {"ok": False, "error": "patterns must be true or false"}
         mode = d.get("mode")
         if clock is not None and clock not in CLOCK_RANGES:
             return 400, {"ok": False, "error": "unknown clock range"}
@@ -1630,7 +1703,7 @@ def serve(ctx, allow_remote=False):
             return 400, {"ok": False, "error": "unknown clock layout"}
         with draw_lock:
             try:
-                return 200, render_palette(ctx, name, clock, mode)
+                return 200, render_palette(ctx, name, clock, mode, pat)
             except Exception as exc:
                 print(f"Warning: palette '{name}' render failed: {exc}", file=sys.stderr)
                 return 500, {"ok": False, "error": "render failed"}
@@ -1662,7 +1735,22 @@ def serve(ctx, allow_remote=False):
         return 200, {"ok": True, "checkin": r}
 
     WRITE_PATHS = ("/api/checkin", "/api/refresh", "/api/manual", "/api/update/check", "/api/update/apply", "/api/update/settings",
-                   "/api/palette/render")
+                   "/api/palette/render", "/api/patterns")
+
+    def patterns_setting(d):
+        """POST /api/patterns {"on": true|false}: the page's "Add patterns" switch, saved as "patterns" in
+        usage_config.json (or <data_dir>/page_settings.json); the next refresh draws the default charts with it."""
+        if not isinstance(d.get("on"), bool):
+            return 400, {"ok": False, "error": "on must be true or false"}
+        try:
+            with usage_lock.write_lock(ctx.data_dir):
+                where = save_page_setting(ctx.cfg_path, ctx.data_dir, "patterns", d["on"])
+            if ctx.cfg_path and Path(where) == Path(ctx.cfg_path):
+                ctx.cfg = dict(ctx.cfg, patterns=d["on"])
+            ctx.patterns = d["on"] or bool(_theme_file(ctx.theme_path).get("patterns"))
+        except Exception as exc:
+            return 500, {"ok": False, "error": "write failed" if ctx.privacy else f"could not save the setting: {exc}"}
+        return 200, {"ok": True, "patterns": ctx.patterns}
 
     def update_public(r):
         r = dict(r)
@@ -1810,7 +1898,7 @@ def serve(ctx, allow_remote=False):
                 page = local_guard.inject_token(p.read_text(encoding="utf-8"), token)
                 return self._send(200, page.encode("utf-8"), "text/html; charset=utf-8")
             parts = u.path[1:].split("/")
-            if u.path.endswith(".png") and (len(parts) == 1 or (len(parts) == 3 and parts[0] == "pal" and parts[1] in usage_palette.names())) \
+            if u.path.endswith(".png") and (len(parts) == 1 or (len(parts) == 3 and parts[0] == "pal" and usage_palette.is_key(parts[1]))) \
                     and all(x and x not in (".", "..") for x in parts):
                 p = ctx.hist_dir.joinpath(*parts)
                 # versioned palette images (?v=<render id>) may be cached: the page preloads them before swapping
@@ -1870,6 +1958,15 @@ def serve(ctx, allow_remote=False):
                 if not isinstance(d, dict):
                     return self._send(400, {"ok": False, "error": "bad json"})
                 return self._send(*palette_render(d))
+            if u.path == "/api/patterns":
+                try:
+                    n = int(self.headers.get("Content-Length") or 0); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
+                    d = json.loads(raw or "{}")
+                except Exception:
+                    return self._send(400, {"ok": False, "error": "bad json"})
+                if not isinstance(d, dict):
+                    return self._send(400, {"ok": False, "error": "bad json"})
+                return self._send(*patterns_setting(d))
             if u.path == "/api/update/settings":
                 try:
                     n = int(self.headers.get("Content-Length") or 0); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""

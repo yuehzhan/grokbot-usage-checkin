@@ -352,9 +352,10 @@ def render_html_page(state: ViewerState) -> str:
     initial_json = json.dumps(latest, ensure_ascii=False).replace("<", "\\u003c")
     is_priv_js = "true" if priv else "false"
     pal_now = usage_palette.get(state.palette)
-    pal_json = json.dumps({"default": state.palette, "table": usage_palette.js_table()})
+    pal_json = json.dumps({"default": state.palette, "table": usage_palette.js_table(), "alias": {"colorblind": "orange-deepblue"},
+                           "patterns": bool(state.cfg_data.get("patterns"))})
     pal_opts = "".join(
-        f'<option value="{n}"{" selected" if n == state.palette else ""}>{(str(i + 1) if priv else usage_palette.LABELS[n]["en"])}</option>'
+        f'<option value="{n}"{" selected" if n == state.palette else ""}>{(str(i + 1) + (" " + usage_palette.STAR if usage_palette.cvd_safe(n) else "") if priv else usage_palette.label(n, "en"))}</option>'
         for i, n in enumerate(usage_palette.names()))
     pal_lbl = "◐" if priv else "Colours"
 
@@ -526,7 +527,7 @@ def render_html_page(state: ViewerState) -> str:
     </div>
     <div class="controls">
       <div class="countdown" id="auto-countdown"></div>
-      <label class="pal">{pal_lbl} <select id="pal-sel">{pal_opts}</select></label>
+      <label class="pal">{pal_lbl} <select id="pal-sel"{"" if priv else ' title="' + usage_palette.STAR_NOTE["en"].replace("&", "&amp;").replace('"', "&quot;") + '"'}>{pal_opts}</select></label>
       <button id="refresh-btn" type="button">
         <span class="spinner" id="btn-spinner"></span>
         <span id="btn-text">{btn_label}</span>
@@ -546,6 +547,7 @@ def render_html_page(state: ViewerState) -> str:
   const PAL = {pal_json};
   let palette = PAL.default;
   try {{ palette = localStorage.getItem("usage.palette") || PAL.default; }} catch (e) {{}}
+  palette = PAL.alias[palette] || palette;
   if (!PAL.table[palette]) palette = PAL.default;
   function mix(a, b, t) {{
     const x = [1, 3, 5].map(function(i) {{ return parseInt(a.substr(i, 2), 16); }}), y = [1, 3, 5].map(function(i) {{ return parseInt(b.substr(i, 2), 16); }});
@@ -555,7 +557,7 @@ def render_html_page(state: ViewerState) -> str:
     const c = PAL.table[palette].dark, r = document.documentElement.style;
     ["over", "under", "baseline", "notice"].forEach(function(k) {{ r.setProperty("--" + k, c[k]); }});
     r.setProperty("--accent", c.under); r.setProperty("--border", mix("#05070a", c.under, 0.25));
-    document.documentElement.dataset.patterns = PAL.table[palette].patterns ? "1" : "";
+    document.documentElement.dataset.patterns = PAL.patterns ? "1" : "";
     const sel = document.getElementById("pal-sel");
     if (sel) sel.value = palette;
   }}
@@ -936,7 +938,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--over-color", default=None)
     p.add_argument("--text-color", default=None)
     p.add_argument("--no-cache", action="store_true")
-    p.add_argument("--palette", default=None, help="Colour preset (14, see README): orange-teal (default), orange-blue, colorblind, amber-purple, ...")
+    p.add_argument("--palette", default=None, help="Colour preset (17, see README): orange-teal (default), orange-blue, orange-deepblue, amber-purple, ...")
     p.add_argument("--debug-pct-override", action="store_true",
                    help="Testing only: let POST /api/refresh accept a pct value")
     return p
