@@ -62,7 +62,8 @@ STR = {
         "clock_note_g": "Times in {z} · colour = day (or week / month / quarter), see the legend · length = % increase in that hour · long gaps skipped",
         "clock_peak": "Peak {h}:00–{h2}:00  avg +{v:.1f}%/h  ({n} intervals)", "clock_none": "No valid intervals yet",
         "collecting": "Collecting data ({n}/{m})", "clock_note": "Times in {z} · length/color = avg % increase in that hour · resets counted from new value · long gaps skipped",
-        "ck_legend": "Check-ins ({n})", "last": "Last update: {t} ({z})", "refresh": "⟳ Refresh", "loading": "Loading…",
+        "ck_legend": "Check-ins ({n})", "last": "Last update: {t} ({z})", "refresh": "⟳ Refresh", "loading": "Loading…", "refreshing": "⟳ Refreshing… {s} s",
+        "ph_read": "Reading usage from Grok Build…", "ph_draw": "Drawing charts…",
         "range": "Range", "name": "Name", "all": "All", "note": "Note", "time": "Time", "recent": "Recent check-ins",
         "per_name": "Per name", "top_hour": "Most common hour", "none_ck": "No check-ins yet", "ck_btn": "Check in",
         "ck_hint": "Open this page through the local server to check in here, or run: usage_history.py checkin <name> [note] --category <id>",
@@ -90,7 +91,8 @@ STR = {
         "clock_note_g": "時刻為 {z} · 顏色 = 不同天（或週／月／季），對照圖例 · 長度 = 該小時用量增加 · 間隔過長略過",
         "clock_peak": "尖峰 {h}:00–{h2}:00　平均 +{v:.1f}%/小時　（{n} 個區間）", "clock_none": "尚無有效區間",
         "collecting": "資料收集中（{n}/{m}）", "clock_note": "時刻為 {z} · 長度/顏色 = 該小時平均用量增加 · 週重置以新值計 · 間隔過長略過",
-        "ck_legend": "打卡（{n} 次）", "last": "最後更新：{t}（{z}）", "refresh": "⟳ 重新整理", "loading": "讀取中…",
+        "ck_legend": "打卡（{n} 次）", "last": "最後更新：{t}（{z}）", "refresh": "⟳ 重新整理", "loading": "讀取中…", "refreshing": "⟳ 更新中… {s} 秒",
+        "ph_read": "正在從 Grok Build 讀取用量…", "ph_draw": "正在產生圖表…",
         "range": "範圍", "name": "名字", "all": "全部", "note": "備註", "time": "時間", "recent": "最近打卡", "per_name": "各名字統計",
         "top_hour": "最常時段", "none_ck": "尚無打卡", "ck_btn": "打卡",
         "ck_hint": "以本機服務開啟此頁才能在這裡打卡；或執行：usage_history.py checkin <名字> [備註] --category <類別id>",
@@ -103,6 +105,7 @@ STR = {
 }
 # privacy / numeric: word-free symbols only (no service, product, timezone or city names)
 STR["zh-CN"] = dict(STR["zh-TW"], **{
+    "refreshing": "⟳ 更新中… {s} 秒", "ph_read": "正在从 Grok Build 读取用量…", "ph_draw": "正在生成图表…",
     "clock_tab": "时钟", "clock_1d": "用量时钟 — 近 24 小时", "clock_r": "用量时钟 — {r}",
     "clock_rt": {"wk": "本周", "1m": "近一个月", "3m": "近一季", "6m": "近半年", "1y": "近一年", "all": "全部"},
     "clock_ro": {"wk": "一周", "1m": "一个月", "3m": "一季", "6m": "半年", "1y": "一年", "all": "全部"}, "clock_rl": "范围",
@@ -121,7 +124,7 @@ STR["numeric"] = dict(STR["en"], **{
     "clock_lo": {"ov": "▤", "sd": "▥"}, "clock_ll": "◫", "clock_fo": {"t": "◌", "s": "●"}, "clock_fl": "◐",
     "clock_wd": ["1", "2", "3", "4", "5", "6", "7"], "clock_day": "{md}", "clock_wkl": "{i}: {a}–{b}", "clock_mon": "{y}-{m:02d}", "clock_q": "{y} Q{q}",
     "clock_today": "{l} ●", "clock_curp": "{l} ●", "clock_note_g": "", "clock_peak": "▲ {h}–{h2}  +{v:.1f}  ({n})", "clock_none": "∅",
-    "collecting": "{n}/{m}", "clock_note": "", "ck_legend": "✓ {n}", "last": "↻ {t}", "refresh": "↻", "loading": "…",
+    "collecting": "{n}/{m}", "clock_note": "", "ck_legend": "✓ {n}", "last": "↻ {t}", "refresh": "↻", "loading": "…", "refreshing": "… {s}", "ph_read": "", "ph_draw": "",
     "range": "", "name": "", "all": "∗", "note": "", "time": "", "recent": "✓", "per_name": "∑", "top_hour": "▲",
     "none_ck": "∅", "ck_btn": "✓", "ck_hint": "", "week": "", "days": "D", "peak": "▲", "pace": "→", "at100": "100",
     "yes": "▲", "month": "", "amount": "$", "weekly_detail": "", "conn_err": "×", "clock_sub": "", "no_clock": "∅", "hour_fmt": "{h}",
@@ -226,7 +229,7 @@ class Ctx:
     def _theme(path, palette=None):
         # over/under/baseline/notice come from the palette unless a theme file sets them explicitly
         t = {"bg_color": "#000000", "text_color": "#E8F4FF", "accent_color": None, "baseline_color": None,
-             "under_color": None, "over_color": None, "notice_color": None}
+             "under_color": None, "over_color": None, "notice_color": None, "patterns": None}
         if path:
             p = Path(path) if Path(path).is_absolute() else (HERE / path if (HERE / path).exists() else Path(path))
             try:
@@ -242,6 +245,8 @@ class Ctx:
         for k in ("over", "under", "baseline", "notice"):
             t[k + "_color"] = t[k + "_color"] or pal[k]
         t["palette"] = usage_palette.normalize(palette)
+        # non-colour cues (hatching, ▲/▼, line styles): on for the colour-blind preset, or when the theme asks
+        t["patterns"] = bool(t["patterns"]) or usage_palette.patterns(palette)
         # the accent (frames, tabs, eyebrow text, focus rings) is the palette's cool colour unless the theme pins one
         t["accent_color"] = t["accent_color"] or t["under_color"]
         t["card"] = _blend(t["bg_color"], t["text_color"], 0.05)
@@ -525,9 +530,10 @@ def draw_range(ctx, S, path, now, zl):
                  bbox=dict(boxstyle="round,pad=0.35", facecolor=_blend(T["bg_color"], NOTE, 0.12), edgecolor=NOTE, lw=1.2))
     wk = min(100, ctx.pace * ctx.period_days)
     avg = "—" if S["avg"] is None else f"{up if S['avg'] > wk else dn} {S['avg']:.0f}%"
+    PAT = T.get("patterns"); HATCH = usage_palette.HATCH if PAT else None
     cards = [(L["weeks"], str(S["n"]), L["over_n"].format(n=S["over"]), T["accent_color"]),
              (L["avg_peak"], avg, L["pace_sub"].format(p=ctx.pace, w=wk), OVER if (S["avg"] or 0) > wk else UNDER),
-             (L["hit100"], str(S["hit100"]), L["cap_sub"], OVER if S["hit100"] else UNDER),
+             (L["hit100"], (f"{up if S['hit100'] else dn} " if PAT else "") + str(S["hit100"]), L["cap_sub"], OVER if S["hit100"] else UNDER),
              (L["extra"], f"${S['spend_total']:.2f}", L["extra_sub"].format(n=len(S["spend"])), T["accent_color"])]
     for i, (t, v, sub, col) in enumerate(cards):
         ax = fig.add_axes([0.025 + i * 0.2395, 0.735, 0.228, 0.125]); ax.set_axis_off()
@@ -551,6 +557,8 @@ def draw_range(ctx, S, path, now, zl):
     for w in S["weeks"]:
         c = OVER if w["over"] else UNDER
         ax.bar(w["start"], w["peak"], width=ctx.period_days - 0.4, align="edge", color=c, alpha=0.30, edgecolor=c, lw=1.4, zorder=2)
+        if HATCH and w["over"]:  # over = hatched, under = plain, so the two differ without colour
+            ax.bar(w["start"], w["peak"], width=ctx.period_days - 0.4, align="edge", facecolor="none", edgecolor=c, hatch=HATCH, lw=0, zorder=2.5)
         if S["n"] <= 30:
             ax.text(w["start"] + timedelta(days=(ctx.period_days - 0.4) / 2), w["peak"] + 2.5,
                     f"{up if w['over'] else dn}{w['peak']:.0f}%" + ("" if w["complete"] else "*"),
@@ -568,7 +576,7 @@ def draw_range(ctx, S, path, now, zl):
         ax.text(0.5, 0.5, L["empty"], transform=ax.transAxes, color=NOTE, fontsize=16, ha="center", fontweight="bold")
     elif S["sparse"]:
         ax.text(0.01, 0.95, L["sparse_short"].format(n=S["n"], m=S["minw"]), transform=ax.transAxes, color=NOTE, fontsize=10, va="top", fontweight="bold")
-    ax.legend(handles=[Patch(facecolor=OVER, alpha=0.6, edgecolor=OVER, label=(up + " " + L["leg_over"]) if L["leg_over"] != up else up),
+    ax.legend(handles=[Patch(facecolor=OVER, alpha=0.6, edgecolor=OVER, hatch=HATCH, label=(up + " " + L["leg_over"]) if L["leg_over"] != up else up),
                        Patch(facecolor=UNDER, alpha=0.6, edgecolor=UNDER, label=(dn + " " + L["leg_under"]) if L["leg_under"] != dn else dn),
                        Line2D([0], [0], color=BASE, ls="--", lw=1.8, label=L["leg_pace"].format(p=ctx.pace)),
                        Line2D([0], [0], color=T["text_color"], lw=1.8, marker="o", ms=3.5, label=L["leg_daily"])],
@@ -907,7 +915,8 @@ def render_current_week(ctx, nowa, names=None):
             chart_hud.render(rows, str(d / "week-current.png"), f"{ws.astimezone(ctx.tz):%Y-%m-%d}",
                              {"lang": "numeric" if ctx.privacy else ctx.lang, "privacy": ctx.privacy, "pace": ctx.pace,
                               "palette": name, "reset_hm": f"{ws.astimezone(ctx.tz):%H:%M}",
-                              "accent_color": _theme_explicit_value(ctx.theme_path, "accent")})
+                              "accent_color": _theme_explicit_value(ctx.theme_path, "accent"),
+                              "patterns": bool(_theme_file(ctx.theme_path).get("patterns")) or None})
         if publish:
             _publish_default(ctx, ["week-current.png"])
         return True
@@ -1093,7 +1102,7 @@ function with_(k,v){var c={r:CR.r,l:CR.l,f:CR.f};c[k]=v;return c;}
 function marks(c){CL.mark(c.r);LL.mark(c.l);FL.mark(c.f);if($('clfsel'))$('clfsel').hidden=c.l==='sd';}
 // images are fetched and decoded first, then colours and images change in the same task (no half-switched page)
 function commit(n,r,us){var st=document.documentElement.style,o=vars(n);Object.keys(o).forEach(function(k){st.setProperty(k,o[k]);});
-imgs.forEach(function(i,j){i.dataset.f=fileOf(i,r);i.src=us[j];});cur=n;CR=r;PL.mark(n);marks(r);document.documentElement.dataset.palette=n;
+imgs.forEach(function(i,j){i.dataset.f=fileOf(i,r);i.src=us[j];});cur=n;CR=r;PL.mark(n);marks(r);document.documentElement.dataset.palette=n;document.documentElement.dataset.patterns=(P.pf||P.table[n].patterns)?'1':'';
 document.documentElement.dataset.clock=r.r+'-'+mode(r);}
 function go(n,r,save){if(!P.table[n])n=P.default;r={r:r.r,l:r.l,f:r.f};if(!clk||!CL.has(r.r))r.r=D.r;if(!LL.has(r.l))r.l=D.l;if(!FL.has(r.f))r.f=D.f;
 var my=++seq,need=n!==P.default||!same(r,D);btn.setAttribute('aria-busy','true');if(need)say(P.s.busy,true);
@@ -1228,7 +1237,7 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
     panes.append(f"<section id='p-clock'><div class='sub'>{html.escape(L['clock_sub'].format(z=zl))}</div>"
                  f"<div class='clocks'>{imgs or '<div class=warn>' + html.escape(L['no_clock']) + '</div>'}</div></section>")
     ckdata = usage_checkins_ui.to_script_json(checkin_page_data(ctx, sums))
-    rjs = json.dumps({k: L[k] for k in ("loading", "refresh", "conn_err")}, ensure_ascii=False).replace("<", "\\u003c")
+    rjs = json.dumps({k: L[k] for k in ("loading", "refresh", "conn_err", "refreshing", "ph_read", "ph_draw")}, ensure_ascii=False).replace("<", "\\u003c")
     tabs.append(f"<button data-k='checkin'>{html.escape(L['checkin_tab'])}</button>")
     panes.append(usage_checkins_ui.pane_html(ctx.ck_strings(), html.escape(L["ck_hint"])))
     title = "" if ctx.privacy else L["title"]
@@ -1237,7 +1246,7 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
     fixed = {k: bool(v) for k, v in _theme_explicit(ctx.theme_path).items()}
     plang = "numeric" if ctx.privacy else ("zh-TW" if ctx.lang == "zh-TW" else ("zh-CN" if ctx.lang.startswith("zh") else "en"))
     paldata = json.dumps({"default": ctx.palette, "light": T["is_light"], "table": usage_palette.js_table(), "fixed": fixed,
-                          "bg": bg, "accent": ac, "under": T["under_color"], "gen": gen, "s": PAL_STR[plang]},
+                          "bg": bg, "accent": ac, "under": T["under_color"], "gen": gen, "pf": bool(_theme_file(ctx.theme_path).get("patterns")), "s": PAL_STR[plang]},
                          ensure_ascii=False).replace("<", "\\u003c")
     variant = "light" if T["is_light"] else "dark"
 
@@ -1251,7 +1260,7 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
     palcur = palrows[usage_palette.names().index(ctx.palette)].split(">", 1)[1].rsplit("</li>", 1)[0]
     pal_label = {"numeric": "◐", "zh-TW": "配色", "zh-CN": "配色"}.get(plang, "Colours")
     onac, hl = _on_colour(ac), _blend(bg, tx, 0.14)
-    doc = f"""<!doctype html><html lang="{'zh-Hant' if ctx.lang == 'zh-TW' else 'en'}"><head><meta charset="utf-8"><title>{html.escape(title or '↻')}</title>
+    doc = f"""<!doctype html><html lang="{'zh-Hant' if ctx.lang == 'zh-TW' else 'en'}" data-patterns="{'1' if T.get('patterns') else ''}"><head><meta charset="utf-8"><title>{html.escape(title or '↻')}</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"><style>
 body{{margin:0;background:{bg};color:{tx};font-family:"Noto Sans CJK TC","Noto Sans TC","PingFang TC","Microsoft JhengHei","Segoe UI",sans-serif}}
 .wrap{{max-width:1060px;margin:0 auto;padding:20px}} .top{{color:var(--accent);font-size:12px;font-weight:700;letter-spacing:1px}} h1{{margin:4px 0 8px;font-size:26px}}
@@ -1278,7 +1287,9 @@ input,select{{background:{card};color:{tx};border:1px solid var(--bd);border-rad
 @keyframes sp{{to{{transform:rotate(360deg)}}}}
 .info{{background:{card};border:1px solid var(--bd);border-left:3px solid var(--accent);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:14px}}
 .badges{{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}} .badge{{border:1px solid var(--over);color:var(--over);border-radius:999px;padding:3px 12px;font-weight:700;font-size:13px}}
-.badge.note{{border-color:var(--notice);color:var(--notice)}} .pal{{color:{dim};font-size:13px}}
+.badge.note{{border-color:var(--notice);color:var(--notice)}}
+html[data-patterns="1"] .badge:not(.note){{background-image:repeating-linear-gradient(135deg,transparent 0 5px,color-mix(in srgb,var(--over) 22%,transparent) 5px 8px)}}
+html[data-patterns="1"] .badge:not(.note)::before{{content:"▲ "}} .pal{{color:{dim};font-size:13px}}
 .psel{{position:relative;display:inline-flex;align-items:center;gap:6px}} .pbtn{{background:{card};color:{tx};border:1px solid var(--bd);border-radius:6px;padding:6px 10px;font:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:6px}}
 .pbtn:hover{{border-color:var(--accent)}} .pbtn::after{{content:'▾';color:{dim};margin-left:2px}} .pbtn>span,.plist li>span{{white-space:nowrap}}
 .plist{{position:absolute;right:0;top:calc(100% + 4px);z-index:20;margin:0;padding:4px;list-style:none;background:{card};border:1px solid var(--bd);border-radius:8px;min-width:100%;max-height:min(80vh,560px);overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.45)}}
@@ -1290,7 +1301,7 @@ input,select{{background:{card};color:{tx};border:1px solid var(--bd);border-rad
 <div class="bar"><nav>{''.join(tabs)}</nav><div class="upd"><span id="last">{html.escape(L['last'].format(t=f'{now:%H:%M}', z=zl))}</span>
 <span class="pal psel" id="psel"><span id="pall">{html.escape(pal_label)}</span><button type="button" class="pbtn" id="palbtn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="pall palcur"><span id="palcur">{palcur}</span></button>
 <ul class="plist" id="pallist" role="listbox" tabindex="-1" aria-labelledby="pall" hidden>{''.join(palrows)}</ul><span id="palmsg" role="status"></span></span>
-<button class="btn" id="manualbtn" hidden>{html.escape(MS['btn'])}</button><button class="btn" id="notifybtn" hidden>{html.escape(LS['notify'])}</button><button class="btn primary" id="refresh" hidden>{html.escape(L['refresh'])}</button><span id="rmsg"></span>
+<button class="btn" id="manualbtn" hidden>{html.escape(MS['btn'])}</button><button class="btn" id="notifybtn" hidden>{html.escape(LS['notify'])}</button><button class="btn primary" id="refresh" hidden>{html.escape(L['refresh'])}</button><span id="rmsg" role="status" aria-live="polite"></span>
 <button class="btn" id="updbtn" hidden>{html.escape(US['btn'])}</button><label class="pal" id="updautol" hidden><input type="checkbox" id="updauto"> {html.escape(US['auto'])}</label></div></div>
 <div id="urow" class="urow" hidden><span id="umsg"></span><button class="btn updgo" id="updgo" hidden>{html.escape(US['go'])}</button></div>
 <form id="manualform" class="ckform" hidden><label>{html.escape(MS['pct'])} <input id="mpct" type="number" min="0" max="200" step="0.1" required style="width:6em"> <span class="sub">{html.escape(MS.get('pct_note', ''))}</span></label>
@@ -1315,9 +1326,15 @@ mb.onclick=function(){{mf.hidden=!mf.hidden;if(!mf.hidden)$('mpct').focus();}};
 mf.onsubmit=function(e){{e.preventDefault();mm.textContent=T.loading;
 fetch('/api/manual',{{method:'POST',headers:{{'X-Usage-Token':TK,'Content-Type':'application/json'}},body:JSON.stringify({{pct:$('mpct').value,reset:$('mreset').value}})}})
 .then(r=>r.json()).then(j=>{{if(j.ok){{location.reload();return;}}mm.textContent=j.error||'×';}}).catch(()=>{{mm.textContent=T.conn_err;}});}};
-rb.onclick=function(){{rb.disabled=true;rb.innerHTML='<span class="spin"></span>'+T.loading;rm.textContent='';
-fetch('/api/refresh',{{method:'POST',headers:{{'X-Usage-Token':TK}}}}).then(r=>r.json()).then(j=>{{if(j.ok){{location.reload();return;}}
-rm.textContent=j.error+(j.retry_in?' ('+j.retry_in+'s)':'');rb.disabled=false;rb.textContent=T.refresh;}}).catch(()=>{{rm.textContent=T.conn_err;rb.disabled=false;rb.textContent=T.refresh;}});}};
+// refresh: live elapsed seconds on the button, the server's phase (reading usage / drawing charts) next to it
+rb.onclick=function(){{if(rb.disabled)return;var t0=Date.now(),tick,poll,done=false;rb.disabled=true;rb.setAttribute('aria-busy','true');rm.textContent='';
+function show(){{rb.innerHTML='<span class="spin"></span>';rb.appendChild(document.createTextNode(T.refreshing.replace('{{s}}',Math.floor((Date.now()-t0)/1000))));}}
+function stop(msg){{done=true;clearInterval(tick);clearTimeout(poll);rb.disabled=false;rb.removeAttribute('aria-busy');rb.textContent=T.refresh;rm.textContent=msg||'';}}
+function ph(){{fetch('/api/status',{{cache:'no-store'}}).then(r=>r.ok?r.json():null).then(j=>{{if(done||!j)return;var t=T['ph_'+j.phase];if(t!=null)rm.textContent=t;}})
+.catch(()=>{{}}).then(()=>{{if(!done)poll=setTimeout(ph,1500);}});}}
+show();tick=setInterval(show,1000);poll=setTimeout(ph,700);
+fetch('/api/refresh',{{method:'POST',headers:{{'X-Usage-Token':TK}}}}).then(r=>r.json()).then(j=>{{if(j.ok){{done=true;clearTimeout(poll);location.reload();return;}}
+var e=String(j.error||'×');stop((e.length>90?e.slice(0,90)+'…':e)+(j.retry_in?' ('+j.retry_in+'s)':''));}}).catch(()=>{{stop(T.conn_err);}});}};
 }})();
 var h=location.hash.slice(1),t=document.querySelector("nav>button[data-k='"+h+"']");if(t)t.click();
 </script></body></html>"""
@@ -1383,12 +1400,17 @@ def upsert_week_row(ctx, ts, pct, reset_at=None):
     os.replace(tmp, path)
 
 
-def take_sample(ctx, pct=None, source="sampler", fail_reason=None, reset_at=None):
+def take_sample(ctx, pct=None, source="sampler", fail_reason=None, reset_at=None, phase=None, draw_lock=None):
     """One reading -> samples.csv + shared ledger (usage_ledger.py).
     `pct` given = a manual reading (no Grok Build launch); `reset_at` (aware datetime) optionally
     goes with it and is cached to state.json.
     Shares <data_dir>/.read.lock with the sampler loop and manual refresh.
-    A failed read is recorded as 'unavailable' (never 0%, never a guessed reset) and raises RuntimeError."""
+    A failed read is recorded as 'unavailable' (never 0%, never a guessed reset) and raises RuntimeError.
+    `phase(name)` is called with "read" and "draw" (the page shows it during a refresh); the result has
+    `timings` = seconds spent reading and drawing (also printed to the log)."""
+    say = phase or (lambda _p: None)
+    t_start = time.monotonic()
+    say("read")
     lk = FileLock(ctx.data_dir / ".read.lock")
     if not lk.acquire(timeout=600):
         raise RuntimeError("read lock timeout")
@@ -1440,16 +1462,21 @@ def take_sample(ctx, pct=None, source="sampler", fail_reason=None, reset_at=None
                 print(f"Warning: ledger write failed: {exc}", file=sys.stderr)
     finally:
         lk.release()
-    for fn in (render_clock, render_history):  # failure-safe re-render
-        try:
-            fn(ctx)
-        except Exception as exc:
-            print(f"Warning: {fn.__name__} failed: {exc}", file=sys.stderr)
+    t_read = time.monotonic()
+    say("draw")
+    with (draw_lock or threading.RLock()):
+        for fn in (render_clock, render_history):  # failure-safe re-render
+            try:
+                fn(ctx)
+            except Exception as exc:
+                print(f"Warning: {fn.__name__} failed: {exc}", file=sys.stderr)
+    timings = {"read": round(t_read - t_start, 2), "draw": round(time.monotonic() - t_read, 2)}
+    print(f"sample ({source}): read {timings['read']:.1f} s, draw {timings['draw']:.1f} s", file=sys.stderr)
     if pct is None:
         raise RuntimeError("source read failed" if ctx.privacy else f"unavailable: {err}")
     return {"ok": True, "timestamp": ts.isoformat(timespec="seconds"), "pct": float(pct),
             "reset_at": reset_at.isoformat(timespec="minutes") if reset_at else None,
-            "new_alerts": (led or {}).get("_newAlerts", [])}
+            "new_alerts": (led or {}).get("_newAlerts", []), "timings": timings}
 
 
 def next_boundary(after_ts, iv_min, tz):
@@ -1573,7 +1600,7 @@ def serve(ctx, allow_remote=False):
         extra_hosts.append(ctx.host)
         print("WARNING: serving on a non-loopback address; anyone on the network who learns the token can check in "
               "and trigger refreshes. Add the name you browse with to history_allowed_hosts.", file=sys.stderr)
-    busy = threading.Lock(); state = {"last_refresh": 0.0, "ck": {}, "upd_at": 0.0, "upd": None, "updating": False}
+    busy = threading.Lock(); state = {"last_refresh": 0.0, "ck": {}, "upd_at": 0.0, "upd": None, "updating": False, "phase": None}
     upd_lock = threading.Lock()
     boot = f"{os.getpid()}-{time.time():.0f}"  # changes on every start: the page reloads once a new server answers
     port_box = {"port": 0}
@@ -1745,7 +1772,7 @@ def serve(ctx, allow_remote=False):
         if not busy.acquire(blocking=False):
             return 409, {"ok": False, "error": "busy"}
         try:
-            return 200, take_sample(ctx, pct, source="manual", reset_at=reset_at)
+            return 200, take_sample(ctx, pct, source="manual", reset_at=reset_at, draw_lock=draw_lock)
         except Exception as exc:
             return 500, {"ok": False, "error": "write failed" if ctx.privacy else f"manual entry failed: {exc}"}
         finally:
@@ -1795,7 +1822,8 @@ def serve(ctx, allow_remote=False):
             if u.path == "/api/status":
                 return self._send(200, {"ok": True, "last_update": last_update(), "busy": busy.locked(), "timezone": ctx.zlabel(),
                                         "sample_interval_minutes": ctx.interval, "pct_source": "manual" if manual_mode(ctx) else "auto",
-                                        "boot": boot, "updating": state["updating"]})
+                                        "boot": boot, "updating": state["updating"],
+                                        "phase": state["phase"] if busy.locked() else None})
             if u.path == "/api/update/state":
                 return self._send(200, update_info())
             if u.path in ("/api/checkins", "/api/checkins/search"):  # read-only
@@ -1862,10 +1890,12 @@ def serve(ctx, allow_remote=False):
                         return self._send(429, {"ok": False, "error": "cooldown", "retry_in": int(wait) + 1})
                     state["last_refresh"] = time.time()
                     try:
-                        return self._send(200, take_sample(ctx, source="refresh"))
+                        return self._send(200, take_sample(ctx, source="refresh", phase=lambda p: state.__setitem__("phase", p),
+                                                           draw_lock=draw_lock))
                     except Exception as exc:
                         return self._send(500, {"ok": False, "error": "source read failed" if ctx.privacy else f"refresh failed: {exc}"})
                 finally:
+                    state["phase"] = None
                     busy.release()
             self._send(404, {"ok": False, "error": "not found"})
 

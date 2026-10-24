@@ -93,6 +93,7 @@ DEFAULT_CFG = {
     "title": None,
     "tz": "local",
     "reset_hm": "00:00",
+    "patterns": None,  # non-colour cues (hatching, dashed over-line, ▲/▼); on by default for the colour-blind palette
 }
 
 BASE_STRINGS = {
@@ -665,6 +666,17 @@ def parse_config():
     return args, cfg
 
 
+OVER_LS = (0, (5, 2.5))  # dashed "over" line segments when patterns are on
+HATCH = "///"
+
+
+def _leg_style(pal, over):
+    """Legend line style that matches the chart: dashed + ▲ for over, solid + ▼ for under (patterns only)."""
+    if not pal.get("patterns"):
+        return {}
+    return {"ls": OVER_LS if over else "-", "marker": "^" if over else "v", "markersize": 7}
+
+
 def glow_plot(ax, x, y, color, is_light, lw=2.6, ls="-", zorder=4):
     layers = ((lw * 2.6, 0.045), (lw * 1.6, 0.09)) if is_light else ((lw * 3.8, 0.06), (lw * 2.4, 0.13), (lw * 1.5, 0.24))
     for w, a in layers:
@@ -861,7 +873,7 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
         ),
         (
             str(L["stat_avg"]),
-            f"{avg_day:.1f}%",
+            (("▲ " if avg_day > pace else "▼ ") if pal["patterns"] else "") + f"{avg_day:.1f}%",
             pal["purple"] if avg_day > pace else pal["green"],
             pal["purple"] if avg_day > pace else pal["green"],
             sfmt(L["stat_avg_sub"], **fmt_ctx),
@@ -869,7 +881,7 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
         ),
         (
             str(L["stat_proj"]),
-            f"{proj_7d:.0f}%",
+            (("▲ " if proj_over else "▼ ") if pal["patterns"] else "") + f"{proj_7d:.0f}%",
             pal["purple"] if proj_over else pal["green"],
             pal["purple"] if proj_over else pal["green"],
             sfmt(L["stat_proj_sub"], **fmt_ctx),
@@ -924,8 +936,8 @@ def draw_cumulative_panel(fig, ax_hud, data, cfg, L, pal):
     if is_num:
         legend_handles = [
             Line2D([0], [0], color=pal["orange"], lw=3.0, label=""),
-            Line2D([0], [0], color=pal["green"], lw=3.4, label=""),
-            Line2D([0], [0], color=pal["purple"], lw=3.4, label=""),
+            Line2D([0], [0], color=pal["green"], lw=3.4, label="", **_leg_style(pal, False)),
+            Line2D([0], [0], color=pal["purple"], lw=3.4, label="", **_leg_style(pal, True)),
         ]
         ax.legend(
             handles=legend_handles, loc="lower right", bbox_to_anchor=(1.0, 1.015),
@@ -935,8 +947,8 @@ def draw_cumulative_panel(fig, ax_hud, data, cfg, L, pal):
     else:
         legend_handles = [
             Line2D([0], [0], color=pal["orange"], lw=2.4, label=sfmt(L["baseline_line"], pace=pace, base7=base7)),
-            Line2D([0], [0], color=pal["green"], lw=2.8, label=("▼ " + str(L["under_base"])).strip()),
-            Line2D([0], [0], color=pal["purple"], lw=2.8, label=("▲ " + str(L["over_base"])).strip()),
+            Line2D([0], [0], color=pal["green"], lw=2.8, label=("▼ " + str(L["under_base"])).strip(), **_leg_style(pal, False)),
+            Line2D([0], [0], color=pal["purple"], lw=2.8, label=("▲ " + str(L["over_base"])).strip(), **_leg_style(pal, True)),
         ]
         ax.legend(
             handles=legend_handles, loc="lower right", bbox_to_anchor=(1.0, 1.012),
@@ -982,8 +994,10 @@ def draw_cumulative_panel(fig, ax_hud, data, cfg, L, pal):
     )
 
     for i in range(1, len(xs)):
-        seg_col = pal["purple"] if pcts[i] > pace * days[i] else pal["green"]
-        glow_plot(ax, xs[i - 1 : i + 1], ys_plot[i - 1 : i + 1], color=seg_col, is_light=pal["is_light"], lw=3.2, zorder=5)
+        seg_over = pcts[i] > pace * days[i]
+        seg_col = pal["purple"] if seg_over else pal["green"]
+        seg_ls = OVER_LS if (pal["patterns"] and seg_over) else "-"
+        glow_plot(ax, xs[i - 1 : i + 1], ys_plot[i - 1 : i + 1], color=seg_col, is_light=pal["is_light"], lw=3.2, ls=seg_ls, zorder=5)
 
     day_set = set(days)
     for m_day in range(1, latest_day):
@@ -1005,7 +1019,7 @@ def draw_cumulative_panel(fig, ax_hud, data, cfg, L, pal):
     for x, d, p, yp in zip(xs, days, pcts, ys_plot):
         diff = p - pace * d
         pt_col = pal["purple"] if diff > 0 else pal["green"]
-        m_style = "^" if p > 100.0 else "o"
+        m_style = ("^" if diff > 0 else "v") if pal["patterns"] else ("^" if p > 100.0 else "o")
         ax.scatter([x], [yp], color=pt_col, s=160, alpha=0.20, marker=m_style, zorder=6)
         ax.scatter([x], [yp], color=pt_col, edgecolor=pal["text"], linewidth=1.1, s=64, marker=m_style, zorder=7)
 
@@ -1087,7 +1101,7 @@ def draw_daily_bars_panel(fig, ax_hud, data, cfg, L, pal):
     if is_num:
         legend_handles = [
             Patch(facecolor=pal["green"], edgecolor=pal["green"], label=""),
-            Patch(facecolor=pal["purple"], edgecolor=pal["purple"], label=""),
+            Patch(facecolor=pal["purple"], edgecolor=pal["text"] if pal["patterns"] else pal["purple"], hatch=HATCH if pal["patterns"] else None, label=""),
             Line2D([0], [0], color=pal["orange"], lw=2.4, ls="--", label=""),
         ]
         ax.legend(
@@ -1098,7 +1112,8 @@ def draw_daily_bars_panel(fig, ax_hud, data, cfg, L, pal):
     else:
         legend_handles = [
             Line2D([0], [0], color=pal["green"], lw=6, label=("▼ " + str(L["under_short"])).strip()),
-            Line2D([0], [0], color=pal["purple"], lw=6, label=("▲ " + str(L["over_short"])).strip()),
+            (Patch(facecolor=pal["purple"], edgecolor=pal["text"], hatch=HATCH, label=("▲ " + str(L["over_short"])).strip()) if pal["patterns"]
+             else Line2D([0], [0], color=pal["purple"], lw=6, label=("▲ " + str(L["over_short"])).strip())),
             Line2D([0], [0], color=pal["orange"], lw=2.2, ls="--", label=sfmt(L["daily_base_line"], pace=pace, base7=base7)),
         ]
         ax.legend(
@@ -1138,9 +1153,13 @@ def draw_daily_bars_panel(fig, ax_hud, data, cfg, L, pal):
 
             ax.add_patch(Rectangle((bx - bw * 0.58, 0), bw * 1.16, disp_h, facecolor=b_col, alpha=0.14, edgecolor="none", zorder=2))
             ax.add_patch(Rectangle((bx - bw * 0.5, 0), bw, disp_h, facecolor=fill_col, edgecolor=b_col, lw=1.4, zorder=3))
+            if pal["patterns"] and over:
+                ax.add_patch(Rectangle((bx - bw * 0.5, 0), bw, disp_h, facecolor="none", edgecolor=b_col, hatch=HATCH, lw=0, zorder=3.5))
             ax.plot([bx - bw * 0.5, bx + bw * 0.5], [disp_h, disp_h], color=cap_col, lw=3.0, solid_capstyle="butt", zorder=4)
 
             val_txt = f"{raw_inc:+.0f}% ({sfmt(L['gap_fmt'], g=gap)})" if gap > 1 else f"{raw_inc:+.0f}%"
+            if pal["patterns"]:
+                val_txt = ("▲ " if over else "▼ ") + val_txt
             near_below_base = (pace - max(4.5, bar_ymax * 0.15)) <= disp_h <= (pace + 0.4)
             if near_below_base and disp_h >= bar_ymax * 0.18:
                 ax.annotate(
@@ -1357,6 +1376,7 @@ def render(rows, out_png, week_start, cfg=None):
         "card_border": blend_color(card_fill, accent_col, 0.24 if is_light else 0.22),
         "cell_odd": blend_color(card_fill, accent_col, 0.045 if is_light else 0.028),
         "cell_even": blend_color(card_fill, purple, 0.040 if is_light else 0.024),
+        "patterns": bool(cfg.get("patterns")) or usage_palette.patterns(cfg.get("palette")),
     }
 
     sorted_rows = sorted(rows, key=lambda r: int(r["day"]))

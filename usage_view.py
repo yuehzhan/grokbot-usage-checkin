@@ -486,6 +486,9 @@ def render_html_page(state: ViewerState) -> str:
   }}
   .val-under {{ color: var(--under); }}
   .val-over {{ color: var(--over); }}
+  html[data-patterns="1"] .val-over:not(.arr)::before {{ content: "\25B2  "; }}
+  html[data-patterns="1"] .val-under:not(.arr)::before {{ content: "\25BC  "; }}
+  html[data-patterns="1"] .stat-card:has(.val-over) {{ background-image: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--over) 14%, transparent) 6px 9px); }}
   .val-base {{ color: var(--baseline); }}
   .pal {{ color: var(--dim); font-size: 0.8rem; }}
   .pal select {{ background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 3px 6px; }}
@@ -552,6 +555,7 @@ def render_html_page(state: ViewerState) -> str:
     const c = PAL.table[palette].dark, r = document.documentElement.style;
     ["over", "under", "baseline", "notice"].forEach(function(k) {{ r.setProperty("--" + k, c[k]); }});
     r.setProperty("--accent", c.under); r.setProperty("--border", mix("#05070a", c.under, 0.25));
+    document.documentElement.dataset.patterns = PAL.table[palette].patterns ? "1" : "";
     const sel = document.getElementById("pal-sel");
     if (sel) sel.value = palette;
   }}
@@ -629,7 +633,7 @@ def render_html_page(state: ViewerState) -> str:
     const cards = IS_PRIV ? [
       {{ lbl: "D", val: day + "/" + days, cls: "val-neutral" }},
       {{ lbl: "\\u2211 %", val: pct != null ? pct + "%" : "--", cls: over ? "val-over" : "val-under" }},
-      {{ lbl: "\\u0394", val: delta != null ? arrow(delta) + " " + (delta >= 0 ? "+" + delta : delta) + "%" : "--", cls: over ? "val-over" : "val-under" }},
+      {{ lbl: "\\u0394", val: delta != null ? arrow(delta) + " " + (delta >= 0 ? "+" + delta : delta) + "%" : "--", cls: (over ? "val-over" : "val-under") + " arr" }},
       {{ lbl: "100% \\u2212", val: rem != null ? rem + "%" : "--", cls: (pct > 100) ? "val-over" : "val-under" }},
       {{ lbl: "\\u00d8", val: avg != null ? avg + "%" : "--", cls: (avg > pace) ? "val-over" : "val-under" }},
       {{ lbl: "\\u2192 7/7", val: proj != null ? proj + "%" : "--", cls: projOver ? "val-over" : "val-under" }},
@@ -637,7 +641,7 @@ def render_html_page(state: ViewerState) -> str:
     ] : [
       {{ lbl: "Day", val: day + " / " + days, cls: "val-neutral" }},
       {{ lbl: "Cumulative", val: pct != null ? pct + "%" : "--", cls: over ? "val-over" : "val-under" }},
-      {{ lbl: "vs Baseline (" + (base != null ? base + "%" : "--") + ")", val: delta != null ? arrow(delta) + " " + (delta >= 0 ? "+" + delta : delta) + "%" : "--", cls: over ? "val-over" : "val-under" }},
+      {{ lbl: "vs Baseline (" + (base != null ? base + "%" : "--") + ")", val: delta != null ? arrow(delta) + " " + (delta >= 0 ? "+" + delta : delta) + "%" : "--", cls: (over ? "val-over" : "val-under") + " arr" }},
       {{ lbl: "Remaining", val: rem != null ? rem + "%" : "--", cls: (pct > 100) ? "val-over" : "val-under" }},
       {{ lbl: "Avg / Day", val: avg != null ? avg + "%" : "--", cls: (avg > pace) ? "val-over" : "val-under" }},
       {{ lbl: "Projected (7d)", val: proj != null ? proj + "%" : "--", cls: projOver ? "val-over" : "val-under" }},

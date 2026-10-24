@@ -164,7 +164,7 @@ If the automatic read keeps failing, set `"pct_source": "manual"` in `usage_conf
 | :--- | :--- | :--- | :--- | :--- |
 | `orange-teal` (default) | Orange / teal | `#FFA51F` / `#C96A00` | `#23C4AE` / `#0B8A7E` | `#B48CFF` / `#7A4FC9` |
 | `orange-blue` | Orange / blue | `#FFA51F` / `#C96A00` | `#4D8DFF` / `#1F5FD1` | `#B48CFF` / `#7A4FC9` |
-| `colorblind` (Okabe-Ito) | Colour-blind safe | `#E69F00` / `#B87F00` | `#56B4E9` / `#0072B2` | `#CC79A7` / `#A8558A` |
+| `colorblind` (Okabe-Ito) | Colour-blind safe | `#E69F00` / `#B87F00` | `#3C8FD6` / `#0072B2` | `#CC79A7` / `#A8558A` |
 | `amber-purple` | Amber / purple | `#FFB000` / `#B37A00` | `#9B7BFF` / `#6A4BD6` | `#F28CC8` / `#B0487F` |
 | `pink-green` | Pink / green | `#FF5FA2` / `#C2306E` | `#3DDC84` / `#138A4C` | `#B48CFF` / `#7A4FC9` |
 | `gold-sky` | Gold / sky blue | `#FFD23F` / `#9A7400` | `#5EC8FF` / `#0A78B8` | `#C59BFF` / `#7A4FC9` |
@@ -180,6 +180,12 @@ If the automatic read keeps failing, set `"pct_source": "manual"` in `usage_conf
 Each cell is *dark background / light background*. The baseline line is the same neutral grey in every preset
 (`#9AA4AE` / `#6B7480`). "Over" is always a warm colour (orange, amber, gold, pink or yellow), never red, brown, grey,
 black or aqua; every preset has its own notice colour.
+
+- **`colorblind`** = Okabe-Ito colours **plus hatching and symbols**, so over vs under can be read without colour:
+  over-baseline bars are hatched (`///`) and under bars are plain; over line segments are dashed with ▲ markers, under
+  ones solid with ▼; daily-increase bars and stat values carry ▲/▼; over badges on the page get a light stripe and a ▲.
+  On dark backgrounds "under" is a lighter blue `#3C8FD6` (Okabe-Ito `#0072B2` is too dark there, about 3.7:1 on the
+  cards); light backgrounds use `#0072B2`. A theme file can turn the same cues on for any preset with `"patterns": true`.
 
 - PNGs (`chart_hud.py`, history and clock charts) and web pages follow the palette. `over_color`, `under_color` and
   `baseline_color` in the config still override single colours.
@@ -434,7 +440,8 @@ cat usage-data/history_server.json             # {"url": "http://127.0.0.1:PORT/
 
 - Binds `127.0.0.1` by default. Any non-loopback `history_host`/`--host` is refused unless `--allow-remote` is passed.
 - See **Local Server Security** below for the write token and Host/Origin checks.
-- The page shows a **⟳ Refresh** button (accent colour, with spinner; it reads the usage again), an **Enter manually** button and the check-in form only when it is served by this server; opened as a plain file, it is read-only. In manual mode **⟳ Refresh** is hidden.
+- The page shows a **⟳ Refresh** button (accent colour, with spinner; it reads the usage again; while it runs it is disabled and counts the seconds, e.g. "⟳ Refreshing… 12 s"), an **Enter manually** button and the check-in form only when it is served by this server; opened as a plain file, it is read-only. In manual mode **⟳ Refresh** is hidden.
+- A refresh usually takes about 10–60 seconds depending on the computer and network, mostly waiting for Grok Build to read the usage; the button shows the elapsed seconds. The server log (`server.log`) records how long the read and the drawing took for each refresh.
 - When served, the page also shows **Check for updates**, the **Check for updates automatically** switch, and a light-blue **Update** button when a newer version exists (see step 5 of the Windows quick start). After an update the server comes back on the same port, so the open page can reload itself.
 - `history/index.html` is self-contained (PNGs embedded), so it can be copied or opened offline.
 

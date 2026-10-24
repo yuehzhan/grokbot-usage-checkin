@@ -33,8 +33,10 @@ def _p(over, under, notice, l_over, l_under, l_notice):
 PALETTES = {
     "orange-teal": _p("#FFA51F", "#23C4AE", "#B48CFF", "#C96A00", "#0B8A7E", "#7A4FC9"),
     "orange-blue": _p("#FFA51F", "#4D8DFF", "#B48CFF", "#C96A00", "#1F5FD1", "#7A4FC9"),
-    # Okabe & Ito (2008) colour-universal-design set
-    "colorblind": _p("#E69F00", "#56B4E9", "#CC79A7", "#B87F00", "#0072B2", "#A8558A"),
+    # Okabe & Ito (2008) colour-universal-design set: orange over, blue under, reddish purple notice. On dark
+    # backgrounds the under blue is a lighter #3C8FD6 (Okabe-Ito #0072B2 is only ~3.7:1 on the dark cards);
+    # light backgrounds use #0072B2 itself. Charts also get hatching / ▲▼ / line styles (see PATTERNS).
+    "colorblind": _p("#E69F00", "#3C8FD6", "#CC79A7", "#B87F00", "#0072B2", "#A8558A"),
     "amber-purple": _p("#FFB000", "#9B7BFF", "#F28CC8", "#B37A00", "#6A4BD6", "#B0487F"),
     "pink-green": _p("#FF5FA2", "#3DDC84", "#B48CFF", "#C2306E", "#138A4C", "#7A4FC9"),
     "gold-sky": _p("#FFD23F", "#5EC8FF", "#C59BFF", "#9A7400", "#0A78B8", "#7A4FC9"),
@@ -66,6 +68,16 @@ LABELS = {
 }
 
 UP, DOWN = "▲", "▼"
+
+
+# Presets that add non-colour cues: hatching on "over" bars and areas, dashed "over" line segments, ▲/▼ markers
+# and symbols, striped "over" badges on the pages. A theme file can turn this on for any preset ("patterns": true).
+PATTERNS = {"colorblind"}
+HATCH = "///"
+
+
+def patterns(name=None):
+    return normalize(name) in PATTERNS
 
 
 def names():
@@ -155,4 +167,4 @@ def accent(name=None, light=False):
 
 def js_table():
     """JSON-serialisable table for the browser palette switcher."""
-    return {k: {"dark": v["dark"], "light": v["light"]} for k, v in PALETTES.items()}
+    return {k: {"dark": v["dark"], "light": v["light"], "patterns": k in PATTERNS} for k, v in PALETTES.items()}
