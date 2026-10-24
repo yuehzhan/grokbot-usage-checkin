@@ -880,10 +880,11 @@ def manual_mode(ctx):
     return str(ctx.cfg.get("pct_source") or "auto").strip().lower() == "manual"
 
 
-def save_manual_reset(ctx, reset_at):
-    """Cache a typed-in reset like a Grok-reported one (<data_dir>/state.json), so week boundaries work."""
+def save_manual_reset(ctx, reset_at, source="manual"):
+    """Cache a reset (typed in or read from Grok Build) to <data_dir>/state.json, so week boundaries work."""
     payload = {"reset_at": reset_at.isoformat(timespec="minutes"), "period_days": ctx.period_days,
-               "updated_at": datetime.now(ctx.tz).isoformat(timespec="minutes"), "source": "m" if ctx.privacy else "manual"}
+               "updated_at": datetime.now(ctx.tz).isoformat(timespec="minutes"),
+               "source": ("m" if source == "manual" else "a") if ctx.privacy else source}
     p = ctx.data_dir / "state.json"
     tmp = p.with_name(f"state.json.{os.getpid()}.tmp")
     with usage_lock.write_lock(ctx.data_dir):
@@ -954,6 +955,11 @@ def take_sample(ctx, pct=None, source="sampler", fail_reason=None, reset_at=None
                 if res.get("pct") is None:
                     raise RuntimeError("no percentage shown")
                 pct, reset_at = float(res["pct"]), res.get("reset_at")
+                if isinstance(reset_at, datetime):
+                    try:
+                        save_manual_reset(ctx, reset_at, "grok")
+                    except Exception as exc:
+                        print(f"Warning: reset cache write failed: {exc}", file=sys.stderr)
             else:
                 source = "manual" if source == "sampler" else source
                 reset_at = manual_reset

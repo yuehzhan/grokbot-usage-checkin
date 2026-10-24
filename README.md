@@ -27,6 +27,12 @@ Grok Build must be installed and signed in once on that computer (see *Recommend
 > **The Windows version has not been fully tested yet.** The steps below are provided for people who want to try it;
 > manual entry of the weekly % is the reliable path there, and automatic reading is experimental.
 
+## Linux vs Windows
+
+- **Same features.** The difference is the platform and how well it's tested: automatic reading is tested on Linux, Windows is not yet fully tested. The Linux version can go on your Grok Bot's computer (recommended) or on your own Linux PC.
+- **Check-ins are optional** on either version. If you only want to watch usage, you never need to check in. Check-ins are mainly for assistants to log what they did, for how long, and how much usage it took.
+- **Importing an assistant's check-ins:** ask your Grok Bot to copy `usage-data/checkins.csv` from its computer into your dashboard's `usage-data` folder. If you already have that file, ask it to merge (dropping duplicate `id` rows) instead of overwriting. Stop the dashboard before copying and start it again afterwards; the Check-ins tab then shows and searches them.
+
 ## Windows quick start (not yet fully tested)
 
 Needs Windows 10 (1809+) or 11 and [Python 3.10+](https://www.python.org/downloads/windows/) (tick "Add python.exe
@@ -80,6 +86,17 @@ If the automatic read keeps failing, set `"pct_source": "manual"` in `usage_conf
 ![Grok Bot Usage & Check-in preview](./preview.png)
 
 ---
+
+### Windows troubleshooting (found during real setup)
+
+- **"Open PowerShell window here" is missing:** hold **Shift** while right-clicking an empty spot in the folder. Or press the Windows key, type `powershell`, press Enter.
+- **Grok Build's install folder looks empty:** normal. `irm https://x.ai/cli/install.ps1 | iex` installs to `C:\Users\<you>\.grok\bin` (not the folder you ran it from) and adds that to your user `PATH`.
+- **install.ps1 says `"grok" is not on PATH` right after installing Grok Build:** the window was opened before the install, so it has the old `PATH`. Close it and open a new one.
+- **Sign Grok Build in once:** in a new window run `grok`. A browser page asks for a code: it must match the code in the terminal. Check that the account shown is the one whose usage you want to track, then press **Allow**. Quit Grok Build with **Ctrl+Q**.
+- **Switching from manual to automatic:** install.ps1 sets `"pct_source": "manual"` when it can't find `grok`, and it doesn't switch back by itself. After `grok` works, run `notepad usage_config.json`, change `manual` to `auto`, save, then stop and start the dashboard.
+- **`cd /d` fails in PowerShell:** `/d` is a cmd option. In PowerShell use `cd E:\path\to\folder`. Every other command in this README works in both cmd and PowerShell.
+- **Desktop shortcut:** ask your Grok Bot: "make a desktop shortcut for the dashboard". It creates one whose target is `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File "<folder>\start.ps1"` with *Start in* set to the folder. To make it yourself: right-click the desktop, New, Shortcut, paste that target, then set *Start in* in the shortcut's Properties.
+- **After updating, the page still looks old:** fixed in `adda5da` (the page is rebuilt on every start). On older versions, enter a reading once to rebuild it.
 
 ## Recommended Setup
 
