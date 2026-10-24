@@ -109,6 +109,7 @@ BASE_STRINGS = {
     "tab_week": "Week",
     "hero_title": "WEEKLY USAGE",
     "day_of_7": "Day {d} / 7",
+    "gauge_base": "Baseline {base:.0f}%",
     "ring_left": "{rem:.0f}% left",
     "on_pace": "ON PACE",
     "ahead_pace": "AHEAD OF PACE",
@@ -166,6 +167,7 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "tab_week": "本週總覽",
         "hero_title": "本週累計用量",
         "day_of_7": "第 {d} / 7 天",
+        "gauge_base": "基準線 {base:.0f}%",
         "ring_left": "剩餘 {rem:.0f}%",
         "on_pace": "符合基準配速",
         "ahead_pace": "超前基準配速",
@@ -221,6 +223,7 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "tab_week": "本周总览",
         "hero_title": "本周累计用量",
         "day_of_7": "第 {d} / 7 天",
+        "gauge_base": "基准线 {base:.0f}%",
         "ring_left": "剩余 {rem:.0f}%",
         "on_pace": "符合基准",
         "ahead_pace": "超前基准",
@@ -276,6 +279,7 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "tab_week": "週間概要",
         "hero_title": "週間累計使用量",
         "day_of_7": "{d} / 7 日目",
+        "gauge_base": "基準線 {base:.0f}%",
         "ring_left": "残り {rem:.0f}%",
         "on_pace": "基準ペース内",
         "ahead_pace": "基準ペース超過",
@@ -331,6 +335,7 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "tab_week": "주간 요약",
         "hero_title": "주간 누적 사용량",
         "day_of_7": "{d} / 7 일차",
+        "gauge_base": "기준선 {base:.0f}%",
         "ring_left": "남음 {rem:.0f}%",
         "on_pace": "기준 속도 유지",
         "ahead_pace": "기준 속도 초과",
@@ -388,6 +393,7 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "tab_week": "7/7",
         "hero_title": "∑ %",
         "day_of_7": "{d}/7",
+        "gauge_base": "{base:.0f}%",
         "ring_left": "{rem:.0f}% ↓",
         "on_pace": "▼ ≤",
         "ahead_pace": "▲ >",
@@ -846,6 +852,23 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
 
     ax_gauge.text(0, 0.12, sfmt(L["day_of_7"], **fmt_ctx), color=pal["text"], fontsize=12 if is_num else 11, fontweight="bold", ha="center", va="center")
     ax_gauge.text(0, -0.22, sfmt(L["ring_left"], **fmt_ctx), color=pal["text_dim"], fontsize=9.8 if is_num else 9.2, fontweight="bold", ha="center", va="center")
+    # legend for the moving baseline tick: a short line in the tick colour + "Baseline 28%" (today's baseline),
+    # centred under the ring, between the ring and the progress bar
+    gl_y = (hy + 0.0295) * FIG_H
+    gl_cx = (0.032 + 0.066) * FIG_W
+    gl_txt = sfmt(L.get("gauge_base", "{base:.0f}%"), **fmt_ctx)
+    seg, gap = 22.0, 6.0  # ax_hud data units are pixels
+    gl_t = ax_hud.text(gl_cx, gl_y, gl_txt, color=pal["text_dim"], fontsize=8.4, fontweight="bold",
+                       ha="left", va="center", zorder=6, gid="gauge_base_legend")
+    try:
+        bb = gl_t.get_window_extent(renderer=fig.canvas.get_renderer())
+        tw = bb.width * (FIG_W / max(1.0, fig.bbox.width))
+    except Exception:
+        tw = 7.0 * len(gl_txt)
+    x0 = gl_cx - (seg + gap + tw) / 2.0
+    gl_t.set_x(x0 + seg + gap)
+    ax_hud.plot([x0, x0 + seg], [gl_y, gl_y], color=pal["orange"], lw=3.0, solid_capstyle="butt", zorder=6,
+                gid="gauge_base_line")
 
     rx = (hx + 0.146) * FIG_W
     ax_hud.text(rx, (hy + 0.170) * FIG_H, str(L["hero_title"]), color=pal["text_dim"], fontsize=10.5 if is_num else 9.8, fontweight="bold", va="center")
@@ -913,7 +936,7 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
         ),
         (
             str(L["stat_avg"]),
-            (("▲ " if avg_day > pace else "▼ ") if pal["patterns"] else "") + f"{avg_day:.1f}%",
+            ("▲ " if avg_day > pace else "▼ ") + f"{avg_day:.1f}%",
             pal["purple"] if avg_day > pace else pal["green"],
             pal["purple"] if avg_day > pace else pal["green"],
             sfmt(L["stat_avg_sub"], **fmt_ctx),
@@ -921,7 +944,7 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
         ),
         (
             str(L["stat_proj"]),
-            (("▲ " if proj_over else "▼ ") if pal["patterns"] else "") + f"{proj_7d:.0f}%",
+            ("▲ " if proj_over else "▼ ") + f"{proj_7d:.0f}%",
             pal["purple"] if proj_over else pal["green"],
             pal["purple"] if proj_over else pal["green"],
             sfmt(L["stat_proj_sub"], **fmt_ctx),

@@ -146,7 +146,7 @@ If the automatic read keeps failing, set `"pct_source": "manual"` in `usage_conf
 ### Panels
 1. **Header Bar**: `WEEKLY USAGE // TELEMETRY` eyebrow, localized dashboard title (`Usage Dashboard` by default, customizable via `--title`), full weekly cycle window (`YYYY-MM-DD Sat 09:00 -> YYYY-MM-DD Sat 09:00`), and decorative segmented view tabs (`Cumulative | Daily | Week`).
 2. **Row 1 — Hero Card & 6 Telemetry Stat Cards**:
-   - **Hero Card (left ~1/3)**: Ring gauge (capped visually at `100%` with a grey tick at today's target baseline `pace × day`, showing `Day N / 7` and `% left` in the center), large current `%` readout, burn rate (`burn rate X.X%/day`), auto-sized status pill (`▼ ON PACE` in the cool colour or `▲ AHEAD OF PACE` in orange), time-to-cap forecast (`Hits 100% ~Day X.X` when projected usage exceeds `100%`), and a padded bottom multi-segment progress bar (used quota + pale forecast-to-reset + remaining track + grey baseline tick).
+   - **Hero Card (left ~1/3)**: Ring gauge (capped visually at `100%` with a grey tick at today's target baseline `pace × day` and a small legend under the ring, e.g. `Baseline 42%`, showing `Day N / 7` and `% left` in the center), large current `%` readout, burn rate (`burn rate X.X%/day`), auto-sized status pill (`▼ ON PACE` in the cool colour or `▲ AHEAD OF PACE` in orange), time-to-cap forecast (`Hits 100% ~Day X.X` when projected usage exceeds `100%`), and a padded bottom multi-segment progress bar (used quota + pale forecast-to-reset + remaining track + grey baseline tick).
    - **6 Stat Cards (`2 × 3` grid)**: **vs Baseline** (`+/-%`), **Remaining** (`0%` and `+X% over cap` when `> 100%`), **Avg / Day**, **Projected (7d)**, **Reset In** (`Xd Yh` plus the explicit date, e.g. `Sat, Oct 31, 01:41`), and **Daily Budget Left** (`remaining / max(1, days_left)`).
 3. **Row 2 Left — Cumulative Usage vs. Baseline Line Chart**: 7 framed daily cells (`x = 0..7`, points at `N - 0.5`), grey baseline `pace × (x + 0.5)`, segment-by-segment cool/orange usage line, dashed forecast to Day 7 (`proj X%`), `100%` limit line, `> 100%` cap triangle markers with anti-collision label placement, and `No Data` indicators in missing cells.
 4. **Row 3 Left — Daily Usage Skyscraper Bar Chart**: Aligned with the 7 day-cells above, showing each day's increment (`pct - prev_pct`) in the cool colour (`<= pace × gap_days`) or orange (`> pace × gap_days`) against the dashed grey daily baseline (`14%`), with `(Nd)` gap tags on multi-day spans.
@@ -209,6 +209,15 @@ because the offset cancels. Shown values never go below 0, and a small `(+1)` ne
 is on. The choice is saved in `usage_config.json` (or `<data_dir>/page_settings.json`) and in the browser
 (`usage.displayOffset`); changing it redraws the charts (the offset is part of the image cache key, e.g.
 `history/pal/orange-teal-o+1/`).
+
+**Language** and **Time zone** menus (next to **Display offset**). Language: Auto (system), 繁體中文, 简体中文,
+English, 日本語, 한국어 or numeric-only; time zone: Auto (system) or a common IANA zone, each shown with its current UTC
+offset. They use the existing `lang` / `tz` keys (saved in `usage_config.json`, or `<data_dir>/page_settings.json`
+without a config file, plus the browser keys `usage.lang` / `usage.tz`), take effect at once without a restart (charts,
+labels, reset and period dates are redrawn; a non-auto choice is part of the image cache key, e.g. `-Lja-Zasia_tokyo`),
+and never change the stored CSV/JSON data. An explicit `--lang` / `--tz` flag still wins and the menu is disabled. With
+only `page_settings.json`, week files keep using the CLI/config zone (machine local otherwise), so the menu changes
+what is shown, not how weeks are filed. The Avg / Day and Projected cards always show ▲ / ▼.
 
 - PNGs (`chart_hud.py`, history and clock charts) and web pages follow the palette. `over_color`, `under_color` and
   `baseline_color` in the config still override single colours.
@@ -708,7 +717,7 @@ network.
 | `reset_anchor` | `null` | Weekly weekday+time (`"Sat 09:00"`, `"Saturday 09:00"`) or ISO timestamp (`"2026-10-17T09:00"`). |
 | `tz` | `"local"` | `"local"` (machine local timezone) or an IANA timezone name (e.g. `"Europe/Berlin"`). The weekly chart labels show its actual offset, e.g. `(UTC+2)`, or `(Europe/Berlin UTC+2)` when set explicitly. |
 | `period_days` | `7` | Days per quota cycle. |
-| `pace` | `14` | Daily target baseline percentage (`14%/day`). |
+| `pace` | `14` | Daily target baseline percentage (`14%/day`). An exact even split would be 100 ÷ 7 ≈ 14.3% per day, but the default uses a whole 14% per day (day 7 = 98%), leaving about 2% headroom. Change it with `pace` in the config or `--pace`. |
 | `lang` | `"auto"` | `"auto"` (system locale), `"en"`, `"zh-TW"`, `"zh-CN"`, `"ja"`, `"ko"`, or `"numeric"`. |
 | `privacy` | `false` | Enables word-free numeric rendering, neutral `chart-YYYYMMDD.png` filename, and generic JSON keys. |
 | `refresh_mode` | `"auto"` | `"auto"` or `"manual"` refresh mode for `usage_view.py`. |

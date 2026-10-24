@@ -154,12 +154,23 @@ class Ctx:
         g = lambda flag, key, default=None: getattr(a, flag, None) if getattr(a, flag, None) is not None else cfg.get(key, default)
         self.data_dir = Path(g("data_dir", "data_dir", os.environ.get("USAGE_DATA_DIR") or "./usage-data")).resolve()
         self.hist_dir = self.data_dir / "history"
-        self.privacy = bool(g("privacy", "privacy", False)) or str(g("lang", "lang", "auto")).lower() == "numeric"
+        # language / time zone: CLI flag > config > <data_dir>/page_settings.json (the page menus) > auto
+        def gp(flag, key):
+            v = g(flag, key)
+            return v if v not in (None, "") else _read_page_setting(self.data_dir, key)
+        self.lang_locked = getattr(a, "lang", None) is not None
+        self.tz_locked = getattr(a, "tz", None) is not None
+        self.lang_setting = page_lang(gp("lang", "lang"))
+        self.tz_setting = page_tz(gp("tz", "tz"))
+        # week files keep being written in the CLI/config zone (machine local otherwise); the page menu alone
+        # (page_settings.json) changes only what is shown, so existing week files are never split or renamed
+        self.data_tz = self._tz(str(g("tz", "tz", "local") or "local"))
+        self.privacy = bool(g("privacy", "privacy", False)) or self.lang_setting == "numeric"
         self.pace = float(g("pace", "pace", 14))
         self.period_days = int(cfg.get("period_days", 7))
-        self.tz_spec = str(g("tz", "tz", "local") or "local")
+        self.tz_spec = "local" if self.tz_setting == "auto" else self.tz_setting
         self.tz = self._tz(self.tz_spec)
-        lang = str(g("lang", "lang", "auto") or "auto")
+        lang = self.lang_setting
         if self.privacy:
             lang = "numeric"
         elif lang.lower() == "auto":
@@ -208,7 +219,17 @@ class Ctx:
         return self.dir_key(self.palette, self.patterns)
 
     def dir_key(self, name, patterns=False):
-        return usage_palette.key(name, patterns) + usage_offset.suffix(self.display_offset)
+        return usage_palette.key(name, patterns) + self.key_suffix
+
+    @property
+    def key_suffix(self):
+        """Image cache key part for the page settings that change the drawing: display offset ('-o+1'), a chosen
+        language ('-Lzh_tw') and a chosen time zone ('-Zasia_taipei'); empty for the defaults. A value fixed by a CLI
+        flag stays out of the key: it cannot change while the service runs, and a restart redraws everything anyway."""
+        lang = "auto" if self.lang_locked else self.lang_setting
+        tz = "auto" if self.tz_locked else self.tz_setting
+        return (usage_offset.suffix(self.display_offset) + ("" if lang == "auto" else "-L" + _slug(lang))
+                + ("" if tz == "auto" else "-Z" + _slug(tz)))
 
     def show(self, pct):
         """Weekly % as shown: raw + display offset (never below 0)."""
@@ -303,14 +324,71 @@ class Ctx:
         return dt.astimezone(self.tz)
 
 
+PAGE_LANGS = ("auto", "zh-TW", "zh-CN", "en", "ja", "ko", "numeric")
+LANG_NAMES = {"zh-TW": "繁體中文", "zh-CN": "简体中文", "en": "English", "ja": "日本語", "ko": "한국어", "numeric": "純數字 123"}
+PAGE_ZONES = ("Asia/Taipei", "Asia/Shanghai", "Asia/Hong_Kong", "Asia/Tokyo", "Asia/Seoul", "Asia/Singapore",
+              "Asia/Bangkok", "Asia/Kolkata", "Asia/Dubai", "Australia/Sydney", "Pacific/Auckland", "Europe/London",
+              "Europe/Paris", "Europe/Berlin", "Europe/Moscow", "America/Sao_Paulo", "America/New_York", "America/Chicago",
+              "America/Denver", "America/Los_Angeles", "Pacific/Honolulu", "UTC")
+PICK_STR = {  # labels of the language / time zone menus and their "auto" option, in every page language
+    "zh-TW": {"lang": "語言", "tz": "時區", "auto": "自動（跟系統）", "locked": "已由啟動參數指定"},
+    "zh-CN": {"lang": "语言", "tz": "时区", "auto": "自动（跟随系统）", "locked": "已由启动参数指定"},
+    "en": {"lang": "Language", "tz": "Time zone", "auto": "Auto (system)", "locked": "Set by a command-line flag"},
+    "ja": {"lang": "言語", "tz": "タイムゾーン", "auto": "自動（システム）", "locked": "起動オプションで指定済み"},
+    "ko": {"lang": "언어", "tz": "시간대", "auto": "자동(시스템)", "locked": "실행 옵션으로 지정됨"},
+    "numeric": {"lang": "Aa", "tz": "◷", "auto": "auto", "locked": "CLI"},
+}
+
+
+def _slug(v):
+    return "".join(c if c.isalnum() else "_" for c in str(v)).lower()
+
+
+def page_lang(v):
+    """A language setting as stored ('auto', 'zh-TW', ..., 'numeric'); anything else counts as 'auto'."""
+    v = str(v or "auto").strip()
+    for k in PAGE_LANGS:
+        if v.lower() == k.lower():
+            return k
+    return "auto" if v.lower() in ("", "local", "system") else v  # e.g. 'zh' from an old config: resolved later
+
+
+def valid_zone(v):
+    """True for an IANA zone name zoneinfo knows (or UTC)."""
+    if not isinstance(v, str) or not v or len(v) > 64 or v.startswith(("/", ".")) or ".." in v or "\\" in v:
+        return False
+    try:
+        from zoneinfo import ZoneInfo
+        ZoneInfo(v)
+        return True
+    except Exception:
+        return False
+
+
+def page_tz(v):
+    """A time zone setting as stored: 'auto' (machine local) or a zone name."""
+    v = str(v or "auto").strip()
+    return "auto" if v.lower() in ("", "auto", "local", "system") else v
+
+
+def tz_option_label(zone, now=None):
+    """'Asia/Taipei (UTC+8)': the zone with its current UTC offset."""
+    from zoneinfo import ZoneInfo
+    dt = (now or datetime.now(timezone.utc)).astimezone(ZoneInfo(zone) if zone != "local" else None)
+    off = dt.utcoffset() or timedelta(0)
+    m = int(off.total_seconds() // 60); sgn = "+" if m >= 0 else "-"; m = abs(m)
+    return f"UTC{sgn}{m // 60}" + (f":{m % 60:02d}" if m % 60 else "")
+
+
+_KEY_SFX = __import__("re").compile(r"(-o[+-][12])?(-L[a-z0-9_]+)?(-Z[a-z0-9_]+)?$")
+
+
 def strip_offset(k):
-    """'gold-sky-pat-o+1' -> 'gold-sky-pat' (image folder key without its display-offset part)."""
+    """'gold-sky-pat-o+1-Lja-Zasia_tokyo' -> 'gold-sky-pat' (image folder key without the page-settings part:
+    display offset, language, time zone)."""
     k = str(k or "")
-    for o in (-2, -1, 1, 2):
-        sfx = usage_offset.suffix(o)
-        if k.endswith(sfx):
-            return k[: -len(sfx)]
-    return k
+    m = _KEY_SFX.search(k)
+    return k[: m.start()] if m else k
 
 
 def is_dir_key(k):
@@ -399,14 +477,14 @@ def reset_ref(ctx):
     if anchor:
         try:
             dt = datetime.fromisoformat(str(anchor))
-            return dt if dt.tzinfo else dt.replace(tzinfo=ctx.tz)
+            return dt if dt.tzinfo else dt.replace(tzinfo=ctx.data_tz)
         except ValueError:
             try:
                 wd, hm = str(anchor).split()
                 days = [d.lower() for d in calendar.day_abbr]
                 idx = next(i for i, d in enumerate(days) if wd.lower().startswith(d))
                 h, m = map(int, hm.split(":"))
-                base = datetime(2026, 1, 5, h, m, tzinfo=ctx.tz)  # a Monday
+                base = datetime(2026, 1, 5, h, m, tzinfo=ctx.data_tz)  # a Monday
                 return base + timedelta(days=idx)
             except Exception:
                 pass
@@ -1148,6 +1226,15 @@ if(!served){s.disabled=true;return;}
 s.onchange=function(){var v=parseInt(s.value,10);s.disabled=true;try{localStorage.setItem(K,String(v));}catch(e){}
 fetch('/api/display-offset',{method:'POST',headers:{'X-Usage-Token':T,'Content-Type':'application/json'},body:JSON.stringify({offset:v})})
 .then(function(r){return r.json();}).then(function(j){if(j&&j.ok)location.reload();else s.disabled=false;}).catch(function(){s.disabled=false;});};})();"""
+# Language / time zone menus: same as the offset menu (browser: usage.lang / usage.tz; server: POST /api/lang,
+# /api/tz, saved as "lang" / "tz" in usage_config.json or page_settings.json); the page reloads redrawn.
+PICK_JS = r"""(function(){var T=(document.querySelector('meta[name="usage-token"]')||{}).content||'',served=/^https?:$/.test(location.protocol);
+[].forEach.call(document.querySelectorAll('select[data-api]'),function(s){var K=s.dataset.k,F=s.dataset.f;
+try{localStorage.setItem(K,s.value);}catch(e){}
+if(!served||s.dataset.locked){s.disabled=true;return;}
+s.onchange=function(){var v=s.value,b={};b[F]=v;s.disabled=true;try{localStorage.setItem(K,v);}catch(e){}
+fetch(s.dataset.api,{method:'POST',headers:{'X-Usage-Token':T,'Content-Type':'application/json'},body:JSON.stringify(b)})
+.then(function(r){return r.json();}).then(function(j){if(j&&j.ok)location.reload();else s.disabled=false;}).catch(function(){s.disabled=false;});};});})();"""
 PALETTE_JS = r"""(function(){var $=function(i){return document.getElementById(i);},P=JSON.parse($('paldata').textContent),KEY='usage.palette',PKEY='usage.patterns',pchk=$('patchk'),CK={r:'usage.clockRange',l:'usage.clockLayout',f:'usage.clockFill'},D={r:'wk',l:'ov',f:'t'},
 served=/^https?:$/.test(location.protocol),btn=$('palbtn'),msg=$('palmsg'),V=P.light?'light':'dark',cur=P.base,pat=!!P.pat,CR={r:'wk',l:'ov',f:'t'},seq=0,
 TKN=(document.querySelector('meta[name="usage-token"]')||{}).content||'',clk=$('clkimg'),
@@ -1375,7 +1462,7 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
     # palette switcher: config default, overridden per browser (localStorage 'usage.palette')
     fixed = {k: bool(v) for k, v in _theme_explicit(ctx.theme_path).items()}
     plang = "numeric" if ctx.privacy else ("zh-TW" if ctx.lang == "zh-TW" else ("zh-CN" if ctx.lang.startswith("zh") else "en"))
-    paldata = json.dumps({"default": ctx.pal_key, "base": ctx.palette, "pat": ctx.patterns, "osfx": usage_offset.suffix(ctx.display_offset), "light": T["is_light"],
+    paldata = json.dumps({"default": ctx.pal_key, "base": ctx.palette, "pat": ctx.patterns, "osfx": ctx.key_suffix, "light": T["is_light"],
                           "table": usage_palette.js_table(), "alias": {"colorblind": "orange-deepblue"}, "fixed": fixed,
                           "bg": bg, "accent": ac, "under": T["under_color"], "gen": gen, "pf": bool(_theme_file(ctx.theme_path).get("patterns")), "s": PAL_STR[plang]},
                          ensure_ascii=False).replace("<", "\\u003c")
@@ -1395,8 +1482,19 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
     off_label = {"numeric": "±", "zh-TW": "顯示校正", "zh-CN": "显示校正"}.get(plang, "Display offset")
     off_opts = "".join(f"<option value='{o}'{' selected' if o == ctx.display_offset else ''}>{html.escape(usage_offset.option_text(o, plang))}</option>"
                        for o in range(usage_offset.MIN, usage_offset.MAX + 1))
+    PK = PICK_STR["numeric" if ctx.privacy else (ctx.lang if ctx.lang in PICK_STR else plang)]
+    lang_opts = "".join(f"<option value='{k}'{' selected' if k == ctx.lang_setting else ''}>{html.escape(PK['auto'] if k == 'auto' else LANG_NAMES[k])}</option>"
+                        for k in PAGE_LANGS)
+    zones = list(PAGE_ZONES) + ([ctx.tz_setting] if ctx.tz_setting not in PAGE_ZONES + ("auto",) else [])
+    tz_opts = (f"<option value='auto'{' selected' if ctx.tz_setting == 'auto' else ''}>{html.escape(PK['auto'])} ({tz_option_label('local')})</option>"
+               + "".join(f"<option value='{html.escape(z)}'{' selected' if z == ctx.tz_setting else ''}>{html.escape(z)} ({tz_option_label(z) if valid_zone(z) else '?'})</option>"
+                         for z in zones))
+    lock_attr = lambda on: f" data-locked='1' title='{html.escape(PK['locked'])}'" if on else ""
+    pick_html = (f"<label class=\"pal\" id=\"langl\">{html.escape(PK['lang'])} <select id=\"langsel\" class=\"offsel\" data-api=\"/api/lang\" data-k=\"usage.lang\" data-f=\"lang\"{lock_attr(ctx.lang_locked)}>{lang_opts}</select></label>"
+                 f"<label class=\"pal\" id=\"tzl\">{html.escape(PK['tz'])} <select id=\"tzsel\" class=\"offsel\" data-api=\"/api/tz\" data-k=\"usage.tz\" data-f=\"tz\"{lock_attr(ctx.tz_locked)}>{tz_opts}</select></label>"
+                 f"<script>{PICK_JS}</script>")
     onac, hl = _on_colour(ac), _blend(bg, tx, 0.14)
-    doc = f"""<!doctype html><html lang="{'zh-Hant' if ctx.lang == 'zh-TW' else 'en'}" data-patterns="{'1' if T.get('patterns') else ''}"><head><meta charset="utf-8"><title>{html.escape(title or '↻')}</title>
+    doc = f"""<!doctype html><html lang="{ {'zh-TW': 'zh-Hant', 'zh-CN': 'zh-Hans', 'ja': 'ja', 'ko': 'ko'}.get(ctx.lang, 'en') }" data-patterns="{'1' if T.get('patterns') else ''}"><head><meta charset="utf-8"><title>{html.escape(title or '↻')}</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"><style>
 body{{margin:0;background:{bg};color:{tx};font-family:"Noto Sans CJK TC","Noto Sans TC","PingFang TC","Microsoft JhengHei","Segoe UI",sans-serif}}
 .wrap{{max-width:1060px;margin:0 auto;padding:20px}} .top{{color:var(--accent);font-size:12px;font-weight:700;letter-spacing:1px}} h1{{margin:4px 0 8px;font-size:26px}}
@@ -1441,7 +1539,7 @@ html[data-patterns="1"] .badge:not(.note)::before{{content:"▲ "}} .pal{{color:
 <span class="pal psel" id="psel"><span id="pall">{html.escape(pal_label)}</span><button type="button" class="pbtn" id="palbtn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="pall palcur"><span id="palcur">{palcur}</span></button>
 <ul class="plist" id="pallist" role="listbox" tabindex="-1" aria-labelledby="pall" hidden>{''.join(palrows)}{f"<li role='none' class='pnote' id='palnote'>{html.escape(star_note)}</li>" if star_note else ""}</ul><span id="palmsg" role="status"></span></span>
 <label class="pal ptog" id="patl"><input type="checkbox" id="patchk"{" checked" if ctx.patterns else ""}> {html.escape(pat_label)}</label>
-<label class="pal" id="offl">{html.escape(off_label)} <select id="offsel" class="offsel">{off_opts}</select></label><script>{OFFSET_JS}</script>
+<label class="pal" id="offl">{html.escape(off_label)} <select id="offsel" class="offsel">{off_opts}</select></label><script>{OFFSET_JS}</script>{pick_html}
 <button class="btn" id="manualbtn" hidden>{html.escape(MS['btn'])}</button><button class="btn" id="notifybtn" hidden>{html.escape(LS['notify'])}</button><button class="btn primary" id="refresh" hidden>{html.escape(L['refresh'])}</button><span id="rmsg" role="status" aria-live="polite"></span>
 <button class="btn" id="updbtn" hidden>{html.escape(US['btn'])}</button><label class="pal" id="updautol" hidden><input type="checkbox" id="updauto"> {html.escape(US['auto'])}</label></div></div>
 <div id="urow" class="urow" hidden><span id="umsg"></span><button class="btn updgo" id="updgo" hidden>{html.escape(US['go'])}</button></div>
@@ -1507,11 +1605,11 @@ def _period_start(ctx, ts, reset_at=None):
     ref = reset_at or reset_ref(ctx)
     if ref is not None:
         if ref.tzinfo is None:
-            ref = ref.replace(tzinfo=ctx.tz)
+            ref = ref.replace(tzinfo=ctx.data_tz)
         return ref + ((ts - ref) // pd) * pd
     for f in sorted(ctx.data_dir.glob("week-*.csv"), reverse=True):
         try:
-            d0 = datetime.strptime(f.stem[5:], "%Y-%m-%d").replace(tzinfo=ctx.tz)
+            d0 = datetime.strptime(f.stem[5:], "%Y-%m-%d").replace(tzinfo=ctx.data_tz)
         except ValueError:
             continue
         if d0 <= ts < d0 + pd:
@@ -1526,14 +1624,14 @@ def upsert_week_row(ctx, ts, pct, reset_at=None):
     Call with usage_lock.write_lock held."""
     ws = _period_start(ctx, ts, reset_at)
     day = max(1, min(ctx.period_days, int((ts - ws).total_seconds() // 86400) + 1))
-    path = ctx.data_dir / f"week-{ws.astimezone(ctx.tz):%Y-%m-%d}.csv"
+    path = ctx.data_dir / f"week-{ws.astimezone(ctx.data_tz):%Y-%m-%d}.csv"
     rows = []
     if path.exists():
         with path.open(encoding="utf-8", newline="") as fp:
             rows = [r for r in csv.DictReader(fp) if r.get("day")]
     v = float(pct)
-    new = {"day": str(day), "date": f"{ts.astimezone(ctx.tz):%Y-%m-%d}", "pct": str(int(v)) if v.is_integer() else f"{v:g}",
-           "note": f"{ts.astimezone(ctx.tz):%H:%M}"}
+    new = {"day": str(day), "date": f"{ts.astimezone(ctx.data_tz):%Y-%m-%d}", "pct": str(int(v)) if v.is_integer() else f"{v:g}",
+           "note": f"{ts.astimezone(ctx.data_tz):%H:%M}"}
     rows = sorted([r for r in rows if int(r["day"]) != day] + [new], key=lambda r: int(r["day"]))
     tmp = path.with_suffix(".csv.tmp")
     tmp.write_text("day,date,pct,note\n" + "".join(f"{r['day']},{r['date']},{r['pct']},{r['note']}\n" for r in rows),
@@ -1806,7 +1904,26 @@ def serve(ctx, allow_remote=False):
         return 200, {"ok": True, "checkin": r}
 
     WRITE_PATHS = ("/api/checkin", "/api/refresh", "/api/manual", "/api/update/check", "/api/update/apply", "/api/update/settings",
-                   "/api/palette/render", "/api/patterns", "/api/display-offset")
+                   "/api/palette/render", "/api/patterns", "/api/display-offset", "/api/lang", "/api/tz")
+
+    def pick_setting(key, d):
+        """POST /api/lang {"lang": "auto"|"zh-TW"|"zh-CN"|"en"|"ja"|"ko"|"numeric"} or /api/tz {"tz": "auto"|<IANA zone>}:
+        saved as "lang" / "tz" in usage_config.json (or <data_dir>/page_settings.json); charts and page are redrawn
+        before this returns. A --lang / --tz flag given at start still wins ("locked": true)."""
+        v = d.get(key)
+        if key == "lang" and v not in PAGE_LANGS:
+            return 400, {"ok": False, "error": "unknown language"}
+        if key == "tz" and not (v == "auto" or (v in PAGE_ZONES or valid_zone(v))):
+            return 400, {"ok": False, "error": "unknown time zone"}
+        try:
+            with usage_lock.write_lock(ctx.data_dir):
+                save_page_setting(ctx.cfg_path, ctx.data_dir, key, v)
+            with draw_lock:
+                ctx.reload()
+        except Exception as exc:
+            return 500, {"ok": False, "error": "write failed" if ctx.privacy else f"could not save the setting: {exc}"}
+        regen()
+        return 200, {"ok": True, key: v, "locked": ctx.lang_locked if key == "lang" else ctx.tz_locked}
 
     def offset_setting(d):
         """POST /api/display-offset {"offset": -2..2}: saved as "display_offset" in usage_config.json (or
@@ -2047,6 +2164,15 @@ def serve(ctx, allow_remote=False):
                 if not isinstance(d, dict):
                     return self._send(400, {"ok": False, "error": "bad json"})
                 return self._send(*palette_render(d))
+            if u.path in ("/api/lang", "/api/tz"):
+                try:
+                    n = int(self.headers.get("Content-Length") or 0); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
+                    d = json.loads(raw or "{}")
+                except Exception:
+                    return self._send(400, {"ok": False, "error": "bad json"})
+                if not isinstance(d, dict):
+                    return self._send(400, {"ok": False, "error": "bad json"})
+                return self._send(*pick_setting(u.path[5:], d))
             if u.path == "/api/display-offset":
                 try:
                     n = int(self.headers.get("Content-Length") or 0); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
