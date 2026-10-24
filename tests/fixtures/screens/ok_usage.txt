@@ -1,0 +1,6 @@
+ Usage limit   Context usage   Session info
+
+  Weekly limit   ████████████░░░░░░░░░░░░░░░░   42%
+  Resets: October 31, 09:00
+
+  Esc to close
