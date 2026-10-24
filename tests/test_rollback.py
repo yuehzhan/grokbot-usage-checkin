@@ -40,15 +40,16 @@ class VersionNotesTests(unittest.TestCase):
         v = read_text(os.path.join(ROOT, "VERSION")).strip()
         self.assertIsNotNone(self_update.parse_version(v))
         self.assertEqual(usage_history.APP_VERSION, v)
-        for name in ("CHANGELOG.md", "CHANGELOG.zh-TW.md"):
-            entries = self_update.parse_changelog(read_text(os.path.join(ROOT, name)))
-            self.assertEqual(entries[0][0], self_update.parse_version(v), name)  # newest first, matches VERSION
-            self.assertEqual([e[0] for e in entries], sorted([e[0] for e in entries], reverse=True))
-        prev = ".".join(map(str, self_update.parse_changelog(read_text(os.path.join(ROOT, "CHANGELOG.md")))[1][0]))
-        for name, cjk, head in (("CHANGELOG.md", False, f"v{v} ("), ("CHANGELOG.zh-TW.md", True, f"v{v}（")):
-            t = self_update.notes_between(read_text(os.path.join(ROOT, name)), prev, cjk=cjk)  # what an update shows
-            self.assertTrue(t.startswith(head), (name, t[:40]))
-            self.assertEqual(t.count("\nv"), 0, name)  # only the newest entry
+        entries = self_update.parse_changelog(read_text(os.path.join(ROOT, "CHANGELOG.md")))  # the English one is maintained
+        self.assertEqual(entries[0][0], self_update.parse_version(v))  # newest first, matches VERSION
+        self.assertEqual([e[0] for e in entries], sorted([e[0] for e in entries], reverse=True))
+        prev = ".".join(map(str, entries[1][0]))
+        t = self_update.notes_between(read_text(os.path.join(ROOT, "CHANGELOG.md")), prev)  # what an update shows
+        self.assertTrue(t.startswith(f"v{v} ("), t[:40])
+        self.assertEqual(t.count("\nv"), 0)  # only the newest entry
+        self.assertEqual(self_update.CHANGELOG, "CHANGELOG.md")
+        zh = read_text(os.path.join(ROOT, "CHANGELOG.zh-TW.md"))  # kept for now, with a note pointing to CHANGELOG.md
+        self.assertTrue(zh.startswith("> ") and "CHANGELOG.md" in zh.splitlines()[0] and "英文" in zh.splitlines()[0])
 
     def test_notes_between(self):
         t = self_update.notes_between(LOG, "1.1.0")
@@ -75,10 +76,9 @@ class VersionNotesTests(unittest.TestCase):
                              "・斜體 與 粗體\n\nFixed：\n・a and b")
         en = self_update.notes_between(md, "1.2.0")
         self.assertTrue(en.startswith("v1.3.0 (2026-12-01)\n\n新增:"), en)
-        for name, cjk in (("CHANGELOG.md", False), ("CHANGELOG.zh-TW.md", True)):  # the real files come out clean
-            t = self_update.notes_between(read_text(os.path.join(ROOT, name)), "1.0.0", cjk=cjk)
-            self.assertNotRegex(t, r"(?m)^#|^\s*- |`|\]\(|\*\*", name)
-            self.assertIn("・", t)
+        t = self_update.notes_between(read_text(os.path.join(ROOT, "CHANGELOG.md")), "1.0.0")  # the real file comes out clean
+        self.assertNotRegex(t, r"(?m)^#|^\s*- |`|\]\(|\*\*")
+        self.assertIn("・", t)
 
     def test_page_renders_notes_as_text(self):
         js = usage_history.UPDATE_JS
@@ -132,14 +132,18 @@ class RollbackTests(unittest.TestCase):
             self.assertTrue(self_update.run(self.app, self.data, delay=0, runner=self.runner(calls)))
         return calls
 
-    def test_changelog_since_uses_fetched_ref_and_language(self):
+    def test_changelog_since_uses_fetched_ref_english_only(self):
         self_update.check(self.app)  # git fetch: the notes come from origin/main, no other request
         en = self_update.changelog_since(self.app, "en")
         self.assertIn("Second feature", en)
         self.assertNotIn("First fix", en)
-        self.assertEqual(self_update.changelog_since(self.app, "zh-TW"), "v1.2.0（2026-11-02）\n\n・第二個功能")
-        self.assertIn("第二個功能", self_update.changelog_since(self.app, "zh-CN"))
-        self.assertIn("Second feature", self_update.changelog_since(self.app, "ja"))  # no ja file: English
+        for lang in ("zh-TW", "zh-CN", "ja", "ko", "numeric"):  # English notes in every page language
+            self.assertEqual(self_update.changelog_since(self.app, lang), en, lang)
+        self.assertNotIn("第二個功能", en)  # CHANGELOG.zh-TW.md on origin/main is ignored
+        self.assertEqual(self_update.changelog_since(self.app), en)
+        src = read_text(os.path.join(ROOT, "usage_history.py"))  # the page asks for the notes without its language
+        self.assertIn("self_update.changelog_since(HERE)", src)
+        self.assertNotIn("changelog_since(HERE, ctx.lang)", src)
         self.assertEqual(self_update.read_version(self.app), "1.1.0")
         self.assertEqual(self_update.read_version(self.app, "origin/main"), "1.2.0")
 
