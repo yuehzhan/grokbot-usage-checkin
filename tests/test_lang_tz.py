@@ -40,7 +40,7 @@ class ValueTests(unittest.TestCase):
         self.assertEqual((uh.page_lang(None), uh.page_lang(""), uh.page_lang("JA")), ("auto", "auto", "ja"))
         self.assertEqual(set(uh.LANG_NAMES), set(uh.PAGE_LANGS) - {"auto"})
         for lang in ("zh-TW", "zh-CN", "en", "ja", "ko", "numeric"):
-            self.assertEqual(set(uh.PICK_STR[lang]), {"lang", "tz", "auto", "locked"}, lang)
+            self.assertEqual(set(uh.PICK_STR[lang]), {"lang", "tz", "auto", "locked", "anim", "off", "once", "continuous", "applying"}, lang)
 
     def test_zone_values(self):
         for z in uh.PAGE_ZONES:
@@ -147,34 +147,50 @@ class CtxTests(unittest.TestCase):
 
 class ArrowTests(unittest.TestCase):
     def test_avg_and_projection_always_have_arrows(self):
+        """The ▲/▼ of the daily-average and projection cards lives in a small tag beside the number."""
         seen = []
         import matplotlib.axes
         real = matplotlib.axes.Axes.text
 
         def spy(self, x, y, s, *a, **k):
-            seen.append(str(s))
+            seen.append((str(s), k.get("gid")))
             return real(self, x, y, s, *a, **k)
         d = scratch()
         try:
-            for i, (pat, pct) in enumerate(((False, "5"), (False, "60"), (True, "5"))):
+            for i, (pat, pct) in enumerate(((False, "5"), (False, "60"), (True, "5"), (False, "20"))):
                 seen.clear()
                 rows = [dict(r) for r in ROWS]
                 rows[1]["pct"] = pct
                 with mock.patch.object(matplotlib.axes.Axes, "text", spy):
                     chart_hud.render(rows, os.path.join(d, f"{i}.png"), "2026-01-01", {"lang": "en", "patterns": pat})
-                avg = [s for s in seen if s.endswith("%") and s[:2] in ("▲ ", "▼ ") and "." in s]
-                self.assertTrue(avg, (pat, seen))
-                want = "▲ " if float(pct) > 2 * 14 else "▼ "
-                arrows = [s for s in seen if s[:2] in ("▲ ", "▼ ") and s.rstrip("%").split()[-1].replace(".", "").isdigit()]
-                self.assertGreaterEqual(len(arrows), 2, (pat, arrows))
-                self.assertTrue(all(s.startswith(want) for s in arrows[:2]), (pat, pct, arrows))
+                tags = {g: t for t, g in seen if g in ("stat_tag_2", "stat_tag_3")}
+                vals = {g: t for t, g in seen if g in ("stat_val_2", "stat_val_3")}
+                self.assertEqual(len(tags), 2, (pat, seen))
+                avg = float(pct) / 2
+                self.assertEqual(tags["stat_tag_2"], "[▲ faster]" if avg > 14 else "[▼ slower]")
+                proj = avg * 7
+                want = "[▲ running out]" if proj > 100 else ("[▲ over]" if proj > 98 else "[▼ within]")
+                self.assertEqual(tags["stat_tag_3"], want, (pct, tags))
+                for v in vals.values():  # the numbers themselves carry no arrow
+                    self.assertFalse(v.startswith(("▲", "▼")), v)
         finally:
             shutil.rmtree(d)
 
+    def test_tag_texts(self):
+        self.assertEqual(chart_hud.stat_tag("▼未超標"), "［▼未超標］")
+        self.assertEqual(chart_hud.stat_tag("▲ over"), "[▲ over]")
+        zh = chart_hud.TRANSLATIONS["zh-TW"]
+        self.assertEqual((zh["tag_proj_over"], zh["tag_proj_under"], zh["tag_avg_over"], zh["tag_avg_under"], zh["tag_exhaust"]),
+                         ("▲超標", "▼未超標", "▲快於基準", "▼慢於基準", "▲即將用罄"))
+        for lang in ("zh-CN", "ja", "ko", "numeric"):
+            for k in ("tag_proj_over", "tag_proj_under", "tag_avg_over", "tag_avg_under", "tag_exhaust"):
+                self.assertIn(k, chart_hud.TRANSLATIONS[lang], (lang, k))
+        self.assertEqual(chart_hud.TRANSLATIONS["numeric"]["tag_avg_over"], "▲")
+
     def test_source_has_no_pattern_condition(self):
         src = (Path(chart_hud.__file__)).read_text(encoding="utf-8")
-        self.assertIn('("▲ " if avg_day > pace else "▼ ") + f"{avg_day:.1f}%"', src)
-        self.assertIn('("▲ " if proj_over else "▼ ") + f"{proj_7d:.0f}%"', src)
+        self.assertIn('L["tag_avg_over" if avg_day > pace else "tag_avg_under"]', src)
+        self.assertIn('L["tag_proj_over" if proj_over else "tag_proj_under"]', src)
 
 
 class GaugeLegendTests(unittest.TestCase):
