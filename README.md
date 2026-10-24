@@ -32,6 +32,8 @@ Grok Build must be installed and signed in once on that computer (see *Recommend
 Needs Windows 10 (1809+) or 11 and [Python 3.10+](https://www.python.org/downloads/windows/) (tick "Add python.exe
 to PATH"). No administrator rights. Everything stays on your PC; the page listens on `127.0.0.1` only.
 
+> **Opening PowerShell:** press the Windows key, type `powershell`, press Enter. To open it in a specific folder, hold **Shift** and right-click an empty spot in that folder, then choose "Open PowerShell window here" (a plain right-click doesn't show it).
+
 1. Install Python and Git if you don't have them (skip what you already have), then close and reopen PowerShell:
    ```powershell
    winget install -e --id Python.Python.3.12

@@ -25,6 +25,8 @@ python3 service.py start        # 背景啟動網頁與每小時取樣；停止�
 需要 Windows 10（1809 以上）或 11，以及 [Python 3.10 以上](https://www.python.org/downloads/windows/)
 （安裝時勾選「Add python.exe to PATH」）。不需要系統管理員權限。
 
+> **怎麼開 PowerShell：**按鍵盤上的 Windows 鍵，輸入 `powershell` 再按 Enter。想在某個資料夾裡開，就在那個資料夾的空白處**按住 Shift 再按右鍵**，選「在這裡開啟 PowerShell 視窗」（只按右鍵不會出現這個選項）。
+
 1. 還沒裝 Python 和 Git 的話先安裝（已有的跳過），裝完關掉 PowerShell 再重開：
    ```powershell
    winget install -e --id Python.Python.3.12

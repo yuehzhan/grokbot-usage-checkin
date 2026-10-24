@@ -1127,8 +1127,7 @@ def serve(ctx, allow_remote=False):
                 fn(ctx)
             except Exception as exc:
                 print(f"Warning: {exc}", file=sys.stderr)
-    if not (ctx.hist_dir / "index.html").exists():
-        regen()
+    regen()  # always rebuild on start, so an updated version's page shows right away
 
     def last_update():
         p = ctx.hist_dir / "index.html"
