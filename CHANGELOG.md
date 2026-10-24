@@ -4,7 +4,19 @@ All notable changes to this project are listed here, newest first. The format fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [Semantic Versioning](https://semver.org/):
 MAJOR for changes that need you to do something, MINOR for new features, PATCH for fixes only.
 The current version is in the `VERSION` file and shown small at the top of the page.
-A Traditional Chinese version is in [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md).
+The changelog is kept in English only; [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md) is no longer updated.
+
+## [1.2.1] - 2026-10-25
+
+### Added
+- A small easter egg: hover the version tag next to the title.
+
+### Changed
+- Update notes ("What's new") are always shown in English from CHANGELOG.md, whatever the page language; the panel
+  heading is still translated. The changelog is maintained in English only; CHANGELOG.zh-TW.md is no longer updated.
+
+### Removed
+- The translucent glow block on the ring's leading edge in Continuous animation mode; the edge keeps its small jitter.
 
 ## [1.2.0] - 2026-10-25
 
@@ -72,6 +84,7 @@ First tagged state (everything before version numbers were added): usage history
 check-ins, palettes (including colour-blind-safe ones and patterns), language and time zone menus, display offset,
 desktop notifications, check for updates and one-click update, Windows and Linux service scripts.
 
+[1.2.1]: https://github.com/yuehzhan/grokbot-usage-checkin/blob/main/CHANGELOG.md#121---2026-10-25
 [1.2.0]: https://github.com/yuehzhan/grokbot-usage-checkin/blob/main/CHANGELOG.md#120---2026-10-25
 [1.1.0]: https://github.com/yuehzhan/grokbot-usage-checkin/blob/main/CHANGELOG.md#110---2026-10-25
 [1.0.0]: https://github.com/yuehzhan/grokbot-usage-checkin/blob/main/CHANGELOG.md#100---2026-10-24

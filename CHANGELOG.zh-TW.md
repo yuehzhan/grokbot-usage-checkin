@@ -1,3 +1,5 @@
+> 更新紀錄從此只用英文維護，請看 [CHANGELOG.md](CHANGELOG.md)；這份中文版不再更新。
+
 # 更新紀錄
 
 每個版本改了什麼都記在這裡，最新的在最上面（英文版：[CHANGELOG.md](CHANGELOG.md)）。

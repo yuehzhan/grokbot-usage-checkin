@@ -86,10 +86,10 @@ to PATH"). No administrator rights. Everything stays on your PC; the page listen
    powershell -ExecutionPolicy Bypass -File .\start.ps1
    ```
    On Linux the page buttons work the same way. By hand: `python3 service.py stop && git pull && python3 -m pip install -r requirements.txt && python3 service.py start`.
-   - **What changed:** every release is listed in [CHANGELOG.md](CHANGELOG.md) (zh-TW: [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md)).
+   - **What changed:** every release is listed in [CHANGELOG.md](CHANGELOG.md), maintained in English only (the old CHANGELOG.zh-TW.md is no longer updated).
      When the page finds a newer version it shows the new entries (*What's new*) before you press **Update**. They come
      from the CHANGELOG that the update check's `git fetch` already downloaded (no extra connection), shown as plain
-     text, and nothing is shown or fetched when the update check is off and you do not press the button. The current
+     English text in every page language, and nothing is shown or fetched when the update check is off and you do not press the button. The current
      version (`VERSION`) is shown small at the top of the page.
    - **Roll back:** right before an update the page saves the current commit and version in
      `usage-data\update_prev.json` (local, not in git). After the update a **Roll back to previous version** button
@@ -285,7 +285,7 @@ they are ready.
 `"off"` | `"once"` | `"continuous"`, flag `--anim`, browser key `usage.anim`, endpoint `POST /api/anim` with the same
 token and Host/Origin checks as `/api/lang`). On page open, refresh and display-offset change the ring sweeps from 0 to
 the value with a small overshoot and settles (about 1 s) while the big % counts up and the progress bar fills in step.
-Continuous then keeps a tiny idle jitter on the ring's leading edge plus a slow breathing glow; the numbers never move.
+Continuous then keeps a tiny idle jitter on the ring's leading edge; the numbers never move.
 It is an HTML/SVG/CSS overlay on the served page (geometry from `history/week-current.json`), CSS transforms and
 opacity only, paused while the tab is hidden; the PNG itself is unchanged, so static exports stay still. With the
 system setting **reduce motion** (`prefers-reduced-motion`) there is no sweep and no jitter: Once behaves as Off, and an

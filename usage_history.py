@@ -1371,9 +1371,9 @@ fetch(s.dataset.api,{method:'POST',headers:{'X-Usage-Token':T,'Content-Type':'ap
 # Gauge "rev up" overlay (served page only; the PNG is the static export): an SVG laid over the hero gauge of
 # week-current.png using the geometry chart_hud writes to week-current.json. Once: on open / refresh / offset change
 # the ring sweeps 0 -> value with a small overshoot (~1 s) while the big % counts up and the progress bar fills, then
-# the overlay fades away. Continuous: after the sweep the ring's leading edge idles (tiny CSS-transform jitter) with a
-# breathing glow; the numbers never move, and the CSS animations pause while the tab is hidden. prefers-reduced-motion:
-# no sweep and no jitter; an explicit Continuous keeps only a static glow on the leading edge.
+# the overlay fades away. Continuous: after the sweep the ring's leading edge idles (tiny CSS-transform jitter, no
+# translucent glow block); the numbers never move, and the CSS animations pause while the tab is hidden. prefers-reduced-motion:
+# no sweep and no jitter; an explicit Continuous keeps the leading edge still.
 GAUGE_JS = r"""(function(){var $=function(i){return document.getElementById(i);},G={};try{G=JSON.parse($('gaugedata').textContent)||{};}catch(e){}
 var NS='http://www.w3.org/2000/svg',served=/^https?:$/.test(location.protocol),K='usage.anim',M=G.meta,mode=G.mode||'once',
 mq=window.matchMedia?matchMedia('(prefers-reduced-motion: reduce)'):null,RM=!!(mq&&mq.matches),
@@ -1404,7 +1404,6 @@ mk('rect',{x:B.x,y:B.y,width:B.w,height:B.h,fill:M.col.border},E.cover);
 E.proj=mk('rect',{x:B.x,y:B.y,width:0,height:B.h,opacity:.30},E.cover);E.used=mk('rect',{x:B.x,y:B.y,width:0,height:B.h,opacity:.95},E.cover);
 var bx=B.x+B.w*B.base_r;mk('line',{x1:bx,y1:B.y-5.2,x2:bx,y2:B.y+B.h+5.2,stroke:M.col.base,'stroke-width':4.6},E.cover);
 E.idle=mk('g',{class:'gidle'},svg);E.jit=mk('g',{class:'gjit'},E.idle);
-E.tipglow=mk('path',{fill:'none','stroke-width':0.40*u,'stroke-linecap':'round',class:'gbreath'},E.idle);
 E.tip=mk('path',{fill:'none','stroke-width':0.22*u},E.jit);
 document.addEventListener('visibilitychange',function(){svg.classList.toggle('paused',document.hidden);});
 return true;}
@@ -1416,8 +1415,7 @@ E.used.setAttribute('fill',c);E.used.setAttribute('width',M.bar.w*r);
 var pr=Math.max(r,Math.min(1,M.bar.proj_r*(M.pct>0?num/M.pct:1)));E.proj.setAttribute('fill',c);E.proj.setAttribute('x',M.bar.x+M.bar.w*r);E.proj.setAttribute('width',M.bar.w*(pr-r));}
 function idle(v){var r=Math.min(1,Math.max(0,v/100)),c=col(v),R=M.ring;
 E.tip.setAttribute('d',arcd(0.89,Math.max(0,r-0.012),RM?r:r+0.006));E.tip.setAttribute('stroke',c);
-E.tipglow.setAttribute('d',arcd(0.89,Math.max(0,r-0.02),r+0.004));E.tipglow.setAttribute('stroke',c);
-E.jit.style.transformOrigin=E.tipglow.style.transformOrigin=R.cx+'px '+R.cy+'px';
+E.jit.style.transformOrigin=R.cx+'px '+R.cy+'px';
 svg.classList.toggle('still',RM);E.idle.style.display='';}
 function ease(t){var s=1.2;t-=1;return t*t*((s+1)*t+s)+1;}
 function sweep(from,to,ms,done){cancelAnimationFrame(raf);var t0=null;
@@ -1800,7 +1798,7 @@ input,select{{background:{card};color:{tx};border:1px solid var(--bd);border-rad
 .btn.primary{{background:var(--accent);color:var(--on-accent);border-color:var(--accent);padding:6px 18px}} .btn.primary:hover{{filter:brightness(1.1)}}
 .btn.updgo{{background:#A5F3FC;color:#06303A;border:2px solid #22D3EE;padding:6px 18px}} .btn.updgo:hover{{filter:brightness(1.06)}}
 .urow{{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 10px;font-size:13px}} .unotes{{flex:1 1 100%;white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;color:{dim};font-size:12.5px;line-height:1.5}}
-.top .ver{{color:{dim};font-weight:400;letter-spacing:0;margin-left:6px}} #umsg{{font-weight:700;color:{dim}}} #ckmsg,#rmsg,#mmsg{{color:var(--notice);font-weight:700}} [hidden]{{display:none!important}}
+.top .ver{{color:{dim};font-weight:400;letter-spacing:0;margin-left:6px}} .top .ver::after{{content:' · amber since 2026';color:#e8a33d;opacity:0;transition:opacity .5s;font-style:italic}} .top .ver:hover::after{{opacity:.5}} #umsg{{font-weight:700;color:{dim}}} #ckmsg,#rmsg,#mmsg{{color:var(--notice);font-weight:700}} [hidden]{{display:none!important}}
 .spin{{display:inline-block;width:12px;height:12px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px;margin-right:6px}}
 @keyframes sp{{to{{transform:rotate(360deg)}}}}
 .info{{background:{card};border:1px solid var(--bd);border-left:3px solid var(--accent);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:14px}}
@@ -2279,8 +2277,8 @@ def serve(ctx, allow_remote=False):
         r = dict(r)
         r.pop("notes", None)
         if r.get("state") in ("behind", "local_changes", "diverged") and not ctx.privacy:
-            try:  # CHANGELOG of the fetched origin/main (git show: no extra network), plain text, capped
-                r["notes"] = self_update.changelog_since(HERE, ctx.lang)
+            try:  # English CHANGELOG.md of the fetched origin/main (git show: no extra network), plain text, capped
+                r["notes"] = self_update.changelog_since(HERE)
             except Exception:
                 r["notes"] = ""
         if ctx.privacy:  # commit subjects and git messages may name services: hash and counts only

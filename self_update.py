@@ -20,8 +20,8 @@ again. It refuses when program files have local edits (they are never discarded)
 an ancestor of HEAD, or when it is not on ``main``. Untracked / ignored files (usage-data/, usage_config.json)
 are never touched.
 
-``changelog_since(repo, lang)`` reads the CHANGELOG of the version that the last check fetched
-(``git show origin/main:CHANGELOG.md``): no extra network request, only what ``git fetch`` already brought.
+``changelog_since(repo)`` reads the English CHANGELOG of the version that the last check fetched
+(``git show origin/main:CHANGELOG.md``; the notes are English in every page language): no extra network request, only what ``git fetch`` already brought.
 The *check* runs by itself about once a day unless ``"update_check": "off"`` (or the page's switch is off);
 an *update* only happens when someone presses the button.
 
@@ -249,7 +249,7 @@ def auto_due(last_checked, now=None):
 
 # ------------------------------------------------------------------ version and changelog
 VERSION_FILE = "VERSION"
-CHANGELOG = {"en": "CHANGELOG.md", "zh-TW": "CHANGELOG.zh-TW.md"}
+CHANGELOG = "CHANGELOG.md"  # update notes are English only (CHANGELOG.zh-TW.md is no longer maintained)
 NOTES_MAX_CHARS, NOTES_MAX_ENTRIES = 3000, 6
 _HEAD_RE = re.compile(r"^## \[v?(\d+(?:\.\d+){0,3})\][^\n]*$", re.M)
 _CTRL_RE = re.compile(r"[\x00-\x08\x0b-\x1f\x7f\u200b-\u200f\u202a-\u202e\u2066-\u2069]")
@@ -339,20 +339,15 @@ def notes_between(text, current, cap=NOTES_MAX_CHARS, max_entries=NOTES_MAX_ENTR
 
 
 def changelog_since(repo=HERE, lang="en", ref=f"{REMOTE}/{BRANCH}", current=None, git_bin="git"):
-    """What changed between this version and ``ref`` (normally origin/main as fetched by the last check),
-    in the page language when that CHANGELOG exists, else English. "" when there is nothing to show.
-    Reads git objects only (``git show``): no network."""
+    """What changed between this version and ``ref`` (normally origin/main as fetched by the last check), from
+    the English CHANGELOG.md whatever the page language (``lang`` is accepted and ignored; only the panel heading
+    around the notes is translated). "" when there is nothing to show. Reads git objects only (``git show``): no network."""
     current = current if current is not None else read_version(repo)
-    names = [CHANGELOG[lang]] if lang in CHANGELOG and lang != "en" else []
-    if lang == "zh-CN":
-        names.append(CHANGELOG["zh-TW"])
-    for name in names + [CHANGELOG["en"]]:
-        try:
-            text = git(repo, "show", f"{ref}:{name}", git_bin=git_bin)
-        except (OSError, GitError):
-            continue
-        return notes_between(text, current, cjk=name != CHANGELOG["en"])
-    return ""
+    try:
+        text = git(repo, "show", f"{ref}:{CHANGELOG}", git_bin=git_bin)
+    except (OSError, GitError):
+        return ""
+    return notes_between(text, current)
 
 
 # ------------------------------------------------------------------ previous version (rollback)

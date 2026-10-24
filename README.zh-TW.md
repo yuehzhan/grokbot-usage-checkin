@@ -83,8 +83,8 @@ python3 service.py start        # 背景啟動網頁與每小時取樣；停止�
    powershell -ExecutionPolicy Bypass -File .\start.ps1
    ```
    Linux 上網頁按鈕的用法一樣。手動：`python3 service.py stop && git pull && python3 -m pip install -r requirements.txt && python3 service.py start`
-   - **每次改了什麼：**都寫在 [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md)（英文：[CHANGELOG.md](CHANGELOG.md)）。網頁發現新版本時，
-     按「更新」之前會先顯示「這次更新的內容」。內容取自檢查更新時 `git fetch` 已經下載的更新紀錄（不會另外連線），以純文字顯示；
+   - **每次改了什麼：**都寫在 [CHANGELOG.md](CHANGELOG.md)（只用英文維護；舊的 CHANGELOG.zh-TW.md 不再更新）。網頁發現新版本時，
+     按「更新」之前會先顯示「這次更新的內容」，內容一律是英文。內容取自檢查更新時 `git fetch` 已經下載的更新紀錄（不會另外連線），以純文字顯示；
      關掉自動檢查又沒按「檢查更新」時，什麼都不會下載或顯示。目前的版本號（`VERSION`）小小地顯示在網頁最上方。
    - **回到上一版：**更新前，網頁會先把目前的版本記在 `usage-data\update_prev.json`（只存在本機，不在 git 裡）。更新後會出現
      「回到上一版」按鈕；按下並確認後，儀表板會停止、用 `git reset --keep` 把 `main` 分支移回原本的版本（仍在 `main` 上，
@@ -185,9 +185,9 @@ python3 service.py start        # 背景啟動網頁與每小時取樣；停止�
 - **儀表動畫**（「時區」旁的選單：關／只跑一次／持續，預設只跑一次；設定 `anim` = `"off"`／`"once"`／`"continuous"`，
   參數 `--anim`，瀏覽器另存 `usage.anim`，`POST /api/anim` 和 `/api/lang` 一樣要 token、檢查 Host／Origin）。開啟頁面、重新整理、
   改顯示校正時，環形圖從 0 掃到目前值、稍微衝過頭再回穩（約 1 秒），大字百分比和下方進度條同步跑。「持續」在掃完後讓環的前緣
-  輕微抖動加上緩慢的呼吸光暈，數字不會跳動。這是網頁上的 HTML／SVG／CSS 疊層（位置取自 `history/week-current.json`），只用 CSS
+  輕微抖動，數字不會跳動。這是網頁上的 HTML／SVG／CSS 疊層（位置取自 `history/week-current.json`），只用 CSS
   transform／opacity，分頁在背景時暫停；PNG 本身不變，所以匯出的靜態圖不受影響。系統開了「減少動態效果」（`prefers-reduced-motion`）
-  時不掃描也不抖動：「只跑一次」等於關閉，明確選了「持續」則只保留前緣的靜態光暈。啟動參數 `--anim` 優先（選單不能選）。
+  時不掃描也不抖動：「只跑一次」等於關閉，明確選了「持續」則前緣保持靜止。啟動參數 `--anim` 優先（選單不能選）。
 - **卡片文字**：「比基準差異」改成文字，不加箭頭，例如「落後基準 16%（用量充裕）」、「超前基準 5%（消耗較快）」。7 天預估超過 100% 時，
   主卡片寫「預估額度提前耗盡，剩約 N 天」（N = 剩餘 % ÷ 目前每日平均 %，取到小數一位；不到一天時改用小時，例如「剩約 8 小時」），這時「預估週末總量」卡片的標題改成「預估耗盡時間」，顯示「額度剩約 N 天 ［▲即將用罄］」
   （和標籤放不下時改成較短的「剩約 N 天」），下方小字寫「額度提前耗盡 · 原始預估 145%」。「剩餘日均配額」卡片的小字是
