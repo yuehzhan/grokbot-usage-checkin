@@ -14,7 +14,7 @@ from pathlib import Path
 from unittest import mock
 from zoneinfo import ZoneInfo
 
-from _helpers import scratch
+from _helpers import NEEDS_CJK, has_cjk_font, scratch
 from test_gauge_anim import spy_render
 
 import chart_hud
@@ -122,6 +122,7 @@ class DashboardTests(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.d)
 
+    @unittest.skipUnless(has_cjk_font(), NEEDS_CJK)
     def test_cards_count_from_reset(self):
         for lang, label, vs in (("zh-TW", "週中重置後", "與基準相同"), ("en", "since mid-week reset", "On baseline")):
             seen, _ = render_week(ROWS, os.path.join(self.d, f"{lang}.png"), dict(CFG, lang=lang))
@@ -160,6 +161,7 @@ class DashboardTests(unittest.TestCase):
         self.assertAlmostEqual(yd[-1], PROJ)
         self.assertAlmostEqual(xd[-1], 6.5)  # ends at the day-7 point like in a normal week
 
+    @unittest.skipUnless(has_cjk_font(), NEEDS_CJK)
     def test_normal_week_cards_unchanged(self):
         rows = [{"day": "1", "date": "2026-10-24", "pct": "18", "note": "12:00"},
                 {"day": "2", "date": "2026-10-25", "pct": "41", "note": "12:00"},

@@ -14,7 +14,7 @@ from unittest import mock
 
 os.environ.setdefault("MPLBACKEND", "Agg")
 
-from _helpers import read_text, request, scratch, start_server, stop_server
+from _helpers import NEEDS_CJK, has_cjk_font, read_text, request, scratch, start_server, stop_server
 
 import chart_hud  # noqa: E402
 import usage_history as uh  # noqa: E402
@@ -40,7 +40,8 @@ class ValueTests(unittest.TestCase):
         self.assertEqual((uh.page_lang(None), uh.page_lang(""), uh.page_lang("JA")), ("auto", "auto", "ja"))
         self.assertEqual(set(uh.LANG_NAMES), set(uh.PAGE_LANGS) - {"auto"})
         for lang in ("zh-TW", "zh-CN", "en", "ja", "ko", "numeric"):
-            self.assertEqual(set(uh.PICK_STR[lang]), {"lang", "tz", "auto", "locked", "anim", "off", "once", "continuous", "applying"}, lang)
+            self.assertEqual(set(uh.PICK_STR[lang]), {"lang", "tz", "auto", "locked", "anim", "off", "once", "continuous", "applying",
+                                                  "interval", "minutes", "manual_only"}, lang)
 
     def test_zone_values(self):
         for z in uh.PAGE_ZONES:
@@ -220,6 +221,7 @@ class GaugeLegendTests(unittest.TestCase):
             shutil.rmtree(d)
         return seen
 
+    @unittest.skipUnless(has_cjk_font(), NEEDS_CJK)
     def test_label_has_current_baseline(self):
         for days, want in ((1, "14%"), (2, "28%"), (7, "98%")):
             self.assertEqual(self._legend(days, {"lang": "zh-TW"})["text"], "基準線 " + want)

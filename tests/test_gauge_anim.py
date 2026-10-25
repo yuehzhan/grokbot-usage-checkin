@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
 
-from _helpers import read_text, request, scratch, start_server, stop_server
+from _helpers import NEEDS_CJK, has_cjk_font, read_text, request, scratch, start_server, stop_server
 from test_clock_palette import write_samples
 
 import chart_hud
@@ -71,6 +71,7 @@ class WordingTests(unittest.TestCase):
         self.assertEqual(chart_hud.cycle_days(None, 3), (3, 5))
         self.assertEqual(chart_hud.cycle_days(0, 9), (7, 1))
 
+    @unittest.skipUnless(has_cjk_font(), NEEDS_CJK)
     def test_render_texts(self):
         d = scratch()
         try:
@@ -327,6 +328,7 @@ class RunOutBeforeResetTests(unittest.TestCase):
             shutil.rmtree(d)
         return seen, meta, lines
 
+    @unittest.skipUnless(has_cjk_font(), NEEDS_CJK)
     def test_chart_crosses_cap_where_the_card_says(self):
         for lang, title, val, chart in (("zh-TW", "預估耗盡時間", "8 小時", "約 8 小時後耗盡"),
                                         ("en", "Projected run-out", "8 h", "out in about 8 h")):
@@ -367,6 +369,7 @@ class RunOutBeforeResetTests(unittest.TestCase):
         self.assertAlmostEqual(xy[0][0], 0.5 + 26 / 74)
         self.assertAlmostEqual(xy[0][1], 100.0)
 
+    @unittest.skipUnless(has_cjk_font(), NEEDS_CJK)
     def test_not_exhausting_keeps_projected_total(self):
         d = scratch()
         try:
@@ -395,6 +398,7 @@ class TrimmedDecimalsTests(unittest.TestCase):
         self.assertEqual(chart_hud.sfmt("{a:+.0f} {n:d} {s}", a=3.4, n=4, s="x"), "+3 4 x")  # other specs unchanged
         self.assertEqual(chart_hud.sfmt("{a:+.1f}", a=2.0), "+2")
 
+    @unittest.skipUnless(has_cjk_font(), NEEDS_CJK)
     def test_cards_drop_trailing_zero(self):
         d = scratch()
         try:

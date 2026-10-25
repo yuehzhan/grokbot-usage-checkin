@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 
 os.environ.setdefault("MPLBACKEND", "Agg")
 
-from _helpers import scratch
+from _helpers import NEEDS_CJK, has_cjk_font, scratch
 
 import chart_hud  # noqa: E402
 import grok_usage_reader  # noqa: E402
@@ -80,6 +80,7 @@ class ExactValueTests(unittest.TestCase):
         led = ul.record_hud(self.d, {}, 40.0, reset_at=None, tz=TPE, now=now)
         self.assertIsNone(led["resetsAt"])
 
+    @unittest.skipUnless(has_cjk_font(), NEEDS_CJK)
     def test_chart_hud_shows_given_reset(self):
         seen = {}
 

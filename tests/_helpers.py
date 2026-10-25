@@ -70,3 +70,22 @@ def stop_server(proc):
         proc.kill()
     if proc.stdout:
         proc.stdout.close()
+
+
+_CJK = None
+
+
+def has_cjk_font():
+    """True when chart_hud finds a CJK font. Without one (e.g. a bare Linux CI runner) the charts fall back to English
+    on purpose, so tests that check Chinese chart text are skipped there instead of failing."""
+    global _CJK
+    if _CJK is None:
+        os.environ.setdefault("MPLBACKEND", "Agg")
+        import chart_hud
+        chart_hud._add_cjk_fonts_once()
+        installed = {f.name for f in chart_hud.font_manager.fontManager.ttflist}
+        _CJK = any(c in installed for k in ("zh-TW", "zh-CN", "ja", "ko") for c in chart_hud.FONT_CANDIDATES[k])
+    return _CJK
+
+
+NEEDS_CJK = "no CJK font installed: chart text falls back to English"
