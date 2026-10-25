@@ -16,6 +16,10 @@ Recommended on Linux (your Grok Bot's computer); macOS should work but is untest
 
 A cross-platform, multi-panel sci-fi HUD dashboard renderer (`chart_hud.py`), bot-first idempotent recorder (`usage_record.py`), lightweight local web viewer (`usage_view.py`), and optional Grok Build `/usage` reader (`grok_usage_reader.py`) that tracks cumulative and daily weekly-quota usage percentages (`0%–100%+`) and outputs both a high-resolution PNG (`1800×1500 px`) and a machine-readable `latest.json` summary.
 
+**By design, there are no progress fields.** Check-ins are short notes of what was done, with no task progress,
+percentages, deadlines or work-hour totals. The goal is to roughly see which time periods used how much quota and what
+was going on then, not to supervise anyone. Requests to add progress or productivity tracking are out of scope.
+
 ## Recommended: install it on your Grok Bot's computer (Linux)
 
 The recommended setup is the **Linux version, installed on your Grok Bot's own computer**. This is the version that
