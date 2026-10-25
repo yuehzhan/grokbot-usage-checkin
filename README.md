@@ -297,6 +297,14 @@ system setting **reduce motion** (`prefers-reduced-motion`) there is no sweep an
 explicit Continuous keeps only a static glow on the leading edge. A `--anim` flag wins over the menu (menu disabled);
 opened as a plain file the menu only changes the browser's choice.
 
+**Read interval** (menu right after **Gauge animation**: 15 / 30 / 60 / 120 min, default 60; config key
+`sample_interval_minutes`, endpoint `POST /api/interval` with the same token and Host/Origin checks as `/api/lang`).
+The choice is saved like the other page menus (into `usage_config.json` when it exists, else
+`<data_dir>/page_settings.json`; a value in the config wins). Any other configured value (e.g. 45) is listed as an
+extra option, and the 15–1440 clamp still applies. The sampler re-reads it every minute and uses it from its next cycle;
+no restart needed. With `pct_source: "manual"` nothing is read automatically, so the menu is shown disabled. Opened as a
+plain file the menu is disabled (it needs the server).
+
 - PNGs (`chart_hud.py`, history and clock charts) and web pages follow the palette. `over_color`, `under_color` and
   `baseline_color` in the config still override single colours.
 - The web pages have a **Colours** menu (a list of all presets, two colour dots each; arrow keys, Home/End, Enter and
@@ -492,7 +500,7 @@ All commands accept `--config`, `--data-dir`, `--tz`, `--lang`, `--theme`, `--pa
 ### Interval Sampler (`sample_interval_minutes`)
 
 - `sampler` takes one sample right away (skip with `--skip-first`), then sleeps until the next boundary. Intervals that divide a day (15, 30, 60, 90, 120 ...) are aligned to local midnight, others repeat every N minutes.
-- The config is re-read every cycle, so you can change the interval without restarting.
+- The config is re-read every cycle, so you can change the interval without restarting, also from the page's **Read interval** menu.
 - One instance only: `<data_dir>/.sampler.lock` + `<data_dir>/sampler.pid`; log in `<data_dir>/sampler.log`.
 - Grok Build reads share `<data_dir>/.read.lock` with the manual refresh, so they never overlap. Each read uses its own unique `tmux` session (via `grok_usage_reader.py`), which is cleaned up afterwards.
 - Run in the background with `service.py` (all platforms): `python3 service.py start [--open] [--no-sampler]`,
@@ -813,7 +821,7 @@ network.
 | `theme` | `null` | Optional theme JSON path (`"themes/muted.json"`, `"themes/light.json"`). |
 | `open` | `true` | Auto-open rendered PNG / viewer browser window unless `--no-open` is passed. |
 | `cache_reset` | `true` | Cache auto-detected `reset_at` to `<data_dir>/state.json` unless `--no-cache` is passed. |
-| `sample_interval_minutes` | `60` | `usage_history.py sampler` interval (`15`–`1440`, clamped with warning). Re-read every cycle; aligned to clock boundaries when it divides a day. |
+| `sample_interval_minutes` | `60` | `usage_history.py sampler` interval (`15`–`1440`, clamped with warning). Re-read every cycle; aligned to clock boundaries when it divides a day. Also set by the page's **Read interval** menu. |
 | `history_host` | `"127.0.0.1"` | Bind host for `usage_history.py serve`. Non-loopback hosts are refused unless `--allow-remote` is passed. |
 | `history_port` | `0` | Port for `usage_history.py serve` (`0` = random free port; actual URL written to `<data_dir>/history_server.json`). |
 | `manual_refresh_cooldown_seconds` | `60` | Minimum seconds between `POST /api/refresh` calls (`429` + `retry_in` otherwise). |

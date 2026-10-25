@@ -6,6 +6,20 @@ MAJOR for changes that need you to do something, MINOR for new features, PATCH f
 The current version is in the `VERSION` file and shown small at the top of the page.
 The changelog is kept in English only; [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md) is no longer updated.
 
+## [1.2.3] - 2026-10-26
+
+### Added
+- **Read interval** menu on the page toolbar, right after **Gauge animation**: 15 / 30 / 60 / 120 minutes (any other
+  configured value is listed too), in all six page languages and in privacy mode. It saves `sample_interval_minutes`
+  like the other page menus (`usage_config.json` when present, else `page_settings.json`) through the new
+  `POST /api/interval` (token + Host/Origin checks); the sampler uses it from its next cycle. The 15–1440 clamp is
+  unchanged. Disabled in manual-entry mode (`pct_source: "manual"`), where it returns `400 manual_mode`.
+
+### Fixed
+- GitHub Actions: the Linux jobs failed because the runner has no CJK font, so the charts fell back to English (as
+  designed) while 8 tests expected Chinese chart text. The Linux jobs now install `fonts-noto-cjk`, and those tests are
+  skipped (not failed) on a machine without any CJK font.
+
 ## [1.2.2] - 2026-10-26
 
 ### Added
@@ -104,6 +118,7 @@ First tagged state (everything before version numbers were added): usage history
 check-ins, palettes (including colour-blind-safe ones and patterns), language and time zone menus, display offset,
 desktop notifications, check for updates and one-click update, Windows and Linux service scripts.
 
+[1.2.3]: https://github.com/yuehzhan/grokbot-usage-checkin/blob/main/CHANGELOG.md#123---2026-10-26
 [1.2.2]: https://github.com/yuehzhan/grokbot-usage-checkin/blob/main/CHANGELOG.md#122---2026-10-26
 [1.2.1]: https://github.com/yuehzhan/grokbot-usage-checkin/blob/main/CHANGELOG.md#121---2026-10-25
 [1.2.0]: https://github.com/yuehzhan/grokbot-usage-checkin/blob/main/CHANGELOG.md#120---2026-10-25

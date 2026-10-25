@@ -40,6 +40,7 @@ import usage_checkins_ui  # noqa: E402  (check-in tab: HTML/CSS/JS)
 import proc_util  # noqa: E402  (Windows-safe "is this pid alive?")
 
 INTERVAL_MIN, INTERVAL_MAX, INTERVAL_DEFAULT = 15, 1440, 60
+INTERVAL_CHOICES = (15, 30, 60, 120)  # the page's Read interval menu (another configured value is listed too)
 RANGES = [("1m", 1, 3), ("3m", 3, 10), ("6m", 6, 20), ("1y", 12, 40)]  # key, months, min weeks
 CHECKIN_PALETTE = ["#4D8DFF", "#FFE45C", "#FF8AD8", "#8C9EFF", "#B8F55A", "#C9A0FF", "#F5F5F5", "#7CB8FF"]
 
@@ -183,7 +184,11 @@ class Ctx:
                 lang = "en"
         self.lang = lang
         self.L = STR.get(lang) or (STR["zh-TW"] if lang.startswith("zh") else STR["en"])
-        self.interval = self._interval(cfg.get("sample_interval_minutes", INTERVAL_DEFAULT))
+        # read interval: config "sample_interval_minutes", else the page's Read interval menu (page_settings.json)
+        iv = cfg.get("sample_interval_minutes")
+        if iv is None:
+            iv = _read_page_setting(self.data_dir, "sample_interval_minutes")
+        self.interval = self._interval(INTERVAL_DEFAULT if iv is None else iv)
         self.host = str(g("host", "history_host", "127.0.0.1"))
         self.port = int(g("port", "history_port", 0))
         self.refresh_cooldown = int(cfg.get("manual_refresh_cooldown_seconds", 60))
@@ -336,17 +341,23 @@ PAGE_ZONES = ("Asia/Taipei", "Asia/Shanghai", "Asia/Hong_Kong", "Asia/Tokyo", "A
               "America/Denver", "America/Los_Angeles", "Pacific/Honolulu", "UTC")
 PICK_STR = {  # labels of the language / time zone menus and their "auto" option, in every page language
     "zh-TW": {"lang": "語言", "tz": "時區", "auto": "自動（跟系統）", "locked": "已由啟動參數指定",
-              "anim": "儀表動畫", "off": "關", "once": "只跑一次", "continuous": "持續", "applying": "套用中…"},
+              "anim": "儀表動畫", "off": "關", "once": "只跑一次", "continuous": "持續", "applying": "套用中…",
+              "interval": "讀取間隔", "minutes": "{n} 分鐘", "manual_only": "手動輸入模式：不會自動讀取"},
     "zh-CN": {"lang": "语言", "tz": "时区", "auto": "自动（跟随系统）", "locked": "已由启动参数指定",
-              "anim": "仪表动画", "off": "关", "once": "只跑一次", "continuous": "持续", "applying": "应用中…"},
+              "anim": "仪表动画", "off": "关", "once": "只跑一次", "continuous": "持续", "applying": "应用中…",
+              "interval": "读取间隔", "minutes": "{n} 分钟", "manual_only": "手动输入模式：不会自动读取"},
     "en": {"lang": "Language", "tz": "Time zone", "auto": "Auto (system)", "locked": "Set by a command-line flag",
-           "anim": "Gauge animation", "off": "Off", "once": "Once", "continuous": "Continuous", "applying": "Applying…"},
+           "anim": "Gauge animation", "off": "Off", "once": "Once", "continuous": "Continuous", "applying": "Applying…",
+           "interval": "Read interval", "minutes": "{n} min", "manual_only": "Manual entry mode: no automatic reads"},
     "ja": {"lang": "言語", "tz": "タイムゾーン", "auto": "自動（システム）", "locked": "起動オプションで指定済み",
-           "anim": "ゲージ演出", "off": "オフ", "once": "1回だけ", "continuous": "連続", "applying": "適用中…"},
+           "anim": "ゲージ演出", "off": "オフ", "once": "1回だけ", "continuous": "連続", "applying": "適用中…",
+           "interval": "読み取り間隔", "minutes": "{n} 分", "manual_only": "手動入力モード：自動読み取りなし"},
     "ko": {"lang": "언어", "tz": "시간대", "auto": "자동(시스템)", "locked": "실행 옵션으로 지정됨",
-           "anim": "게이지 애니메이션", "off": "끄기", "once": "한 번만", "continuous": "계속", "applying": "적용 중…"},
+           "anim": "게이지 애니메이션", "off": "끄기", "once": "한 번만", "continuous": "계속", "applying": "적용 중…",
+           "interval": "읽기 간격", "minutes": "{n}분", "manual_only": "수동 입력 모드: 자동 읽기 없음"},
     "numeric": {"lang": "Aa", "tz": "◷", "auto": "auto", "locked": "CLI",
-                "anim": "◔", "off": "0", "once": "1", "continuous": "∞", "applying": "…"},
+                "anim": "◔", "off": "0", "once": "1", "continuous": "∞", "applying": "…",
+                "interval": "Δt", "minutes": "{n}′", "manual_only": "M"},
 }
 
 # Gauge "rev up" animation on the served page (the PNG never changes): off, once (default) or continuous
@@ -1361,9 +1372,9 @@ def gh_link_html(lang):
 
 PICK_JS = r"""(function(){var T=(document.querySelector('meta[name="usage-token"]')||{}).content||'',served=/^https?:$/.test(location.protocol);
 [].forEach.call(document.querySelectorAll('select[data-api]'),function(s){var K=s.dataset.k,F=s.dataset.f,live=!!s.dataset.live,A=window.usageApplying||function(){};
-function apply(){if(live&&window.usageGaugeMode)usageGaugeMode(s.value);}
+function apply(){if(live&&s.id==='animsel'&&window.usageGaugeMode)usageGaugeMode(s.value);}
 if(s.dataset.locked){s.disabled=true;return;}
-if(!served){if(!live){try{localStorage.setItem(K,s.value);}catch(e){}s.disabled=true;return;}
+if(!served){if(!live||s.dataset.srv){try{localStorage.setItem(K,s.value);}catch(e){}s.disabled=true;return;}
 try{var ls=localStorage.getItem(K);if(ls&&[].some.call(s.options,function(o){return o.value==ls;}))s.value=ls;}catch(e){}
 s.onchange=function(){try{localStorage.setItem(K,s.value);}catch(e){}apply();};return;}
 try{localStorage.setItem(K,s.value);}catch(e){}
@@ -1771,10 +1782,15 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
                          for z in zones))
     anim_opts = "".join(f"<option value='{m}'{' selected' if m == ctx.anim_setting else ''}>{html.escape(PK[m])}</option>" for m in ANIM_MODES)
     lock_attr = lambda on: f" data-locked='1' title='{html.escape(PK['locked'])}'" if on else ""
+    # Read interval: how often the sampler reads /usage (next cycle); disabled in manual-entry mode (nothing is read)
+    iv_opts = "".join(f"<option value='{m}'{' selected' if m == ctx.interval else ''}>{html.escape(PK['minutes'].format(n=m))}</option>"
+                      for m in sorted(set(INTERVAL_CHOICES) | {ctx.interval}))
+    iv_lock = f" data-locked='1' title='{html.escape(PK['manual_only'])}'" if manual_mode(ctx) else ""
     # toolbar row 1 (settings) gets language + time zone; row 2 (actions) gets the animation menu + Applying status
     pick_html = (f"<label class=\"pal\" id=\"langl\">{html.escape(PK['lang'])} <select id=\"langsel\" class=\"offsel\" data-api=\"/api/lang\" data-k=\"usage.lang\" data-f=\"lang\"{lock_attr(ctx.lang_locked)}>{lang_opts}</select></label>"
                  f"<label class=\"pal\" id=\"tzl\">{html.escape(PK['tz'])} <select id=\"tzsel\" class=\"offsel\" data-api=\"/api/tz\" data-k=\"usage.tz\" data-f=\"tz\"{lock_attr(ctx.tz_locked)}>{tz_opts}</select></label>")
     act_html = (f"<label class=\"pal\" id=\"animl\">{html.escape(PK['anim'])} <select id=\"animsel\" class=\"offsel\" data-api=\"/api/anim\" data-k=\"usage.anim\" data-f=\"anim\" data-live=\"1\"{lock_attr(ctx.anim_locked)}>{anim_opts}</select></label>"
+                f"<label class=\"pal\" id=\"ivl\">{html.escape(PK['interval'])} <select id=\"ivsel\" class=\"offsel\" data-api=\"/api/interval\" data-k=\"usage.interval\" data-f=\"minutes\" data-live=\"1\" data-srv=\"1\"{iv_lock}>{iv_opts}</select></label>"
                  f"<span id=\"applying\" class=\"applying-msg\" role=\"status\" aria-live=\"polite\" hidden><span class=\"spin\"></span>{html.escape(PK['applying'])}</span>"
                  f"<script>{PICK_JS}</script>")
     onac, hl = _on_colour(ac), _blend(bg, tx, 0.14)
@@ -2212,7 +2228,7 @@ def serve(ctx, allow_remote=False):
         return 200, {"ok": True, "checkin": r}
 
     WRITE_PATHS = ("/api/checkin", "/api/refresh", "/api/manual", "/api/update/check", "/api/update/apply", "/api/update/settings",
-                   "/api/update/rollback", "/api/palette/render", "/api/patterns", "/api/display-offset", "/api/lang", "/api/tz", "/api/anim")
+                   "/api/update/rollback", "/api/palette/render", "/api/patterns", "/api/display-offset", "/api/lang", "/api/tz", "/api/anim", "/api/interval")
 
     def pick_setting(key, d):
         """POST /api/lang {"lang": "auto"|"zh-TW"|"zh-CN"|"en"|"ja"|"ko"|"numeric"} or /api/tz {"tz": "auto"|<IANA zone>}:
@@ -2241,6 +2257,26 @@ def serve(ctx, allow_remote=False):
             return 200, {"ok": True, key: ctx.anim_setting, "locked": ctx.anim_locked}
         regen()
         return 200, {"ok": True, key: v, "locked": ctx.lang_locked if key == "lang" else ctx.tz_locked}
+
+    def interval_setting(d):
+        """POST /api/interval {"minutes": 15..1440}: saved as "sample_interval_minutes" in usage_config.json (or
+        <data_dir>/page_settings.json); the sampler re-reads it every minute and uses it from its next cycle."""
+        v = d.get("minutes")
+        if isinstance(v, str) and v.strip().isdigit():
+            v = int(v)
+        if isinstance(v, bool) or not isinstance(v, int) or not INTERVAL_MIN <= v <= INTERVAL_MAX:
+            return 400, {"ok": False, "error": f"minutes must be an integer from {INTERVAL_MIN} to {INTERVAL_MAX}"}
+        if manual_mode(ctx):
+            return 400, {"ok": False, "error": "pct_source is manual: nothing is read automatically", "code": "manual_mode"}
+        try:
+            with usage_lock.write_lock(ctx.data_dir):
+                save_page_setting(ctx.cfg_path, ctx.data_dir, "sample_interval_minutes", v)
+            with draw_lock:
+                ctx.reload()
+                rewrite_page(ctx)
+        except Exception as exc:
+            return 500, {"ok": False, "error": "write failed" if ctx.privacy else f"could not save the setting: {exc}"}
+        return 200, {"ok": True, "minutes": ctx.interval}
 
     def offset_setting(d):
         """POST /api/display-offset {"offset": -2..2}: saved as "display_offset" in usage_config.json (or
@@ -2535,6 +2571,15 @@ def serve(ctx, allow_remote=False):
                 if not isinstance(d, dict):
                     return self._send(400, {"ok": False, "error": "bad json"})
                 return self._send(*pick_setting(u.path[5:], d))
+            if u.path == "/api/interval":
+                try:
+                    n = int(self.headers.get("Content-Length") or 0); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
+                    d = json.loads(raw or "{}")
+                except Exception:
+                    return self._send(400, {"ok": False, "error": "bad json"})
+                if not isinstance(d, dict):
+                    return self._send(400, {"ok": False, "error": "bad json"})
+                return self._send(*interval_setting(d))
             if u.path == "/api/display-offset":
                 try:
                     n = int(self.headers.get("Content-Length") or 0); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
