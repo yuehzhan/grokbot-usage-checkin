@@ -35,6 +35,7 @@ class GuardUnitTests(unittest.TestCase):
                     {"Sec-Fetch-Site": "cross-site"}):
             self.assertFalse(local_guard.check_write(dict(good, **bad), 8765, tok)[0], bad)
 
+    @unittest.skipIf(os.name == "nt", "POSIX file modes (Windows has no chmod 600)")
     def test_token_file_private(self):
         d = scratch()
         try:
@@ -91,6 +92,7 @@ class _ServerCase:
         self.assertEqual(code, 200)
         self.assertIn(('<meta name="usage-token" content="%s">' % self.token).encode(), body)
 
+    @unittest.skipIf(os.name == "nt", "POSIX file modes (Windows has no chmod 600)")
     def test_token_file_mode(self):
         self.assertEqual(stat.S_IMODE(os.stat(self.token_file).st_mode), 0o600)
 

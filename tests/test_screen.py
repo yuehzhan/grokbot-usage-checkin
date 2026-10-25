@@ -62,6 +62,7 @@ FAKE_TMUX = textwrap.dedent("""\
 """)
 
 
+@unittest.skipIf(os.name == "nt", "fake tmux is a POSIX shell script (Windows reads /usage through pywinpty)")
 class FakeTmuxTests(unittest.TestCase):
     def setUp(self):
         self.dir = scratch()
