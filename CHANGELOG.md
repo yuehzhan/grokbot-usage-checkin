@@ -6,6 +6,26 @@ MAJOR for changes that need you to do something, MINOR for new features, PATCH f
 The current version is in the `VERSION` file and shown small at the top of the page.
 The changelog is kept in English only; [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md) is no longer updated.
 
+## [1.2.2] - 2026-10-26
+
+### Added
+- Automated tests on GitHub Actions (`.github/workflows/test.yml`): the full suite on Linux, macOS and Windows with
+  Python 3.10 and 3.12 on every push and pull request to `main` (Windows is informational for now). macOS is now
+  covered by these tests; the hourly automatic `/usage` read is still untested on a real Mac.
+
+### Fixed
+- Mid-week reset (e.g. a Premium -> Super upgrade resets the weekly pool to ~0% while the week window stays): the
+  **Avg / Day**, **Projected (7d)** and **vs Baseline** cards, the chart's dashed forecast and `latest.json`
+  (`avg_per_day`, `projected_end_pct`, `baseline`, `delta`) no longer divide the new small % by every day of the week
+  (6% / 3 days = 2%/day, projected 14%, "36% under baseline"). When the cumulative % drops by more than 5 points, the
+  pool is taken to restart at 0% at the midpoint between the last reading before the drop and the first one after it;
+  the rate is `% now / time since the reset`, the projection `% now + rate x time left` (here ~13%/day and ~70%), the
+  baseline `pace x days since the reset`, and the dashed forecast starts at the current point with that rate. The
+  cards say "since mid-week reset" (zh-TW 「週中重置後」), the day's increase counts from 0% (+6%, not -78%), and
+  `latest.json` gets a `midweek_reset` object (`mw` in privacy mode). Normal weeks are unchanged. When the hourly
+  `samples.csv` has readings inside the gap, the drop between two of them narrows the reset-time estimate (one week-CSV
+  row per day no longer pushes it hours away from the real reset).
+
 ## [1.2.1] - 2026-10-25
 
 ### Added
@@ -84,6 +104,7 @@ First tagged state (everything before version numbers were added): usage history
 check-ins, palettes (including colour-blind-safe ones and patterns), language and time zone menus, display offset,
 desktop notifications, check for updates and one-click update, Windows and Linux service scripts.
 
+[1.2.2]: https://github.com/yuehzhan/grokbot-usage-checkin/blob/main/CHANGELOG.md#122---2026-10-26
 [1.2.1]: https://github.com/yuehzhan/grokbot-usage-checkin/blob/main/CHANGELOG.md#121---2026-10-25
 [1.2.0]: https://github.com/yuehzhan/grokbot-usage-checkin/blob/main/CHANGELOG.md#120---2026-10-25
 [1.1.0]: https://github.com/yuehzhan/grokbot-usage-checkin/blob/main/CHANGELOG.md#110---2026-10-25

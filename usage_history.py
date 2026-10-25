@@ -1076,6 +1076,8 @@ def render_current_week(ctx, nowa, names=None):
                         x.unlink()
             return False
         import chart_hud
+        # hourly readings narrow a mid-week reset's estimated time (usage_rate.py)
+        samples = usage_checkins.load_samples(str(ctx.data_dir / "samples.csv"))
         for name, d in _palette_dirs(ctx, names):
             d.mkdir(parents=True, exist_ok=True)
             base, pat = usage_palette.split_key(strip_offset(name))
@@ -1084,7 +1086,8 @@ def render_current_week(ctx, nowa, names=None):
                               "palette": base, "reset_hm": f"{ws.astimezone(ctx.tz):%H:%M}",
                               "accent_color": _theme_explicit_value(ctx.theme_path, "accent"),
                               "patterns": pat or bool(_theme_file(ctx.theme_path).get("patterns")),
-                              "display_offset": ctx.display_offset, "reset_at": shown_reset(ctx), "tz": ctx.tz_spec})
+                              "display_offset": ctx.display_offset, "reset_at": shown_reset(ctx), "tz": ctx.tz_spec,
+                              "samples": samples})
             # gauge geometry/colours for the page's animated overlay (the PNG stays the static export)
             _write_text(d / "week-current.json", json.dumps(meta or {}, ensure_ascii=False))
         if publish:

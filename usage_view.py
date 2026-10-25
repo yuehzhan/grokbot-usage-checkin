@@ -213,6 +213,9 @@ class ViewerState:
                 val = raw.get(priv_k, raw.get(std_k))
                 if val is not None:
                     sanitized[priv_k] = val
+            mw = raw.get("mw") or raw.get("midweek_reset")
+            if isinstance(mw, dict):  # mid-week reset: only the two numbers the cards need, no times
+                sanitized["mw"] = {"days": mw.get("days", mw.get("days_since")), "left": mw.get("left", mw.get("days_left"))}
             if "trend" in raw:
                 sanitized["trend"] = raw["trend"]
             elif "status" in raw:
@@ -651,10 +654,16 @@ def render_html_page(state: ViewerState) -> str:
     const rem0 = d.left != null ? d.left : d.remaining_pct;
     const rem = (rem0 != null && pct != null) ? r1(Math.max(0, 100 - pct)) : rem0;
     const avg0 = d.avg != null ? d.avg : d.avg_per_day;
-    const avg = avg0 != null ? r1(+avg0 + sh / dayN) : avg0;
+    // after a mid-week reset the average counts from the reset (days since it) and the projection is
+    // pct + avg x days left, so the display offset scales by those instead of the day index
+    const mw = d.mw || d.midweek_reset || null;
+    const mwDays = mw ? Math.max(1 / 24, +(mw.days != null ? mw.days : mw.days_since) || 0) : null;
+    const mwLeft = mw ? Math.max(0, +(mw.left != null ? mw.left : mw.days_left) || 0) : null;
+    const mwTag = mw ? (IS_PRIV ? " \u21ba" : " (since mid-week reset)") : "";
+    const avg = avg0 != null ? r1(+avg0 + sh / (mw ? mwDays : dayN)) : avg0;
     const proj0 = d.projected != null ? d.projected : d.projected_end_pct;
     const pace = (d.step != null ? d.step : d.pace) || 14;
-    const proj = proj0 != null ? r1(+proj0 + sh * ((d.days != null ? d.days : d.days_total) || 7) / dayN) : proj0;
+    const proj = proj0 != null ? r1(+proj0 + sh * (mw ? (1 + mwLeft / mwDays) : ((d.days != null ? d.days : d.days_total) || 7) / dayN)) : proj0;
     const otag = OFFS.tag ? ' <span class="otag">' + OFFS.tag + '</span>' : '';
     const over = delta != null ? delta > 0 : false;
     const projOver = proj != null ? proj > (pace * days) : false;
@@ -670,16 +679,16 @@ def render_html_page(state: ViewerState) -> str:
       {{ lbl: "\\u2211 %", val: pct != null ? pct + "%" + otag : "--", cls: over ? "val-over" : "val-under" }},
       {{ lbl: "\\u0394", val: delta != null ? arrow(delta) + " " + (delta >= 0 ? "+" + delta : delta) + "%" : "--", cls: (over ? "val-over" : "val-under") + " arr" }},
       {{ lbl: "100% \\u2212", val: rem != null ? rem + "%" : "--", cls: (pct > 100) ? "val-over" : "val-under" }},
-      {{ lbl: "\\u00d8", val: avg != null ? avg + "%" : "--", cls: (avg > pace) ? "val-over" : "val-under" }},
-      {{ lbl: "\\u2192 7/7", val: proj != null ? proj + "%" : "--", cls: projOver ? "val-over" : "val-under" }},
+      {{ lbl: "\\u00d8" + mwTag, val: avg != null ? avg + "%" : "--", cls: (avg > pace) ? "val-over" : "val-under" }},
+      {{ lbl: "\\u2192 7/7" + mwTag, val: proj != null ? proj + "%" : "--", cls: projOver ? "val-over" : "val-under" }},
       {{ lbl: "\\u21bb", val: privNextTxt, cls: "val-neutral" }}
     ] : [
       {{ lbl: "Day", val: day + " / " + days, cls: "val-neutral" }},
       {{ lbl: "Cumulative", val: pct != null ? pct + "%" + otag : "--", cls: over ? "val-over" : "val-under" }},
       {{ lbl: "vs Baseline (" + (base != null ? base + "%" : "--") + ")", val: delta != null ? arrow(delta) + " " + (delta >= 0 ? "+" + delta : delta) + "%" : "--", cls: (over ? "val-over" : "val-under") + " arr" }},
       {{ lbl: "Remaining", val: rem != null ? rem + "%" : "--", cls: (pct > 100) ? "val-over" : "val-under" }},
-      {{ lbl: "Avg / Day", val: avg != null ? avg + "%" : "--", cls: (avg > pace) ? "val-over" : "val-under" }},
-      {{ lbl: "Projected (7d)", val: proj != null ? proj + "%" : "--", cls: projOver ? "val-over" : "val-under" }},
+      {{ lbl: "Avg / Day" + mwTag, val: avg != null ? avg + "%" : "--", cls: (avg > pace) ? "val-over" : "val-under" }},
+      {{ lbl: "Projected (7d)" + mwTag, val: proj != null ? proj + "%" : "--", cls: projOver ? "val-over" : "val-under" }},
       {{ lbl: "Reset In", val: nextFull, cls: "val-neutral" }}
     ];
 

@@ -156,6 +156,8 @@ BASE_STRINGS = {
     "reset_short": "Reset",
     "stat_budget": "Daily Budget Left",
     "stat_budget_sub": "over {d_rem}d to reset (incl. today)",
+    "since_reset": "since mid-week reset",
+    "stat_vs_base_sub_reset": "Baseline since reset: {base:.1f}%",
     "cum_title": "Cumulative Usage vs. Baseline",
     "ylabel_cum": "Cumulative (%)",
     "day_fmt": "Day {d}",
@@ -236,6 +238,8 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "reset_short": "已重置",
         "stat_budget": "剩餘日均配額",
         "stat_budget_sub": "距重置 {d_rem} 天（含今天）",
+        "since_reset": "週中重置後",
+        "stat_vs_base_sub_reset": "週中重置後基準: {base:.1f}%",
         "cum_title": "本週累計用量 vs. 基準線",
         "ylabel_cum": "累計用量 (%)",
         "day_fmt": "第{d}天",
@@ -314,6 +318,8 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "reset_short": "已重置",
         "stat_budget": "剩余日均可用",
         "stat_budget_sub": "距重置 {d_rem} 天（含今天）",
+        "since_reset": "周中重置后",
+        "stat_vs_base_sub_reset": "周中重置后基准: {base:.1f}%",
         "cum_title": "累计用量 vs. 基准线",
         "ylabel_cum": "累计用量 (%)",
         "day_fmt": "第{d}天",
@@ -392,6 +398,8 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "reset_short": "リセット済",
         "stat_budget": "残り1日あたり枠",
         "stat_budget_sub": "リセットまで{d_rem}日（今日を含む）",
+        "since_reset": "週途中リセット後",
+        "stat_vs_base_sub_reset": "リセット後基準: {base:.1f}%",
         "cum_title": "週間累計使用量 vs. 基準線",
         "ylabel_cum": "累計 (%)",
         "day_fmt": "{d}日目",
@@ -470,6 +478,8 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "reset_short": "초기화됨",
         "stat_budget": "남은 일일 예산",
         "stat_budget_sub": "초기화까지 {d_rem}일 (오늘 포함)",
+        "since_reset": "주중 초기화 이후",
+        "stat_vs_base_sub_reset": "초기화 이후 기준: {base:.1f}%",
         "cum_title": "주간 누적 사용량 vs. 기준선",
         "ylabel_cum": "누적 (%)",
         "day_fmt": "{d}일차",
@@ -550,6 +560,8 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "reset_short": "↻ 0m",
         "stat_budget": "÷",
         "stat_budget_sub": "/ {d_rem}",
+        "since_reset": "↺",
+        "stat_vs_base_sub_reset": "↺ {base:.1f}%",
         "cum_title": "∑ %",
         "ylabel_cum": "%",
         "day_fmt": "D{d}",
@@ -908,13 +920,21 @@ def exhaust_days(latest_pct, avg_day):
     return max(0.0, 100.0 - latest_pct) / avg_day
 
 
-def run_out(latest_day, latest_pct):
+def run_out(latest_day, latest_pct, rate=None):
     """The one projection model shared by the stat cards and the cumulative chart: the average rate so far
     (latest % / days elapsed), the 7-day projection, and, when it passes 100%, the days left until 100% and the
-    chart x where the dashed line crosses the cap (readings sit at x = day - 0.5)."""
+    chart x where the dashed line crosses the cap (readings sit at x = day - 0.5).
+
+    ``rate``: the usage_rate.rate_model() result. After a mid-week reset (``rate["reset"]``) its average (% since
+    the reset / time since the reset) and end-of-week projection (latest % + rate x time left) are used instead;
+    in a normal week it is ignored, so the numbers stay exactly latest % / day and x 7."""
     d = max(1, int(latest_day))
-    avg = float(latest_pct) / d
-    proj = avg * 7.0
+    if rate and rate.get("reset"):
+        avg = float(rate["avg_day"])
+        proj = float(rate["proj"])
+    else:
+        avg = float(latest_pct) / d
+        proj = avg * 7.0
     left = exhaust_days(latest_pct, avg)
     out = avg > 0 and proj > 100.0
     return {"avg_day": avg, "proj_7d": proj, "exhausts": out, "left": left if out else None,
@@ -1098,7 +1118,9 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
     base7 = 7 * pace
     latest_day = data["latest_day"]
     latest_pct = data["latest_pct"]
-    latest_base = pace * latest_day
+    rate = data.get("rate") or {}
+    mid_reset = bool(rate.get("reset"))  # mid-week reset: rate, projection and baseline count from the reset
+    latest_base = rate["baseline"] if mid_reset else pace * latest_day
     latest_diff = latest_pct - latest_base
     over = latest_diff > 0
     hero_col = pal["purple"] if over else pal["green"]
@@ -1106,7 +1128,7 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
     rem_pct = max(0.0, 100.0 - latest_pct)
     over_cap = latest_pct > 100.0
     over_val = max(0.0, latest_pct - 100.0)
-    ro = run_out(latest_day, latest_pct)  # same model as the chart's dashed projection
+    ro = run_out(latest_day, latest_pct, rate)  # same model as the chart's dashed projection
     avg_day, proj_7d = ro["avg_day"], ro["proj_7d"]
     proj_over = proj_7d > base7
     d_rem = max(1, t_info["days_rem_stat"])
@@ -1233,7 +1255,7 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
     reset_sub_str = f"@ {t_info['reset_date']}" if is_num else sfmt(L["stat_reset_sub"], **fmt_ctx)
 
     vs_val, vs_note, _vs_state = vs_base_text(latest_diff, L, is_num)
-    vs_sub = sfmt(L["stat_vs_base_sub"], **fmt_ctx)
+    vs_sub = sfmt(L["stat_vs_base_sub_reset" if mid_reset else "stat_vs_base_sub"], **fmt_ctx)
     if vs_note:
         cjk = any(ord(ch) > 0x2E80 for ch in vs_note)
         vs_sub = f"（{vs_note}）{vs_sub}" if cjk else f"({vs_note}) {vs_sub}"
@@ -1251,6 +1273,10 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
         proj_sub = sfmt(L["stat_proj_sub"], **fmt_ctx)
         proj_tag = (stat_tag(L["tag_proj_over" if proj_over else "tag_proj_under"]), pal["purple"] if proj_over else pal["green"])
     avg_tag = (stat_tag(L["tag_avg_over" if avg_day > pace else "tag_avg_under"]), pal["purple"] if avg_day > pace else pal["green"])
+    avg_sub = sfmt(L["stat_avg_sub"], **fmt_ctx)
+    if mid_reset:  # say where the average and the projection count from, e.g. 「週中重置後 · 基準 每天14%」
+        avg_sub = f"{L['since_reset']} · {avg_sub}"
+        proj_sub = f"{L['since_reset']} · {proj_sub}"
     stats = [
         (
             str(L["stat_vs_base"]),
@@ -1273,7 +1299,7 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
             f"{trim_num(avg_day)}%",
             pal["purple"] if avg_day > pace else pal["green"],
             pal["purple"] if avg_day > pace else pal["green"],
-            sfmt(L["stat_avg_sub"], **fmt_ctx),
+            avg_sub,
             pal["text_dim"],
             avg_tag,
         ),
@@ -1338,6 +1364,8 @@ def draw_cumulative_panel(fig, ax_hud, data, cfg, L, pal):
     days, pcts, xs, ys_plot = data["days"], data["pcts"], data["xs"], data["ys_plot"]
     latest_day = data["latest_day"]
     latest_pct = data["latest_pct"]
+    rate = data.get("rate")
+    bases = data.get("bases") or [pace * d for d in days]  # per-reading baseline (restarts at a mid-week reset)
 
     cx, cy, cw, ch = 0.025, 0.336, 0.650, 0.344
     draw_card(ax_hud, cx, cy, cw, ch, pal, accent=pal["accent"], radius=14.0)
@@ -1383,7 +1411,7 @@ def draw_cumulative_panel(fig, ax_hud, data, cfg, L, pal):
     ax.add_patch(Rectangle((0, 0), 7.0, Y_MAX, fill=False, edgecolor=pal["accent"], alpha=0.55, lw=1.4, zorder=5, clip_on=False))
 
     ax.axhline(100, color=pal["text"], alpha=0.65 if pal["is_light"] else 0.72, lw=1.4, ls="--", zorder=3)
-    _ro = run_out(latest_day, latest_pct)
+    _ro = run_out(latest_day, latest_pct, rate)
     if _ro["exhausts"] and latest_day < 7 and latest_pct < 100.0 and _ro["cross_x"] < 4.5:
         # the run-out label sits at the left part of the cap line: the 「上限 100%」 label moves to the right end
         ax.text(6.92, 101.8, str(L["limit_100"]), color=pal["text"], alpha=0.88, fontsize=10, fontweight="bold", va="bottom", ha="right", zorder=6)
@@ -1398,7 +1426,7 @@ def draw_cumulative_panel(fig, ax_hud, data, cfg, L, pal):
     # no floating 「基準線 每天N%」 label on the chart itself: it could cover data points; the top legend names the line
 
     for i in range(1, len(xs)):
-        seg_over = pcts[i] > pace * days[i]
+        seg_over = pcts[i] > bases[i]
         seg_col = pal["purple"] if seg_over else pal["green"]
         seg_ls = OVER_LS if (pal["patterns"] and seg_over) else "-"
         glow_plot(ax, xs[i - 1 : i + 1], ys_plot[i - 1 : i + 1], color=seg_col, is_light=pal["is_light"], lw=3.2, ls=seg_ls, zorder=5)
@@ -1420,8 +1448,8 @@ def draw_cumulative_panel(fig, ax_hud, data, cfg, L, pal):
 
     prev_lbl_x = -99.0
     prev_lbl_y = -99.0
-    for x, d, p, yp in zip(xs, days, pcts, ys_plot):
-        diff = p - pace * d
+    for x, d, p, yp, b in zip(xs, days, pcts, ys_plot, bases):
+        diff = p - b
         pt_col = pal["purple"] if diff > 0 else pal["green"]
         m_style = ("^" if diff > 0 else "v") if pal["patterns"] else ("^" if p > 100.0 else "o")
         ax.scatter([x], [yp], color=pt_col, s=160, alpha=0.20, marker=m_style, zorder=6)
@@ -1457,7 +1485,7 @@ def draw_cumulative_panel(fig, ax_hud, data, cfg, L, pal):
             zorder=8,
         )
 
-    ro = run_out(latest_day, latest_pct)
+    ro = run_out(latest_day, latest_pct, rate)
     if days and latest_day < 7 and ro["exhausts"] and latest_pct < 100.0:
         # runs out before the reset: the dashed line keeps the real slope and stops where it meets the 100% cap
         cx_, left = ro["cross_x"], ro["left"]
@@ -1758,7 +1786,9 @@ def configure_fonts_and_locale(lang: str) -> str:
 
 def render(rows, out_png, week_start, cfg=None):
     """Render the weekly usage HUD dashboard from `rows` (list of dicts with day,date,pct,note)."""
+    samples = (cfg or {}).get("samples")  # finer readings for a mid-week reset's time (not a theme/config key)
     cfg = normalize_cfg(cfg)
+    cfg["samples"] = samples
     eff_lang = configure_fonts_and_locale(cfg["lang"])
     cfg["_eff_lang"] = eff_lang
     ext_overlay = {} if eff_lang == "numeric" else (load_locale_overlay(eff_lang) or {})
@@ -1832,6 +1862,7 @@ def render(rows, out_png, week_start, cfg=None):
         r_hour, r_min = 0, 0
         reset_hm = "00:00"
 
+    start_dt = None
     now_dt = datetime.now(tz)
     now_str = now_dt.strftime("%Y-%m-%d %H:%M")
     day_dates = {}
@@ -1883,6 +1914,18 @@ def render(rows, out_png, week_start, cfg=None):
     else:
         shown_reset = reset_dt
     day_now, days_rem_stat = cycle_days(cyc_rem, latest_day)
+
+    # Mid-week reset (e.g. a plan upgrade resets the pool to ~0% while the week window stays): average, projection
+    # and baselines count from the estimated reset time instead of the week start (see usage_rate.py).
+    rate = _sibling("usage_rate").rate_model(sorted_rows, pcts, start_dt, shown_reset, cfg["pace"],
+                                             latest_day=latest_day, samples=cfg.get("samples"))
+    data["rate"] = rate
+    _ur = _sibling("usage_rate")
+    data["bases"] = [_ur.baseline_at(r, cfg["pace"], start_dt, rate["reset"]) for r in sorted_rows]
+    if rate["reset"] is not None:
+        # the first reading after the reset: the day's increase counts from the ~0% restart, not -78%
+        r_day = days[rate["reset"]["index"]]
+        inc_map[r_day] = dict(inc_map[r_day], raw_inc=pcts[rate["reset"]["index"]], reset=True)
     reset_date = _sibling("usage_dates").reset_date(shown_reset, "numeric" if is_num else eff_lang) if shown_reset else ""
 
     t_info = {

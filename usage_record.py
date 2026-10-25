@@ -815,11 +815,37 @@ def main(argv: Optional[List[str]] = None):
         if should_open:
             open_image_file(out_png)
 
+    def _reset_samples(d):
+        # hourly readings (usage_history samples.csv) narrow a mid-week reset's estimated time; optional
+        try:
+            import usage_checkins
+            return usage_checkins.load_samples(str(Path(d) / "samples.csv"))
+        except Exception:
+            return None
+
     baseline_val = round(pace_val * day_idx, 4)
-    delta_val = round(pct_val - baseline_val, 4)
-    status_str = "ahead" if pct_val > baseline_val else "on_pace"
     avg_per_day = round(pct_val / max(1, day_idx), 2)
     projected_end_pct = round((pct_val / max(1, day_idx)) * period_days, 1)
+    midweek_reset = None
+    # Mid-week reset (cumulative % dropped, e.g. a plan upgrade reset the pool to ~0%): the average, projection and
+    # baseline count from the estimated reset time, as on the dashboard (usage_rate.py). Normal weeks: unchanged.
+    try:
+        import usage_rate
+        if rows and int(rows[-1]["day"]) == day_idx:
+            rm = usage_rate.rate_model(rows, [float(r["pct"]) for r in rows], period_start_dt, shown_reset_dt,
+                                       pace_val, period_days, latest_day=day_idx,
+                                       samples=_reset_samples(data_dir))
+            if rm["reset"] is not None:
+                baseline_val = round(rm["baseline"], 4)
+                avg_per_day = round(rm["avg_day"], 2)
+                projected_end_pct = round(rm["proj"], 1)
+                midweek_reset = {"at": rm["reset_at"].isoformat(timespec="minutes"),
+                                 "days_since": round(rm["elapsed_days"], 4), "days_left": round(rm["rem_days"], 4),
+                                 "before_pct": rm["reset"]["before_pct"], "after_pct": rm["reset"]["after_pct"]}
+    except Exception as exc:
+        print(f"Warning: mid-week reset check failed: {exc}", file=sys.stderr)
+    delta_val = round(pct_val - baseline_val, 4)
+    status_str = "ahead" if pct_val > baseline_val else "on_pace"
     remaining_pct = round(max(0.0, 100.0 - pct_val), 4)
 
     cmp_reading = reading_dt if shown_reset_dt.tzinfo is not None else reading_dt.replace(tzinfo=None)
@@ -855,13 +881,15 @@ def main(argv: Optional[List[str]] = None):
             "csv": str(csv_path),
             "text": priv_text,
         }
+        if midweek_reset is not None:
+            summary_payload["mw"] = {"days": midweek_reset["days_since"], "left": midweek_reset["days_left"]}
         out_text = priv_text
     else:
         status_phrase = "ahead of pace" if status_str == "ahead" else "on pace"
         summary_text = (
             f"Day {day_idx}/{period_days}: {pct_val:g}% used "
             f"(baseline {baseline_val:g}%, {'▲' if delta_val > 0 else '▼'} {delta_val:+g}) - {status_phrase}; "
-            f"projected {projected_end_pct:.0f}%; resets in {reset_in_text} ({usage_dates.reset_date(shown_reset_dt, 'en')})"
+            f"projected {projected_end_pct:.0f}%{' (since mid-week reset)' if midweek_reset else ''}; resets in {reset_in_text} ({usage_dates.reset_date(shown_reset_dt, 'en')})"
         )
         summary_payload = {
             "ok": True,
@@ -887,6 +915,8 @@ def main(argv: Optional[List[str]] = None):
             "image": None if args.no_render else str(out_png),
             "summary_text": summary_text,
         }
+        if midweek_reset is not None:
+            summary_payload["midweek_reset"] = midweek_reset
         out_text = summary_text
 
     if getattr(args, "date", None) is None and getattr(args, "time", None) is None:  # live reading, not a backfill
