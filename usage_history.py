@@ -319,9 +319,7 @@ class Ctx:
 
     def zlabel(self, dt=None):
         dt = dt or self.now()
-        off = dt.utcoffset() or timedelta(0)
-        m = int(off.total_seconds() // 60); s = "+" if m >= 0 else "-"; m = abs(m)
-        lab = f"UTC{s}{m // 60}" + (f":{m % 60:02d}" if m % 60 else "")
+        lab = utc_label(dt)
         if self.privacy:
             return lab
         return lab if self.tz_spec.lower() in ("local", "auto", "", "utc") else f"{self.tz_spec} {lab}"
@@ -840,6 +838,59 @@ def clock_periods(ctx, key, since, now, samples):
     return out[-8:]
 
 
+def _clock_theta(t):
+    return ((t.hour + t.minute / 60) / 24) * 2 * math.pi
+
+
+CLOCK_TIP_GROUP_PX = 5.0  # dots closer than this (in PNG pixels; a dot is ~7 px wide) share one tooltip
+CLOCK_TIP_MAX = 8         # items listed per tooltip (newest first); the rest become "+N more"
+
+
+def utc_label(dt):
+    """'UTC+8' / 'UTC-3:30' for an aware datetime (no zone names: also fine in privacy mode)."""
+    off = dt.utcoffset() or timedelta(0)
+    m = int(off.total_seconds() // 60); s = "+" if m >= 0 else "-"; m = abs(m)
+    return f"UTC{s}{m // 60}" + (f":{m % 60:02d}" if m % 60 else "")
+
+
+def clock_hotspots(ctx, fig, ax, marks, colors, names, now):
+    """Hover / tap targets for the check-in dots of one clock PNG, in % of the image (so they follow the responsive
+    <img>; the PNG is saved without bbox_inches, so figure pixels = image pixels). Dots within CLOCK_TIP_GROUP_PX of
+    each other are one spot listing every check-in (newest first, at most CLOCK_TIP_MAX plus a 'more' count).
+    Privacy mode: names become #1, #2 ... (public_alias) and notes are dropped, like the check-ins tab."""
+    W, H = fig.get_size_inches() * fig.dpi
+    ax.apply_aspect()  # a polar axes is squared inside its box at draw time; transData must see the final box
+    alias = public_alias(ctx, names)
+    pts = []
+    for r, th, rad in marks:
+        x, y = ax.transData.transform((th, rad))
+        pts.append((float(x), float(H - y), r, th, rad))  # matplotlib's y runs up, image y runs down
+    groups = []  # greedy, in drawing order: a dot joins the first group whose centre is close enough
+    for x, y, r, th, rad in pts:
+        for g in groups:
+            if math.hypot(g["px"] - x, g["py"] - y) <= CLOCK_TIP_GROUP_PX:
+                g["rows"].append(r); n = len(g["rows"])
+                g["px"] += (x - g["px"]) / n; g["py"] += (y - g["py"]) / n
+                break
+        else:
+            groups.append({"px": x, "py": y, "rows": [r], "o": (round(th, 6), rad)})
+    out = []
+    for g in groups:
+        rows = sorted(g["rows"], key=lambda r: r["t"], reverse=True)
+        items = []
+        for r in rows[:CLOCK_TIP_MAX]:
+            t = r["t"]
+            items.append({"n": alias.get(r["name"], r["name"]), "c": colors.get(r["name"], CHECKIN_PALETTE[0]),
+                          "t": f"{t:%m-%d %H:%M}" if t.year == now.year else f"{t:%Y-%m-%d %H:%M}", "z": utc_label(t),
+                          "note": "" if ctx.privacy else (r.get("note") or ""),
+                          "cats": [ctx.cat_label(c) for c in (r.get("cats") or [r.get("category")]) if c],
+                          "k": "start" if r.get("phase") == "start" else "point", "ts": int(t.timestamp())})
+        out.append({"x": round(100 * g["px"] / W, 3), "y": round(100 * g["py"] / H, 3), "items": items,
+                    "more": max(0, len(rows) - CLOCK_TIP_MAX), "o": g["o"]})
+    out.sort(key=lambda s: s.pop("o"))  # clockwise from 0:00, inner ring first (keyboard order)
+    return {"w": int(round(W)), "h": int(round(H)), "spots": out}
+
+
 def draw_clock(ctx, samples, cks, colors, path, title, since, now, zl, key="1d", mode="ot"):
     import chart_hud  # trim_num / sfmt: one decimal only when needed
     plt = _plt(ctx)
@@ -900,10 +951,14 @@ def draw_clock(ctx, samples, cks, colors, path, title, since, now, zl, key="1d",
             names.append(r["name"])
     shown = names[:8]
     ax.set_ylim(0, vmax * (1.15 + 0.07 * len(shown)))
+    marks = []  # (check-in row, theta, r) of every dot drawn: the page's hover tooltips (clock_hotspots)
     for i, nm in enumerate(shown):
-        tt = [((r["t"].hour + r["t"].minute / 60) / 24) * 2 * math.pi for r in ck if r["name"] == nm]
+        rows = [r for r in ck if r["name"] == nm]
+        tt = [_clock_theta(r["t"]) for r in rows]
         ax.scatter(tt, [vmax * (1.12 + 0.07 * i)] * len(tt), s=22, color=colors[nm], edgecolors=T["card"], linewidths=0.5, zorder=6,
                    label=(f"#{names.index(nm) + 1}" if ctx.privacy else nm))
+        marks += [(r, a, vmax * (1.12 + 0.07 * i)) for r, a in zip(rows, tt)]
+    _write_text(Path(path).with_suffix(".json"), json.dumps(clock_hotspots(ctx, fig, ax, marks, colors, names, now), ensure_ascii=False))
     if shown:
         leg = ax.legend(loc="lower left", bbox_to_anchor=(-0.16, -0.12), frameon=False, fontsize=8.5, labelcolor=T["text_color"],
                         title=L["ck_legend"].format(n=len(ck)), handletextpad=0.3)
@@ -944,6 +999,7 @@ def draw_clock(ctx, samples, cks, colors, path, title, since, now, zl, key="1d",
     fig.savefig(path, facecolor=T["bg_color"]); plt.close(fig)
 
 
+CLOCK_JSON_RE = re.compile(r"^clock-(1d|[a-z0-9]{1,4}-(ot|os|sd))\.json$")  # check-in dot tooltips (clock_hotspots)
 GEN_FILE = ".gen"  # history/.gen: id of the latest render; history/pal/<name>/.gen: render that palette matches
 
 
@@ -1048,7 +1104,7 @@ def render_clock(ctx):
     now, zl, s, ck = _clock_inputs(ctx)
     names = _cycle_palettes(ctx)
     _draw_clocks(ctx, names, now, zl, s, ck)
-    _publish_default(ctx, ["clock-1d.png", clock_file("wk")])
+    _publish_default(ctx, ["clock-1d.png", clock_file("wk"), "clock-1d.json", clock_file("wk")[:-4] + ".json"])
     for d in [ctx.hist_dir] + [p for _, p in _palette_dirs(ctx)]:
         for old in ("clock-7d.png", "clock-all.png", "clock-wk.png"):  # names used by earlier versions
             if (d / old).exists():
@@ -1471,6 +1527,84 @@ GAUGE_CSS = (".gwrap{position:relative} .gsvg{position:absolute;left:1px;top:1px
              # Auto-check switch + GitHub icon: one unit, so the icon never wraps onto a line of its own
              " .upd .agrp{display:inline-flex;align-items:center;gap:7px} .upd .agrp:not(:has(>:not([hidden]))){display:none}"
              " .upd [hidden]{display:none!important}")
+# Clock tab: hover / tap tooltips for the check-in dots (the PNG is unchanged; clock_hotspots() writes the spots).
+# Vanilla JS, no network beyond the page's own clock-*.json (served page, ranges not embedded). User text is only ever
+# set with textContent. Mouse: hover shows; click pins. Touch: tap toggles, a tap outside closes. Keyboard: the dots of
+# one dial are one Tab stop (roving tabindex); arrows move clockwise, Enter / Space pins, Escape closes.
+CLOCKTIP_STR = {
+    "en": {"point": "Check-in", "start": "Session start", "more": "+{n} more", "n": "{n} check-in(s)"},
+    "zh-TW": {"point": "單次打卡", "start": "工作段開始", "more": "還有 {n} 筆", "n": "{n} 筆打卡"},
+    "zh-CN": {"point": "单次打卡", "start": "工作段开始", "more": "还有 {n} 条", "n": "{n} 条打卡"},
+    "numeric": {"point": "·", "start": "▶", "more": "+{n}", "n": "✓ {n}"},
+}
+CLOCKTIP_JS = r"""(function(){var $=function(i){return document.getElementById(i);},D={};try{D=JSON.parse($('clocktips').textContent)||{};}catch(e){}
+var S=D.s||{},MAX=D.max||8,uid=0,all=[];
+function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=String(x);return e;}
+function fmt(t,n){return String(t||'').replace('{n}',n);}
+function rk(f){var m=/^clock-(1d|[a-z0-9]+)(?:-[a-z]+)?\.png$/.exec(f||'');return m?m[1]:null;}
+function setup(img){var fig=img.parentNode,w=el('div','ctwrap');fig.insertBefore(w,img);w.appendChild(img);
+var layer=el('div','ctlayer'),tip=el('div','cttip');tip.id='cttip'+(++uid);tip.setAttribute('role','tooltip');tip.hidden=true;layer.setAttribute('role','group');
+w.appendChild(layer);w.appendChild(tip);var st={spots:[],btns:[],cur:[],pin:false,pt:'mouse',f:null},me={w:w,hide:hide,st:st};all.push(me);
+function box(){return {x:img.clientLeft,y:img.clientTop,w:img.clientWidth,h:img.clientHeight};}
+function hide(){tip.hidden=true;st.pin=false;st.cur.forEach(function(i){var b=st.btns[i];if(b){b.classList.remove('on');b.removeAttribute('aria-describedby');}});st.cur=[];w.classList.remove('ctpin');}
+function build(j){hide();layer.textContent='';st.spots=(j&&j.spots)||[];st.btns=st.spots.map(function(s,i){var b=el('button','ctspot');b.type='button';
+b.style.left=s.x+'%';b.style.top=s.y+'%';b.tabIndex=i?-1:0;var it=s.items[0]||{};
+b.setAttribute('aria-label',(it.n||'')+' '+(it.t||'')+' · '+fmt(S.n,s.items.length+(s.more||0)));
+b.onfocus=function(){if(!st.pin||st.cur.indexOf(i)<0)show([i],false);};
+b.onblur=function(e){if(!st.pin&&!(e.relatedTarget&&w.contains(e.relatedTarget)))hide();};
+b.onkeydown=function(e){var k=e.key,n=st.btns.length,to=null;if(k==='ArrowRight'||k==='ArrowDown')to=(i+1)%n;else if(k==='ArrowLeft'||k==='ArrowUp')to=(i-1+n)%n;
+else if(k==='Home')to=0;else if(k==='End')to=n-1;else if(k==='Enter'||k===' '){e.preventDefault();if(st.pin)hide();else show([i],true);return;}
+else if(k==='Escape'){if(!tip.hidden){e.preventDefault();hide();}return;}if(to!=null){e.preventDefault();st.btns.forEach(function(x,j){x.tabIndex=j===to?0:-1;});hide();st.btns[to].focus();}};
+layer.appendChild(b);return b;});layer.hidden=!st.spots.length;}
+function load(){var f=img.dataset.f||'',k=rk(f),src=img.getAttribute('src')||'';if(f===st.f)return;st.f=f;
+if(D.spots&&D.spots[k]){build(D.spots[k]);return;}if(!k||/^data:/.test(src)){build(null);return;}
+build(null);fetch(src.replace(/\.png(\?|$)/,'.json$1'),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;})
+.then(function(j){if(img.dataset.f===f)build(j);}).catch(function(){});}
+// nearest spot within r CSS px of the pointer; on a small (phone) dial, spots that overlap on screen are listed together
+function near(e,r){var b=img.getBoundingClientRect(),c=box(),px=e.clientX-b.left-c.x,py=e.clientY-b.top-c.y,best=-1,bd=r;
+var P=st.spots.map(function(s){return [s.x/100*c.w,s.y/100*c.h];});P.forEach(function(p,i){var d=Math.hypot(p[0]-px,p[1]-py);if(d<=bd){bd=d;best=i;}});
+if(best<0)return [];var m=Math.max(4,Math.min(8,c.w*0.012)),out=[best];
+P.forEach(function(p,i){if(i!==best&&Math.hypot(p[0]-P[best][0],p[1]-P[best][1])<m)out.push(i);});return out;}
+function show(ix,pin){hide();if(!ix.length)return;var items=[],more=0;ix.forEach(function(i){var s=st.spots[i];items=items.concat(s.items);more+=s.more||0;});
+items.sort(function(a,b){return b.ts-a.ts;});if(items.length>MAX){more+=items.length-MAX;items=items.slice(0,MAX);}
+// check-ins that differ only in time (same person, kind, categories, note) share one block listing every time
+var blk=[],by={};items.forEach(function(it){var id=JSON.stringify([it.n,it.k,it.cats,it.note,it.c]),b=by[id];if(!b){b=by[id]={it:it,t:[]};blk.push(b);}b.t.push(it);});
+tip.textContent='';blk.forEach(function(b){var it=b.it,row=el('div','cti'),h=el('div','cth'),d=el('i','dot');d.style.background=/^#[0-9a-fA-F]{3,8}$/.test(it.c)?it.c:'';
+h.appendChild(d);h.appendChild(el('b','ctn',it.n));h.appendChild(el('span','ctk',S[it.k]||S.point));row.appendChild(h);
+var zs=b.t.map(function(x){return x.z||'';}),z1=zs.every(function(z){return z===zs[0];});
+var tl=el('div','ctt');b.t.forEach(function(x,j){if(j)tl.appendChild(document.createTextNode(' · '));tl.appendChild(el('span',null,x.t+(!z1&&x.z?' ('+x.z+')':'')+(z1&&zs[0]&&j===b.t.length-1?' ('+zs[0]+')':'')));});row.appendChild(tl);
+if(it.cats&&it.cats.length)row.appendChild(el('div','ctc',it.cats.join(' · ')));
+if(it.note)row.appendChild(el('div','ctnote',it.note));tip.appendChild(row);});
+if(more)tip.appendChild(el('div','ctmore',fmt(S.more,more)));
+st.cur=ix;st.pin=!!pin;w.classList.toggle('ctpin',!!pin);ix.forEach(function(i){st.btns[i].classList.add('on');st.btns[i].setAttribute('aria-describedby',tip.id);});
+tip.style.left='0px';tip.style.top='0px';tip.hidden=false;
+// above the dot when it fits on screen, else below; kept inside the viewport (a phone shows the two dials side by side)
+var s=st.spots[ix[0]],c=box(),R=w.getBoundingClientRect(),cx=c.x+s.x/100*c.w,cy=c.y+s.y/100*c.h,tw=tip.offsetWidth,th=tip.offsetHeight,
+VW=document.documentElement.clientWidth||innerWidth,vx=Math.max(4,Math.min(VW-tw-4,R.left+cx-tw/2)),t=cy-th-12;
+if(R.top+t<4&&R.top+cy+12+th<=innerHeight)t=cy+12;tip.style.left=(vx-R.left)+'px';tip.style.top=t+'px';}
+w.addEventListener('pointerdown',function(e){st.pt=e.pointerType||'mouse';});
+w.addEventListener('pointermove',function(e){if(e.pointerType&&e.pointerType!=='mouse')return;var ix=near(e,9);w.style.cursor=ix.length?'pointer':'';
+if(st.pin)return;if(ix.length){if(ix.join()!==st.cur.join())show(ix,false);}else if(!tip.hidden)hide();});
+w.addEventListener('pointerleave',function(e){w.style.cursor='';if(!st.pin&&(!e.pointerType||e.pointerType==='mouse'))hide();});
+w.addEventListener('click',function(e){if(e.detail===0||tip.contains(e.target))return;var ix=near(e,st.pt==='mouse'?9:20);
+if(!ix.length){hide();return;}if(st.pin&&ix.join()===st.cur.join()){hide();return;}show(ix,true);});
+if(window.MutationObserver)new MutationObserver(load).observe(img,{attributes:true,attributeFilter:['src','data-f']});
+window.addEventListener('resize',function(){if(!tip.hidden)hide();});load();}
+window.addEventListener('scroll',function(){all.forEach(function(m){if(m.st.cur.length&&!m.st.pin)m.hide();});},{passive:true});
+document.addEventListener('click',function(e){all.forEach(function(m){if(m.st.cur.length&&!m.w.contains(e.target))m.hide();});});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')all.forEach(function(m){if(m.st.pin)m.hide();});});
+[].forEach.call(document.querySelectorAll('#p-clock img[data-f]'),setup);})();"""
+
+
+def clocktip_css(card, tx, dim):
+    return (".ctwrap{position:relative} .ctwrap>img{display:block} .ctlayer{position:absolute;left:1px;top:1px;right:1px;bottom:1px;pointer-events:none}"
+            " .ctspot{position:absolute;width:14px;height:14px;margin:-7px 0 0 -7px;padding:0;border:0;border-radius:50%;background:transparent;pointer-events:none}"
+            " .ctspot:focus{outline:none} .ctspot:focus-visible,.ctspot.on{box-shadow:0 0 0 2px var(--accent)}"
+            f" .cttip{{position:absolute;z-index:15;box-sizing:border-box;width:max-content;max-width:min(300px,calc(100vw - 8px));background:{card};color:{tx};"
+            "border:1px solid var(--bd);border-radius:8px;padding:6px 9px;font-size:12.5px;line-height:1.45;box-shadow:0 8px 24px rgba(0,0,0,.45);text-align:left}"
+            " .cttip .cti+.cti{border-top:1px solid var(--bd);margin-top:4px;padding-top:4px} .cttip .cth{display:flex;align-items:center;gap:6px}"
+            f" .cttip .ctk,.cttip .ctt,.cttip .ctc,.cttip .ctmore{{color:{dim}}} .cttip .ctk{{margin-left:auto;padding-left:10px;white-space:nowrap}}"
+            " .cttip .ctt>span{white-space:nowrap} .cttip .ctnote{white-space:pre-wrap;overflow-wrap:anywhere} .cttip .ctmore{margin-top:4px;font-weight:700}")
 PALETTE_JS = r"""(function(){var $=function(i){return document.getElementById(i);},P=JSON.parse($('paldata').textContent),KEY='usage.palette',PKEY='usage.patterns',pchk=$('patchk'),CK={r:'usage.clockRange',l:'usage.clockLayout',f:'usage.clockFill'},D={r:'wk',l:'ov',f:'t'},
 served=/^https?:$/.test(location.protocol),btn=$('palbtn'),msg=$('palmsg'),V=P.light?'light':'dark',cur=P.base,pat=!!P.pat,CR={r:'wk',l:'ov',f:'t'},seq=0,
 TKN=(document.querySelector('meta[name="usage-token"]')||{}).content||'',clk=$('clkimg'),
@@ -1670,6 +1804,20 @@ PAL_STR = {"en": {"busy": "Drawing charts…", "fail": "Could not draw this pale
            "numeric": {"busy": "…", "fail": "×", "file": "×"}}
 
 
+def clock_tips_json(ctx):
+    """<script type=application/json> text for the clock tooltips: strings + the spots of the two embedded dials
+    (by range key; dot positions do not depend on palette or layout). '<' is escaped so a note can never close the tag."""
+    spots = {}
+    for k in ("1d", "wk"):
+        f = ctx.hist_dir / (clock_file(k)[:-4] + ".json")
+        try:
+            spots[k] = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            pass
+    lk = "numeric" if ctx.privacy else ("zh-CN" if ctx.lang == "zh-CN" else ("zh-TW" if ctx.lang.startswith("zh") else "en"))
+    return json.dumps({"s": CLOCKTIP_STR[lk], "max": CLOCK_TIP_MAX, "spots": spots}, ensure_ascii=False).replace("<", "\\u003c")
+
+
 def write_html(ctx, sums, now, nowa, zl, gen=""):
     L, T = ctx.L, ctx.theme
     MS = MANUAL_STR["numeric"] if ctx.privacy else (MANUAL_STR["zh-TW"] if ctx.lang.startswith("zh") else MANUAL_STR["en"])
@@ -1724,6 +1872,7 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
     tabs.append(f"<button data-k='clock'>{html.escape(L['clock_tab'])}</button>")
     panes.append(f"<section id='p-clock'><div class='sub'>{html.escape(L['clock_sub'].format(z=zl))}</div>"
                  f"<div class='clocks'>{imgs or '<div class=warn>' + html.escape(L['no_clock']) + '</div>'}</div></section>")
+    ctjson = clock_tips_json(ctx)
     ckdata = usage_checkins_ui.to_script_json(checkin_page_data(ctx, sums))
     rjs = json.dumps({k: L[k] for k in ("loading", "refresh", "conn_err", "refreshing", "ph_read", "ph_draw")}, ensure_ascii=False).replace("<", "\\u003c")
     tabs.append(f"<button data-k='checkin'>{html.escape(L['checkin_tab'])}</button>")
@@ -1839,7 +1988,7 @@ html[data-patterns="1"] .badge:not(.note)::before{{content:"▲ "}} .pal{{color:
 .plist li.pnote{{cursor:default;color:{dim};font-size:12px;line-height:1.45;border-top:1px solid var(--bd);border-radius:0;margin-top:4px;padding:7px 8px 4px;white-space:normal}}
 .ptog{{display:inline-flex;align-items:center;gap:5px;cursor:pointer}} .ptog input{{margin:0}} .offsel{{padding:3px 6px}} .otag{{color:{dim};font-size:.85em;font-weight:400}}
 {usage_checkins_ui.CSS}
-{GAUGE_CSS}{gh_css(_on_colour(bg) == "#FFFFFF")}
+{GAUGE_CSS} {clocktip_css(card, tx, dim)}{gh_css(_on_colour(bg) == "#FFFFFF")}
 </style></head><body><div class="wrap"><div class="top">{html.escape(L['eyebrow'])}{f' <span class="ver" id="appver">v{APP_VERSION}</span>' if APP_VERSION else ''}</div><h1>{html.escape(title)}</h1>
 <div class="bar"><nav>{''.join(tabs)}</nav><div class="upd"><div class="trow tset" id="tset"><span id="last" title="{html.escape(L['last'].format(t=f'{now:%H:%M}', z=zl))}">{html.escape(L.get('last_short', L['last']).format(t=f'{now:%H:%M}', z=zl))}</span>
 <span class="pal psel" id="psel"><span id="pall">{html.escape(pal_label)}</span><button type="button" class="pbtn" id="palbtn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="pall palcur"><span id="palcur">{palcur}</span></button>
@@ -1858,6 +2007,7 @@ html[data-patterns="1"] .badge:not(.note)::before{{content:"▲ "}} .pal{{color:
 <script type="application/json" id="ledgerdata">{ledjson}</script><script type="application/json" id="ledgerstr">{lsjson}</script><script>{LEDGER_JS}</script>
 <script type="application/json" id="gaugedata">{gjson}</script><script>{GAUGE_JS}</script>
 <script type="application/json" id="paldata">{paldata}</script><script>{PALETTE_JS}</script>
+<script type="application/json" id="clocktips">{ctjson}</script><script>{CLOCKTIP_JS}</script>
 <script type="application/json" id="updstr">{usjson}</script><script>{UPDATE_JS}</script>
 <script>
 var TK=(document.querySelector('meta[name="usage-token"]')||{{}}).content||'';
@@ -2497,8 +2647,9 @@ def serve(ctx, allow_remote=False):
                 page = local_guard.inject_token(p.read_text(encoding="utf-8"), token)
                 return self._send(200, page.encode("utf-8"), "text/html; charset=utf-8")
             parts = u.path[1:].split("/")
-            if parts[-1] == "week-current.json" and (len(parts) == 1 or (len(parts) == 3 and parts[0] == "pal" and is_dir_key(parts[1]))):
-                p = ctx.hist_dir.joinpath(*parts)  # gauge overlay geometry (no usage details beyond the shown %)
+            if (parts[-1] == "week-current.json" or CLOCK_JSON_RE.match(parts[-1])) and (len(parts) == 1 or (len(parts) == 3 and parts[0] == "pal" and is_dir_key(parts[1]))) \
+                    and all(x and x not in (".", "..") for x in parts):
+                p = ctx.hist_dir.joinpath(*parts)  # gauge overlay geometry / clock check-in tooltips (what the page already shows)
                 return self._send(200, p.read_bytes()) if p.is_file() else self._send(404, {"ok": False, "error": "not found"})
             if u.path.endswith(".png") and (len(parts) == 1 or (len(parts) == 3 and parts[0] == "pal" and is_dir_key(parts[1]))) \
                     and all(x and x not in (".", "..") for x in parts):

@@ -6,6 +6,11 @@ MAJOR for changes that need you to do something, MINOR for new features, PATCH f
 The current version is in the `VERSION` file and shown small at the top of the page.
 The changelog is kept in English only; [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md) is no longer updated.
 
+## [1.2.4] - 2026-10-26
+
+### Added
+- Clock tab: hover (or tap on a phone, or Tab + arrow keys) a check-in dot for a tooltip with the name (`#1`, `#2` … in privacy mode), local time with UTC offset, categories, note (hidden in privacy mode) and check-in vs. session start; overlapping dots list every check-in, newest first (up to 8, then "+N more"). The PNG is unchanged: dot positions go to `clock-*.json` next to each clock PNG and are embedded in the page.
+
 ## [1.2.3] - 2026-10-26
 
 ### Added

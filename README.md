@@ -524,6 +524,7 @@ All commands accept `--config`, `--data-dir`, `--tz`, `--lang`, `--theme`, `--pa
 - Drops in % are treated as a quota reset (the new value counts). Long gaps are skipped.
 - With fewer than 24 intervals, the chart shows a "collecting data" badge.
 - Check-ins (one-off check-ins and session starts) are drawn as dots outside the rim, one colour per name (name colours avoid the state colours).
+- **Hover a check-in dot** (tap on a phone; Tab to the dial, then arrow keys and Enter on a keyboard) for a tooltip with the name, local time with its UTC offset (`10-26 13:22 (UTC+8)`), categories, note, and whether it was a one-off check-in or a session start. Dots that overlap (e.g. the same person at the same time on several days) share one tooltip that lists every check-in, newest first (up to 8, then "+N more"). Tap again or tap outside to close. Privacy mode shows `#1`, `#2` … and no notes. The PNG is unchanged; the dot positions are written next to it (`clock-*.json`) and embedded in the page, so it also works when `index.html` is opened as a file (ranges other than the default week need the served page).
 
 ### Timezone (`tz`)
 
