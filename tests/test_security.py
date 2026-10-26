@@ -55,6 +55,38 @@ class GuardUnitTests(unittest.TestCase):
         self.assertIn('<meta name="usage-token" content="T0K">', page)
 
 
+class ClockTooltipXssTests(unittest.TestCase):
+    """Check-in notes and names reach the clock tooltips only through textContent / createTextNode."""
+
+    def test_tooltip_js_never_parses_html(self):
+        import usage_history as uh
+        js = uh.CLOCKTIP_JS
+        for bad in ("innerHTML", "outerHTML", "insertAdjacentHTML", "document.write", "eval(", "new Function"):
+            self.assertNotIn(bad, js)
+        self.assertIn("textContent", js)
+        self.assertIn("it.note", js)
+
+    def test_tooltip_json_escapes_lt(self):
+        import argparse
+        import usage_history as uh
+        d = scratch()
+        try:
+            hist = os.path.join(d, "history")
+            os.makedirs(hist)
+            spot = {"spots": [{"x": 1, "y": 2, "more": 0, "items": [{"n": "</script><b>", "note": "<!--<script>", "t": "", "z": "",
+                                                                      "c": "#FFFFFF", "cats": ["<i>"], "k": "point", "ts": 0}]}]}
+            for f in ("clock-1d.json", "clock-wk-ot.json"):
+                with open(os.path.join(hist, f), "w", encoding="utf-8") as fh:
+                    json.dump(spot, fh)
+            ctx = uh.Ctx(argparse.Namespace(config=None, data_dir=d, tz="UTC", lang="en", theme=None, pace=None, palette=None,
+                                            privacy=False, host=None, port=None))
+            out = uh.clock_tips_json(ctx)
+            self.assertNotIn("<", out)
+            self.assertEqual(json.loads(out)["spots"]["wk"]["spots"][0]["items"][0]["n"], "</script><b>")
+        finally:
+            shutil.rmtree(d)
+
+
 class _ServerCase:
     """Mixin: subclasses set self.url, self.token, self.write_path, self.write_body."""
 
@@ -152,6 +184,17 @@ class HistoryServerTests(_ServerCase, unittest.TestCase):
         code, body = self._post("name=formuser&category=web&category=image&phase=point", form=True)
         self.assertEqual(code, 200, body)
         self.assertEqual(json.loads(body)["checkin"]["categories"], ["web", "image"])
+
+    def test_clock_tip_json_paths(self):
+        hist = os.path.join(self.data, "history")
+        os.makedirs(hist, exist_ok=True)
+        with open(os.path.join(hist, "clock-1d.json"), "w", encoding="utf-8") as fh:
+            fh.write('{"spots": []}')
+        code, body = request(self.url + "clock-1d.json")
+        self.assertEqual((code, json.loads(body)), (200, {"spots": []}))
+        for bad in ("pal/../clock-1d.json", "pal/x/../../clock-1d.json", "clock-1d.json.bak", "history_server.json",
+                    "serve.token", "checkins.csv", "clock-..json"):
+            self.assertEqual(request(self.url + bad)[0], 404, bad)
 
     def test_refresh_get_rejected(self):
         self.assertEqual(request(self.url + "api/refresh?pct=50")[0], 405)
