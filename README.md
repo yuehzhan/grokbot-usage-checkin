@@ -682,6 +682,16 @@ Both `usage_history.py serve` and `usage_view.py`:
 
 All writers (weekly CSVs, samples, check-ins, `state.json`, ledger) share one lock file, `<data_dir>/.write.lock`.
 
+### Viewing on Your Phone (Tailscale, not yet tested on a phone)
+
+[Tailscale](https://tailscale.com/download) puts your PC and phone on a private network, so you can open the dashboard from your phone without exposing it to the internet.
+
+1. Install Tailscale on the PC and on the phone and sign in with the same account: [Android (Google Play)](https://play.google.com/store/apps/details?id=com.tailscale.ipn), [iOS (App Store)](https://apps.apple.com/us/app/tailscale/id1470499037).
+2. In `usage_config.json`, set `history_host` to the PC's Tailscale IP, a fixed `history_port` (e.g. `8765`), and list the PC's Tailscale name and IP in `history_allowed_hosts`.
+3. Start the server with `--allow-remote`, then open `http://<pc-name>:8765` on the phone. The PC must be on and the server running.
+
+The served page embeds the write token, so any device on your tailnet can refresh and check in. Keep the tailnet to your own devices.
+
 ### Reading the Grok Build screen
 
 - **Linux / macOS**: each read starts its own fixed-size `tmux` session, captures only the on-screen text

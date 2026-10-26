@@ -277,6 +277,16 @@ Grok Build 沒有「不開畫面就印出用量」的指令；`grok -p "/usage"`
 記錄檔：`usage-data\service.log`、`usage-data\server.log`、`usage-data\sampler.log`。回報問題時附上這些檔案即可（裡面不含帳號資料）。
 
 
+## 用手機看（Tailscale，尚未在手機實測）
+
+[Tailscale](https://tailscale.com/download) 會把電腦和手機接進同一個私人網路，手機就能打開儀表板，不必把它開放到網際網路上。
+
+1. 電腦和手機都裝 Tailscale，登入同一個帳號：[Android（Google Play）](https://play.google.com/store/apps/details?id=com.tailscale.ipn)、[iOS（App Store）](https://apps.apple.com/us/app/tailscale/id1470499037)。
+2. 在 `usage_config.json` 把 `history_host` 設成電腦的 Tailscale IP，`history_port` 設固定埠（例如 `8765`），`history_allowed_hosts` 填電腦的 Tailscale 名稱和 IP。
+3. 用 `--allow-remote` 啟動服務，手機瀏覽器打開 `http://<電腦名稱>:8765`。電腦要開著、服務要在跑。
+
+頁面內含寫入用的 token，所以同一個 tailnet 裡的裝置都能重新整理和打卡；tailnet 只放自己的裝置就好。
+
 ## 致謝
 
 本工具主要由 Grok Bot（琥珀）操刀，Gemini 3.8 與 Gemini 4 輔助完成；原作者僅負責協調與激發靈感。後續維護與更新，將視未來情況調整。

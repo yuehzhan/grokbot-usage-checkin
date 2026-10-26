@@ -11,6 +11,9 @@ The changelog is kept in English only; [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md) 
 ### Added
 - Clock tab: hover (or tap on a phone, or Tab + arrow keys) a check-in dot for a tooltip with the name (`#1`, `#2` … in privacy mode), local time with UTC offset, categories, note (hidden in privacy mode) and check-in vs. session start; overlapping dots list every check-in, newest first (up to 8, then "+N more"). The PNG is unchanged: dot positions go to `clock-*.json` next to each clock PNG and are embedded in the page.
 
+### Docs
+- README: **Viewing on your phone (Tailscale)** section with Android and iOS app links, setup steps and a security note.
+
 ## [1.2.3] - 2026-10-26
 
 ### Added
