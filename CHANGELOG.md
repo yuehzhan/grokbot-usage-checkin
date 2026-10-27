@@ -6,6 +6,18 @@ MAJOR for changes that need you to do something, MINOR for new features, PATCH f
 The current version is in the `VERSION` file and shown small at the top of the page.
 The changelog is kept in English only; [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md) is no longer updated.
 
+## [1.4.0] - 2026-10-27
+
+### Added
+- Seasonal accessories on the built-in mascot (original inline SVG, fixed colours, no external assets): New Year
+  firework sparkles (Dec 31 – Jan 2), a Valentine's heart (Feb 13 – 15), Children's Day carp streamers / koinobori
+  (May 1 – 5), a Halloween jack-o'-lantern hat (Oct 25 – Nov 1) and a Christmas Santa hat (Dec 20 – 26), both days
+  included, by the dashboard's display date (page time zone) when the page is built. The sparkles twinkle and the
+  streamers sway, both still with `prefers-reduced-motion`; blinking is unchanged. New **Seasonal** menu right after
+  **Mascot** (Auto (by date) / Off, default Auto; all six page languages; config key `seasonal`, browser key
+  `usage.seasonal`, new `POST /api/seasonal` with token + Host/Origin checks; page-only, no chart redraw). Never on a
+  custom `mascot.svg`; hidden with the mascot when it is Off, and in privacy mode.
+
 ## [1.3.0] - 2026-10-27
 
 ### Added

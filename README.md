@@ -323,6 +323,23 @@ otherwise the option is not shown and a saved Custom choice reads as Off. It is 
 and colour options do not apply to it. Hidden in privacy mode like the built-in mascot. A new or changed file shows up
 the next time the page is rebuilt (the next reading, any page menu change, or a restart); then reload the page.
 
+**Seasonal accessories** (menu right after **Mascot**: Auto (by date) / Off, default Auto; config key `seasonal`,
+browser key `usage.seasonal`, endpoint `POST /api/seasonal` with the same token and Host/Origin checks as `/api/lang`).
+On a few holidays the built-in mascot wears a small accessory, drawn as original inline SVG with its own fixed colours:
+
+| Holiday | Accessory | Dates (both days included) |
+|---|---|---|
+| New Year | firework sparkles around it | Dec 31 – Jan 2 |
+| Valentine's Day | a floating heart | Feb 13 – Feb 15 |
+| Children's Day | a small pole with two carp streamers (koinobori) | May 1 – May 5 |
+| Halloween | a jack-o'-lantern hat | Oct 25 – Nov 1 |
+| Christmas | a Santa hat | Dec 20 – Dec 26 |
+
+The date is the dashboard's display date (the page's **Time zone**), checked when the page is built (every reading,
+any page menu change, or a restart). The sparkles twinkle and the streamers sway; both stay still with **reduce motion**,
+and blinking works as before. Never on a custom `mascot.svg`; hidden with the mascot when it is Off and in privacy
+mode (the menu is hidden then too). Choosing Off or Auto rebuilds and reloads the page.
+
 - PNGs (`chart_hud.py`, history and clock charts) and web pages follow the palette. `over_color`, `under_color` and
   `baseline_color` in the config still override single colours.
 - The web pages have a **Colours** menu (a list of all presets, two colour dots each; arrow keys, Home/End, Enter and
@@ -574,7 +591,7 @@ cat usage-data/history_server.json             # {"url": "http://127.0.0.1:PORT/
 | `/api/checkins` | GET | Sessions grouped by day plus per-category summary; same filters as search. |
 | `/api/checkins/search` | GET | Read-only search (see below). |
 | `/api/ledger`, `/ledger.json` | GET | The usage ledger (see below); `404` until the first sample. |
-| `/api/lang`, `/api/tz`, `/api/anim`, `/api/mascot` | POST | Page menus: JSON `{"lang": …}`, `{"tz": …}`, `{"anim": "off"\|"once"\|"continuous"}`, `{"mascot": "auto"\|"brown"\|…\|"off"}` (token required; `400` for an unknown value). `anim` and `mascot` only rebuild the page, no chart redraw. |
+| `/api/lang`, `/api/tz`, `/api/anim`, `/api/mascot`, `/api/seasonal` | POST | Page menus: JSON `{"lang": …}`, `{"tz": …}`, `{"anim": "off"\|"once"\|"continuous"}`, `{"mascot": "auto"\|"brown"\|…\|"off"}`, `{"seasonal": "auto"\|"off"}` (token required; `400` for an unknown value). `anim`, `mascot` and `seasonal` only rebuild the page, no chart redraw. |
 | `/week-current.json`, `/pal/<key>/week-current.json` | GET | Gauge geometry and colours for the animation overlay (shown % only). |
 
 - Binds `127.0.0.1` by default. Any non-loopback `history_host`/`--host` is refused unless `--allow-remote` is passed.

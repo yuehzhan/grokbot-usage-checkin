@@ -168,6 +168,7 @@ class Ctx:
         # <data_dir>/mascot.svg (optional, user's own image): adds a 'custom' choice; None when missing / invalid
         self.mascot_custom = custom_mascot_uri(self.data_dir)
         self.mascot_setting = page_mascot(gp("mascot", "mascot"), custom=bool(self.mascot_custom))  # page menu only (no CLI flag)
+        self.seasonal_setting = page_seasonal(gp("seasonal", "seasonal"))  # seasonal accessories on the built-in mascot
         # week files keep being written in the CLI/config zone (machine local otherwise); the page menu alone
         # (page_settings.json) changes only what is shown, so existing week files are never split or renamed
         self.data_tz = self._tz(str(g("tz", "tz", "local") or "local"))
@@ -362,14 +363,14 @@ PICK_STR = {  # labels of the language / time zone menus and their "auto" option
 }
 
 # Title mascot menu: label, button name and the option names (same order as MASCOT_CHOICES; 'custom' is listed
-# before 'off' only when <data_dir>/mascot.svg is a usable SVG)
+# before 'off' only when <data_dir>/mascot.svg is a usable SVG); "seasonal" / "sopts": the Seasonal accessories menu
 MASCOT_STR = {
-    'zh-TW': {"label": '小圓', "aria": '小圓，點一下眨眼', "opts": {'auto': '自動（主題強調色）', 'brown': '棕', 'black': '黑', 'grey': '灰', 'teal': '青綠', 'orange': '橘', 'pink': '粉紅', 'purple': '紫', 'blue': '藍', 'green': '綠', 'maroon': '酒紅', 'custom': '自訂', 'off': '關（隱藏）'}},
-    'zh-CN': {"label": '小圆', "aria": '小圆，点一下眨眼', "opts": {'auto': '自动（主题强调色）', 'brown': '棕', 'black': '黑', 'grey': '灰', 'teal': '青绿', 'orange': '橙', 'pink': '粉红', 'purple': '紫', 'blue': '蓝', 'green': '绿', 'maroon': '酒红', 'custom': '自定义', 'off': '关（隐藏）'}},
-    'en': {"label": 'Mascot', "aria": 'Mascot, click to blink', "opts": {'auto': 'Auto (theme accent)', 'brown': 'Brown', 'black': 'Black', 'grey': 'Grey', 'teal': 'Teal', 'orange': 'Orange', 'pink': 'Pink', 'purple': 'Purple', 'blue': 'Blue', 'green': 'Green', 'maroon': 'Maroon', 'custom': 'Custom', 'off': 'Off (hidden)'}},
-    'ja': {"label": 'マスコット', "aria": 'マスコット（クリックでまばたき）', "opts": {'auto': '自動（テーマのアクセント色）', 'brown': 'ブラウン', 'black': 'ブラック', 'grey': 'グレー', 'teal': 'ティール', 'orange': 'オレンジ', 'pink': 'ピンク', 'purple': 'パープル', 'blue': 'ブルー', 'green': 'グリーン', 'maroon': 'マルーン', 'custom': 'カスタム', 'off': 'オフ（非表示）'}},
-    'ko': {"label": '마스코트', "aria": '마스코트, 클릭하면 눈을 깜빡여요', "opts": {'auto': '자동(테마 강조색)', 'brown': '갈색', 'black': '검정', 'grey': '회색', 'teal': '청록', 'orange': '주황', 'pink': '분홍', 'purple': '보라', 'blue': '파랑', 'green': '초록', 'maroon': '적갈색', 'custom': '사용자 지정', 'off': '끄기(숨김)'}},
-    'numeric': {"label": '●', "aria": '●', "opts": {'auto': 'auto', 'brown': '1', 'black': '2', 'grey': '3', 'teal': '4', 'orange': '5', 'pink': '6', 'purple': '7', 'blue': '8', 'green': '9', 'maroon': '10', 'custom': '*', 'off': '0'}},
+    'zh-TW': {"label": '小圓', "aria": '小圓，點一下眨眼', "opts": {'auto': '自動（主題強調色）', 'brown': '棕', 'black': '黑', 'grey': '灰', 'teal': '青綠', 'orange': '橘', 'pink': '粉紅', 'purple': '紫', 'blue': '藍', 'green': '綠', 'maroon': '酒紅', 'custom': '自訂', 'off': '關（隱藏）'}, "seasonal": '節日裝扮', "sopts": {'auto': '自動（依日期）', 'off': '關'}},
+    'zh-CN': {"label": '小圆', "aria": '小圆，点一下眨眼', "opts": {'auto': '自动（主题强调色）', 'brown': '棕', 'black': '黑', 'grey': '灰', 'teal': '青绿', 'orange': '橙', 'pink': '粉红', 'purple': '紫', 'blue': '蓝', 'green': '绿', 'maroon': '酒红', 'custom': '自定义', 'off': '关（隐藏）'}, "seasonal": '节日装扮', "sopts": {'auto': '自动（按日期）', 'off': '关'}},
+    'en': {"label": 'Mascot', "aria": 'Mascot, click to blink', "opts": {'auto': 'Auto (theme accent)', 'brown': 'Brown', 'black': 'Black', 'grey': 'Grey', 'teal': 'Teal', 'orange': 'Orange', 'pink': 'Pink', 'purple': 'Purple', 'blue': 'Blue', 'green': 'Green', 'maroon': 'Maroon', 'custom': 'Custom', 'off': 'Off (hidden)'}, "seasonal": 'Seasonal', "sopts": {'auto': 'Auto (by date)', 'off': 'Off'}},
+    'ja': {"label": 'マスコット', "aria": 'マスコット（クリックでまばたき）', "opts": {'auto': '自動（テーマのアクセント色）', 'brown': 'ブラウン', 'black': 'ブラック', 'grey': 'グレー', 'teal': 'ティール', 'orange': 'オレンジ', 'pink': 'ピンク', 'purple': 'パープル', 'blue': 'ブルー', 'green': 'グリーン', 'maroon': 'マルーン', 'custom': 'カスタム', 'off': 'オフ（非表示）'}, "seasonal": '季節の飾り', "sopts": {'auto': '自動（日付で）', 'off': 'オフ'}},
+    'ko': {"label": '마스코트', "aria": '마스코트, 클릭하면 눈을 깜빡여요', "opts": {'auto': '자동(테마 강조색)', 'brown': '갈색', 'black': '검정', 'grey': '회색', 'teal': '청록', 'orange': '주황', 'pink': '분홍', 'purple': '보라', 'blue': '파랑', 'green': '초록', 'maroon': '적갈색', 'custom': '사용자 지정', 'off': '끄기(숨김)'}, "seasonal": '시즌 장식', "sopts": {'auto': '자동(날짜별)', 'off': '끄기'}},
+    'numeric': {"label": '●', "aria": '●', "opts": {'auto': 'auto', 'brown': '1', 'black': '2', 'grey': '3', 'teal': '4', 'orange': '5', 'pink': '6', 'purple': '7', 'blue': '8', 'green': '9', 'maroon': '10', 'custom': '*', 'off': '0'}, "seasonal": '✦', "sopts": {'auto': 'auto', 'off': '0'}},
 }
 # Title mascot: an original round blob drawn as inline SVG to the right of the page title. 'auto' follows the theme
 # accent (var(--accent), so it also follows the palette menu); the fixed colours are body hexes; 'off' hides it.
@@ -458,6 +459,134 @@ MASCOT_SVG = ('<svg viewBox="0 0 40 40" aria-hidden="true" focusable="false">'
               '<path class="mmouth" d="M18.2 25.3q1.8 1.6 3.6 0"/></svg>')
 
 
+# Seasonal accessories on the built-in mascot (never on the user's own mascot.svg): original simple vector art drawn
+# in the same 0 0 40 40 box (hats / streamers reach a little past it; the svg is overflow:visible, so the title
+# layout does not move). Fixed colours of their own, readable on light and dark pages. Picked from the dashboard's
+# display date (ctx.now(), the page's time zone) when the page is built; 'seasonal' auto (default) / off.
+SEASONAL_CHOICES = ("auto", "off")
+SEASONAL_DEFAULT = "auto"
+# (name, first (month, day), last (month, day)), both days included; a window may wrap over New Year
+MASCOT_SEASONS = (("newyear", (12, 31), (1, 2)), ("valentine", (2, 13), (2, 15)), ("childrensday", (5, 1), (5, 5)),
+                  ("halloween", (10, 25), (11, 1)), ("christmas", (12, 20), (12, 26)))
+
+
+def page_seasonal(v):
+    """A seasonal setting as stored: 'auto' or 'off' (false / none / hidden read as off); else the default."""
+    v = str(v if v is not None else "").strip().lower()
+    v = {"none": "off", "hidden": "off", "false": "off", "0": "off", "on": "auto", "true": "auto", "1": "auto"}.get(v, v)
+    return v if v in SEASONAL_CHOICES else SEASONAL_DEFAULT
+
+
+def mascot_season(d):
+    """The seasonal accessory for a date (a date or datetime, already in the display zone), or None."""
+    md = (d.month, d.day)
+    for name, a, b in MASCOT_SEASONS:
+        if (a <= md <= b) if a <= b else (md >= a or md <= b):
+            return name
+    return None
+
+
+def _spark(x, y, r, cols, n=14, delay=0, trail=None):
+    """A firework burst: n thin streaks shooting out from (x, y) with an empty centre (no flower heart), lengths
+    varying, solid (colour 1) and dotted spark trails (colour 2) in turn, each with a tiny bright spark dot at the
+    tip (colour 3). trail=(x0, y0): a dotted rising trail from (x0, y0) up to just below the burst."""
+    out = []
+    a_col, d_col, t_col = cols
+    for i in range(n):
+        a = 2 * math.pi * i / n - math.pi / 2
+        c, s_ = math.cos(a), math.sin(a)
+        ln = r * (1.0, 0.7, 0.92, 0.6, 0.86, 0.74, 0.98, 0.64, 0.8)[i % 9]
+        p = lambda f: f"{x + c * ln * f:.2f} {y + s_ * ln * f:.2f}"
+        # solid streaks and dotted spark trails in turn, one warm gold family, so no ring of petals forms
+        dot = f'" stroke="{a_col}' if i % 2 == 0 else f'" stroke="{d_col}" stroke-dasharray=".1 1.05'
+        out.append(f'<path d="M{p(.3)}L{p(.86)}{dot}"/>'
+                   f'<circle cx="{x + c * ln:.2f}" cy="{y + s_ * ln:.2f}" r=".52" fill="{t_col}" stroke="none"/>')
+    if trail:
+        x0, y0 = trail
+        out.insert(0, f'<path d="M{x0} {y0}Q{x0 + (x - x0) * 0.2:.2f} {(y0 + y) / 2:.2f} {x:.2f} {y + r * 0.3:.2f}" stroke="{d_col}" '
+                      'stroke-width=".8" stroke-dasharray=".15 1.3"/>')
+    st = f' style="animation-delay:{delay}s"' if delay else ""
+    return f'<g class="mspark"{st} fill="none" stroke-width=".75" stroke-linecap="round">{"".join(out)}</g>'
+
+
+def _sparkler(x, y, r, cols, delay=0):
+    """A sparkler: a bright point with fine spiky sparks of uneven length and angle shooting out of it."""
+    rays = ((0, 1), (27, .55), (51, .85), (80, .5), (104, .95), (133, .6), (160, .8), (187, .45), (209, .9),
+            (238, .55), (262, 1), (290, .5), (313, .8), (338, .6))
+    out = []
+    for i, (deg, f) in enumerate(rays):
+        a = math.radians(deg)
+        out.append(f'<path d="M{x + math.cos(a) * r * .12:.2f} {y + math.sin(a) * r * .12:.2f}L{x + math.cos(a) * r * f:.2f} '
+                   f'{y + math.sin(a) * r * f:.2f}" stroke="{cols[i % len(cols)]}"/>')
+    st = f' style="animation-delay:{delay}s"' if delay else ""
+    return (f'<g class="mspark"{st} fill="none" stroke-width=".65" stroke-linecap="round">{"".join(out)}'
+            f'<circle cx="{x}" cy="{y}" r=".55" fill="#FFFFFF" stroke="none"/></g>')
+
+
+def _twinkle(x, y, r, col, delay=0):
+    """A four-point twinkle star."""
+    k = r * 0.28
+    st = f' style="animation-delay:{delay}s"' if delay else ""
+    return (f'<path class="mspark"{st} fill="{col}" d="M{x} {y - r}Q{x + k:.2f} {y - k:.2f} {x + r} {y}Q{x + k:.2f} {y + k:.2f} {x} {y + r}'
+            f'Q{x - k:.2f} {y + k:.2f} {x - r} {y}Q{x - k:.2f} {y - k:.2f} {x} {y - r}Z"/>')
+
+
+def _carp(y, body, fin, scale=1.0):
+    """One koinobori carp hanging from the pole at x=34.6, flying to the right (mouth ring at the pole)."""
+    return (f'<g transform="translate(34.6 {y}) scale({scale})">'
+            f'<path d="M0 -2.1Q5.2 -3.2 8.6 -1.5L11.4 -3.1L10.2 0L11.4 3.1L8.6 1.5Q5.2 3.2 0 2.1Z" fill="{body}" stroke="#00000033" stroke-width=".35"/>'
+            f'<path d="M3.6 -2.4Q4.6 0 3.6 2.4M6.2 -2.2Q7.1 0 6.2 2.2" fill="none" stroke="{fin}" stroke-width=".7" stroke-linecap="round"/>'
+            f'<ellipse cx=".5" cy="0" rx=".7" ry="2.1" fill="#FFFFFF"/>'
+            f'<circle cx="2.2" cy="-.5" r="1" fill="#FFFFFF"/><circle cx="2.35" cy="-.5" r=".5" fill="#1B1F24"/></g>')
+
+
+HEART = "M0 3.6C-5.6 0-5.6-5.2-2.6-5.2-1.2-5.2-.3-4.3 0-3.2.3-4.3 1.2-5.2 2.6-5.2 5.6-5.2 5.6 0 0 3.6Z"
+
+MASCOT_ACCESSORIES = {
+    # New Year: two classic gold firework bursts (thin gold / amber streaks with pale gold spark tips, one with a
+    # dotted rising trail), a gold sparkler and a twinkle
+    "newyear": (_spark(4.6, 3.6, 6.2, ("#E8960E", "#F7B52A", "#FFC933"), n=16, trail=(1.2, 18))
+                + _spark(35.6, 2.4, 5.2, ("#F2A81D", "#EE7F1C", "#FFC933"), n=13, delay=.5)
+                + _sparkler(39.6, 15, 3.8, ("#F7B52A", "#FFD84D", "#EE7F1C"), delay=1)
+                + _twinkle(21, -4, 1.4, "#F7B52A", delay=.8)),
+    # Valentine's Day: a pink-red heart floating at the upper right, with a tiny one beside it
+    "valentine": (f'<g transform="translate(34.4 7.2) rotate(14)"><path d="{HEART}" fill="#FF4D73" stroke="#C2184A" stroke-width=".7" stroke-linejoin="round"/>'
+                  '<ellipse cx="-2.6" cy="-3" rx="1.2" ry=".75" fill="#FFFFFF" opacity=".75" transform="rotate(-30 -2.6 -3)"/></g>'
+                  f'<g transform="translate(28.6 -.6) rotate(-12) scale(.42)"><path d="{HEART}" fill="#FF8FB0" stroke="#C2184A" stroke-width="1.2"/></g>'),
+    # Children's Day: a small pole with a gold ball and two carp streamers (red, blue) flying to the right
+    "childrensday": ('<path d="M34.6 -4.4V23" stroke="#C08A55" stroke-width="1.3" stroke-linecap="round"/>'
+                     '<circle cx="34.6" cy="-4.8" r="1.4" fill="#FFC83D" stroke="#B8860B" stroke-width=".35"/>'
+                     '<g class="mwave">' + _carp(.8, "#F0453A", "#FFD0C8", 1.12) + '</g>'
+                     '<g class="mwave" style="animation-delay:.6s">' + _carp(8.2, "#2F7CF0", "#CFE3FF", .96) + '</g>'),
+    # Halloween: a little jack-o'-lantern worn as a hat (orange, green stem, dark carved face)
+    "halloween": ('<g transform="rotate(-6 20 4)">'
+                  '<path d="M20 -2.4C25.6 -4 31.4 -1.4 31.4 3.8 31.4 8.6 26.2 10.2 20 9.8 13.8 10.2 8.6 8.6 8.6 3.8 8.6 -1.4 14.4 -4 20 -2.4Z" fill="#FF8A1F" stroke="#B4510C" stroke-width=".7"/>'
+                  '<path d="M14.6 -1.8Q10.8 3.8 14.4 9.6M25.4 -1.8Q29.2 3.8 25.6 9.6M20 -2.2V-.6" fill="none" stroke="#D8640F" stroke-width=".8" stroke-linecap="round"/>'
+                  '<path d="M19.6 -2.2Q19.2 -5.2 21.6 -6.4" fill="none" stroke="#3E8E3A" stroke-width="1.8" stroke-linecap="round"/>'
+                  '<path d="M21.2 -4.4Q24.6 -6.8 26 -3.8Q23.4 -2.8 21.2 -4.4Z" fill="#5CB84A"/>'
+                  '<g fill="#3A1C06"><path d="M14.6 3.6L16.6 .4L18.2 3.6Z"/><path d="M21.8 3.6L23.4 .4L25.4 3.6Z"/>'
+                  '<path d="M14.4 5.2Q20 9.6 25.6 5.2L24.1 5.9L23 5.1L21.6 6.2L20 5.3L18.4 6.2L17 5.1L15.9 5.9Z"/></g></g>'),
+    # Christmas: a red Santa hat with a white brim and a pom-pom flopping to the right
+    "christmas": ('<path d="M8.6 9.4Q10.6 -.8 21 -2.6Q30.6 -4 35 2.6L33.4 3.8Q30 1.4 28.4 4.8L31.4 9.4Z" fill="#E0303A" stroke="#A3141F" stroke-width=".6" stroke-linejoin="round"/>'
+                  '<path d="M14 2.6Q19 -1.6 25.8 -1.6" fill="none" stroke="#FF6A70" stroke-width="1" stroke-linecap="round" opacity=".7"/>'
+                  '<rect x="6.6" y="7" width="26.8" height="5.4" rx="2.7" fill="#FFFFFF" stroke="#C9CDD6" stroke-width=".6" transform="rotate(-5 20 9.7)"/>'
+                  '<circle cx="35.4" cy="3.4" r="2.8" fill="#FFFFFF" stroke="#C9CDD6" stroke-width=".6"/>'),
+}
+
+
+def mascot_accessory_svg(name):
+    """The overlay svg for one accessory (same viewBox as MASCOT_SVG, decorative only)."""
+    return (f'<svg class="macc" data-s="{name}" viewBox="0 0 40 40" aria-hidden="true" focusable="false">'
+            f'{MASCOT_ACCESSORIES[name]}</svg>')
+
+
+def mascot_accessory(ctx):
+    """The seasonal accessory's name for the page being built, or None (setting off, privacy, or no season today)."""
+    if ctx.privacy or getattr(ctx, "seasonal_setting", SEASONAL_DEFAULT) == "off":
+        return None
+    return mascot_season(ctx.now())
+
+
 def mascot_css():
     """Mascot styles: colour variables per option, the in-place blink (eyes scaleY, ~200 ms), reduced-motion off."""
     # the title stays an inline h1 and the mascot flows right after its last word, so a title that wraps on a phone
@@ -474,7 +603,14 @@ def mascot_css():
         out.append(f" .mascot[data-c={k}]{{--mb:{body};--me:{eye};--mh:{hl};--mm:{mouth}}}")
     out.append(" .mascot.blink .meye{animation:mblink .2s ease-in-out} @keyframes mblink{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.1)}}"
                " @media (max-width:480px){.mascot{width:26px;height:26px;margin-left:7px;top:-1px}}"
+               # seasonal accessories: fixed colours; the sparkles twinkle and the carp streamers sway (both stop with reduced motion)
+               " .mascot svg.macc{position:absolute;left:0;top:0;pointer-events:none} .mascot .mspark,.mascot .mwave{transform-box:fill-box}"
+               " .mascot .mspark{transform-origin:center;animation:mspark 1.8s ease-in-out infinite}"
+               " .mascot .mwave{transform-origin:left center;animation:mwave 2.4s ease-in-out infinite}"
+               " @keyframes mspark{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.55;transform:scale(.72)}}"
+               " @keyframes mwave{0%,100%{transform:skewY(0) scaleX(1)}50%{transform:skewY(5deg) scaleX(.94)}}"
                " @media (prefers-reduced-motion: reduce){.mascot .meye,.mascot.blink .meye{animation:none!important;transition:none!important}}"
+               " @media (prefers-reduced-motion: reduce){.mascot .mspark,.mascot .mwave{animation:none!important;transition:none!important}}"
                # the user's own mascot.svg: an <img> in the same slot (same size); the built-in blob is hidden then
                " .mascot .mcustom{display:none;width:100%;height:100%;object-fit:contain;border-radius:0}"
                " .mascot[data-c=custom] svg{display:none} .mascot[data-c=custom] .mcustom{display:block} .mascot[data-c=custom]{border-radius:0}")
@@ -490,8 +626,13 @@ def mascot_html(ctx, lk):
     uri = getattr(ctx, "mascot_custom", None)
     # the user's SVG only ever goes in as an <img src="data:image/svg+xml;base64,..."> (scripts in it do not run)
     img = f'<img class="mcustom" src="{html.escape(uri)}" alt="" draggable="false">' if uri else ""
-    return (f'<button type="button" class="mascot" id="mascot" data-c="{v}" aria-label="{html.escape(S["aria"])}" '
-            f'title="{html.escape(S["aria"])}"{" hidden" if v == "off" else ""}>{MASCOT_SVG}{img}</button>')
+    # the seasonal accessory: a second svg laid over the built-in blob in the same 40x40 box (hidden with it when
+    # Custom is picked, since every svg in the button is; the button itself is hidden when the mascot is off)
+    acc = mascot_accessory(ctx)
+    svg = MASCOT_SVG + (mascot_accessory_svg(acc) if acc else "")
+    ds = f' data-s="{acc}"' if acc else ""
+    return (f'<button type="button" class="mascot" id="mascot" data-c="{v}"{ds} aria-label="{html.escape(S["aria"])}" '
+            f'title="{html.escape(S["aria"])}"{" hidden" if v == "off" else ""}>{svg}{img}</button>')
 
 
 # Blink in place: click / tap, mouse hover, Enter / Space (a real button), and an idle blink every 10-20 s while the
@@ -500,7 +641,7 @@ MASCOT_JS = r"""(function(){var b=document.getElementById('mascot'),s=document.g
 var mq=window.matchMedia?matchMedia('(prefers-reduced-motion: reduce)'):null,t=0,u=0;function rm(){return !!(mq&&mq.matches);}
 function blink(){if(rm()||b.hidden)return;b.classList.remove('blink');void b.offsetWidth;b.classList.add('blink');clearTimeout(u);u=setTimeout(function(){b.classList.remove('blink');},260);}
 function idle(){clearTimeout(t);if(document.hidden||rm())return;t=setTimeout(function(){blink();idle();},10000+Math.random()*10000);}
-function set(v){if(!/^[a-z]{1,12}$/.test(String(v)))return;b.dataset.c=v;b.hidden=v==='off';}
+function set(v){if(!/^[a-z]{1,12}$/.test(String(v)))return;b.dataset.c=v;b.hidden=v==='off';var l=document.getElementById('seasonl');if(l)l.hidden=v==='off'||v==='custom';}
 b.addEventListener('click',blink);b.addEventListener('pointerenter',function(e){if(e.pointerType==='mouse')blink();});
 document.addEventListener('visibilitychange',idle);if(mq&&mq.addEventListener)mq.addEventListener('change',idle);
 window.usageMascot=set;if(s)set(s.value);idle();})();"""
@@ -2091,6 +2232,12 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
     mascot_menu = "" if ctx.privacy else (
         f"<label class=\"pal\" id=\"mascotl\">{html.escape(MSK['label'])} <select id=\"mascotsel\" class=\"offsel\" data-api=\"/api/mascot\" "
         f"data-k=\"usage.mascot\" data-f=\"mascot\" data-live=\"1\">{m_opts}</select></label>")
+    # Seasonal accessories menu (right after Mascot): auto / off; hidden while the mascot is off or Custom (the menu
+    # above toggles it); a change rebuilds the page and reloads it, since the accessory is drawn at build time
+    s_opts = "".join(f"<option value='{m}'{' selected' if m == ctx.seasonal_setting else ''}>{html.escape(MSK['sopts'][m])}</option>" for m in SEASONAL_CHOICES)
+    if not ctx.privacy:
+        mascot_menu += (f"<label class=\"pal\" id=\"seasonl\"{' hidden' if ctx.mascot_setting in ('off', MASCOT_CUSTOM) else ''}>{html.escape(MSK['seasonal'])} "
+                        f"<select id=\"seasonsel\" class=\"offsel\" data-api=\"/api/seasonal\" data-k=\"usage.seasonal\" data-f=\"seasonal\">{s_opts}</select></label>")
     act_html = (f"<label class=\"pal\" id=\"animl\">{html.escape(PK['anim'])} <select id=\"animsel\" class=\"offsel\" data-api=\"/api/anim\" data-k=\"usage.anim\" data-f=\"anim\" data-live=\"1\"{lock_attr(ctx.anim_locked)}>{anim_opts}</select></label>"
                 f"<label class=\"pal\" id=\"ivl\">{html.escape(PK['interval'])} <select id=\"ivsel\" class=\"offsel\" data-api=\"/api/interval\" data-k=\"usage.interval\" data-f=\"minutes\" data-live=\"1\" data-srv=\"1\"{iv_lock}>{iv_opts}</select></label>{mascot_menu}"
                  f"<span id=\"applying\" class=\"applying-msg\" role=\"status\" aria-live=\"polite\" hidden><span class=\"spin\"></span>{html.escape(PK['applying'])}</span>"
@@ -2532,7 +2679,7 @@ def serve(ctx, allow_remote=False):
         return 200, {"ok": True, "checkin": r}
 
     WRITE_PATHS = ("/api/checkin", "/api/refresh", "/api/manual", "/api/update/check", "/api/update/apply", "/api/update/settings",
-                   "/api/update/rollback", "/api/palette/render", "/api/patterns", "/api/display-offset", "/api/lang", "/api/tz", "/api/anim", "/api/mascot", "/api/interval")
+                   "/api/update/rollback", "/api/palette/render", "/api/patterns", "/api/display-offset", "/api/lang", "/api/tz", "/api/anim", "/api/mascot", "/api/seasonal", "/api/interval")
 
     def pick_setting(key, d):
         """POST /api/lang {"lang": "auto"|"zh-TW"|"zh-CN"|"en"|"ja"|"ko"|"numeric"} or /api/tz {"tz": "auto"|<IANA zone>}:
@@ -2543,6 +2690,8 @@ def serve(ctx, allow_remote=False):
             return 400, {"ok": False, "error": "anim must be off, once or continuous"}
         if key == "mascot" and not (v in MASCOT_CHOICES or (v == MASCOT_CUSTOM and custom_mascot_uri(ctx.data_dir))):
             return 400, {"ok": False, "error": "unknown mascot colour"}
+        if key == "seasonal" and v not in SEASONAL_CHOICES:
+            return 400, {"ok": False, "error": "seasonal must be auto or off"}
         if key == "lang" and v not in PAGE_LANGS:
             return 400, {"ok": False, "error": "unknown language"}
         if key == "tz" and not (v == "auto" or (v in PAGE_ZONES or valid_zone(v))):
@@ -2554,7 +2703,7 @@ def serve(ctx, allow_remote=False):
                 ctx.reload()
         except Exception as exc:
             return 500, {"ok": False, "error": "write failed" if ctx.privacy else f"could not save the setting: {exc}"}
-        if key in ("anim", "mascot"):  # page-only switch: rebuild the page, no chart redraw
+        if key in ("anim", "mascot", "seasonal"):  # page-only switch: rebuild the page, no chart redraw
             with draw_lock:
                 try:
                     rewrite_page(ctx)
@@ -2562,6 +2711,8 @@ def serve(ctx, allow_remote=False):
                     print(f"Warning: {exc}", file=sys.stderr)
             if key == "mascot":
                 return 200, {"ok": True, key: ctx.mascot_setting, "locked": False}
+            if key == "seasonal":
+                return 200, {"ok": True, key: ctx.seasonal_setting, "locked": False}
             return 200, {"ok": True, key: ctx.anim_setting, "locked": ctx.anim_locked}
         regen()
         return 200, {"ok": True, key: v, "locked": ctx.lang_locked if key == "lang" else ctx.tz_locked}
@@ -2871,7 +3022,7 @@ def serve(ctx, allow_remote=False):
                 if not isinstance(d, dict):
                     return self._send(400, {"ok": False, "error": "bad json"})
                 return self._send(*palette_render(d))
-            if u.path in ("/api/lang", "/api/tz", "/api/anim", "/api/mascot"):
+            if u.path in ("/api/lang", "/api/tz", "/api/anim", "/api/mascot", "/api/seasonal"):
                 try:
                     n = int(self.headers.get("Content-Length") or 0); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
                     d = json.loads(raw or "{}")
