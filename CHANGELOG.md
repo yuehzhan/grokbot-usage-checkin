@@ -6,6 +6,12 @@ MAJOR for changes that need you to do something, MINOR for new features, PATCH f
 The current version is in the `VERSION` file and shown small at the top of the page.
 The changelog is kept in English only; [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md) is no longer updated.
 
+## [1.5.1] - 2026-10-27
+
+### Changed
+- **Language** menu: the numeric option is now shown as just `123456` in every language and sits at the very
+  bottom, after all languages (new languages are added above it).
+
 ## [1.5.0] - 2026-10-27
 
 ### Added

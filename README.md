@@ -275,7 +275,7 @@ is on. The choice is saved in `usage_config.json` (or `<data_dir>/page_settings.
 `history/pal/orange-teal-o+1/`).
 
 **Language** and **Time zone** menus (next to **Display offset**). Language: Auto (system), 繁體中文, 简体中文,
-English, 日本語, 한국어, numeric-only, Bahasa Indonesia, Deutsch, Español, Français or Português (each by its native name); time zone: Auto (system) or a common IANA zone, each shown with its current UTC
+English, 日本語, 한국어, Bahasa Indonesia, Deutsch, Español, Français, Português (each by its native name) or, last, `123456` (numeric-only); time zone: Auto (system) or a common IANA zone, each shown with its current UTC
 offset. They use the existing `lang` / `tz` keys (saved in `usage_config.json`, or `<data_dir>/page_settings.json`
 without a config file, plus the browser keys `usage.lang` / `usage.tz`), take effect at once without a restart (charts,
 labels, reset and period dates are redrawn; a non-auto choice is part of the image cache key, e.g. `-Lja-Zasia_tokyo`),

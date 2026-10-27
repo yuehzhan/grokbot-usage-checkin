@@ -349,10 +349,13 @@ class Ctx:
         return dt.astimezone(self.tz)
 
 
-# menu order: Auto, the languages that were there first (and numeric), then the newer ones by native name;
-# every language is listed by its own name only, one short line each
-PAGE_LANGS = ("auto", "zh-TW", "zh-CN", "en", "ja", "ko", "numeric", "id", "de", "es", "fr", "pt")
-LANG_NAMES = {"zh-TW": "繁體中文", "zh-CN": "简体中文", "en": "English", "ja": "日本語", "ko": "한국어", "numeric": "純數字 123",
+# menu order: Auto, the languages that were there first, then the newer ones by native name, and the
+# numeric (word-free) option always last, shown as just "123456" in every language; add new languages to
+# _MENU_LANGS, never after numeric
+_MENU_LANGS = ("zh-TW", "zh-CN", "en", "ja", "ko", "id", "de", "es", "fr", "pt")
+PAGE_LANGS = ("auto",) + tuple(k for k in _MENU_LANGS if k != "numeric") + ("numeric",)
+NUMERIC_LABEL = "123456"
+LANG_NAMES = {"zh-TW": "繁體中文", "zh-CN": "简体中文", "en": "English", "ja": "日本語", "ko": "한국어", "numeric": NUMERIC_LABEL,
               **l10n.NAMES}
 PAGE_ZONES = ("Asia/Taipei", "Asia/Shanghai", "Asia/Hong_Kong", "Asia/Tokyo", "Asia/Seoul", "Asia/Singapore",
               "Asia/Bangkok", "Asia/Kolkata", "Asia/Dubai", "Australia/Sydney", "Pacific/Auckland", "Europe/London",
