@@ -305,6 +305,24 @@ extra option, and the 15–1440 clamp still applies. The sampler re-reads it eve
 no restart needed. With `pct_source: "manual"` nothing is read automatically, so the menu is shown disabled. Opened as a
 plain file the menu is disabled (it needs the server).
 
+**Mascot** (menu right after **Read interval**: Auto (theme accent) / Brown / Black / Grey / Teal / Orange / Pink /
+Purple / Blue / Green / Maroon / Off (hidden), default Off (hidden, opt-in); config key `mascot`, browser key `usage.mascot`, endpoint
+`POST /api/mascot` with the same token and Host/Origin checks as `/api/lang`). A small round blob drawn as inline SVG
+right after the page title. Auto uses the theme accent (orange / teal → teal) and follows the **Colours** menu; the eyes
+and mouth are always dark with a small white highlight, so they stay visible on every colour. It blinks in place when clicked or tapped, on mouse
+hover, with Enter / Space (it is a button), and now and then by itself (every 10–20 s, only while the tab is visible).
+With **reduce motion** (`prefers-reduced-motion`) it does not blink. It is not shown in privacy mode (like the GitHub
+icon). The menu applies at once and only rebuilds the page; opened as a plain file it changes the browser's choice.
+
+**Your own mascot image** (optional): put an SVG file named `mascot.svg` in your data folder (`<data_dir>`, by default
+`usage-data/` next to the program, the same folder as `page_settings.json`). The **Mascot** menu then gets a **Custom**
+option (right before Off) that shows your image in the same spot and size instead of the blob. `usage-data/` is never
+touched by self-update, so your file stays. The file must be an SVG of at most 200 KB (no `<!ENTITY>` declarations);
+otherwise the option is not shown and a saved Custom choice reads as Off. It is shown as an image
+(`<img src="data:image/svg+xml;base64,…">`), never inlined into the page, so scripts inside it do not run; the blink
+and colour options do not apply to it. Hidden in privacy mode like the built-in mascot. A new or changed file shows up
+the next time the page is rebuilt (the next reading, any page menu change, or a restart); then reload the page.
+
 - PNGs (`chart_hud.py`, history and clock charts) and web pages follow the palette. `over_color`, `under_color` and
   `baseline_color` in the config still override single colours.
 - The web pages have a **Colours** menu (a list of all presets, two colour dots each; arrow keys, Home/End, Enter and
@@ -556,7 +574,7 @@ cat usage-data/history_server.json             # {"url": "http://127.0.0.1:PORT/
 | `/api/checkins` | GET | Sessions grouped by day plus per-category summary; same filters as search. |
 | `/api/checkins/search` | GET | Read-only search (see below). |
 | `/api/ledger`, `/ledger.json` | GET | The usage ledger (see below); `404` until the first sample. |
-| `/api/lang`, `/api/tz`, `/api/anim` | POST | Page menus: JSON `{"lang": …}`, `{"tz": …}`, `{"anim": "off"\|"once"\|"continuous"}` (token required; `400` for an unknown value). `anim` only rebuilds the page, no chart redraw. |
+| `/api/lang`, `/api/tz`, `/api/anim`, `/api/mascot` | POST | Page menus: JSON `{"lang": …}`, `{"tz": …}`, `{"anim": "off"\|"once"\|"continuous"}`, `{"mascot": "auto"\|"brown"\|…\|"off"}` (token required; `400` for an unknown value). `anim` and `mascot` only rebuild the page, no chart redraw. |
 | `/week-current.json`, `/pal/<key>/week-current.json` | GET | Gauge geometry and colours for the animation overlay (shown % only). |
 
 - Binds `127.0.0.1` by default. Any non-loopback `history_host`/`--host` is refused unless `--allow-remote` is passed.

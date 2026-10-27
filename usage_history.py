@@ -165,6 +165,9 @@ class Ctx:
         self.tz_setting = page_tz(gp("tz", "tz"))
         self.anim_locked = getattr(a, "anim", None) is not None
         self.anim_setting = page_anim(gp("anim", "anim"))
+        # <data_dir>/mascot.svg (optional, user's own image): adds a 'custom' choice; None when missing / invalid
+        self.mascot_custom = custom_mascot_uri(self.data_dir)
+        self.mascot_setting = page_mascot(gp("mascot", "mascot"), custom=bool(self.mascot_custom))  # page menu only (no CLI flag)
         # week files keep being written in the CLI/config zone (machine local otherwise); the page menu alone
         # (page_settings.json) changes only what is shown, so existing week files are never split or renamed
         self.data_tz = self._tz(str(g("tz", "tz", "local") or "local"))
@@ -357,6 +360,150 @@ PICK_STR = {  # labels of the language / time zone menus and their "auto" option
                 "anim": "◔", "off": "0", "once": "1", "continuous": "∞", "applying": "…",
                 "interval": "Δt", "minutes": "{n}′", "manual_only": "M"},
 }
+
+# Title mascot menu: label, button name and the option names (same order as MASCOT_CHOICES; 'custom' is listed
+# before 'off' only when <data_dir>/mascot.svg is a usable SVG)
+MASCOT_STR = {
+    'zh-TW': {"label": '小圓', "aria": '小圓，點一下眨眼', "opts": {'auto': '自動（主題強調色）', 'brown': '棕', 'black': '黑', 'grey': '灰', 'teal': '青綠', 'orange': '橘', 'pink': '粉紅', 'purple': '紫', 'blue': '藍', 'green': '綠', 'maroon': '酒紅', 'custom': '自訂', 'off': '關（隱藏）'}},
+    'zh-CN': {"label": '小圆', "aria": '小圆，点一下眨眼', "opts": {'auto': '自动（主题强调色）', 'brown': '棕', 'black': '黑', 'grey': '灰', 'teal': '青绿', 'orange': '橙', 'pink': '粉红', 'purple': '紫', 'blue': '蓝', 'green': '绿', 'maroon': '酒红', 'custom': '自定义', 'off': '关（隐藏）'}},
+    'en': {"label": 'Mascot', "aria": 'Mascot, click to blink', "opts": {'auto': 'Auto (theme accent)', 'brown': 'Brown', 'black': 'Black', 'grey': 'Grey', 'teal': 'Teal', 'orange': 'Orange', 'pink': 'Pink', 'purple': 'Purple', 'blue': 'Blue', 'green': 'Green', 'maroon': 'Maroon', 'custom': 'Custom', 'off': 'Off (hidden)'}},
+    'ja': {"label": 'マスコット', "aria": 'マスコット（クリックでまばたき）', "opts": {'auto': '自動（テーマのアクセント色）', 'brown': 'ブラウン', 'black': 'ブラック', 'grey': 'グレー', 'teal': 'ティール', 'orange': 'オレンジ', 'pink': 'ピンク', 'purple': 'パープル', 'blue': 'ブルー', 'green': 'グリーン', 'maroon': 'マルーン', 'custom': 'カスタム', 'off': 'オフ（非表示）'}},
+    'ko': {"label": '마스코트', "aria": '마스코트, 클릭하면 눈을 깜빡여요', "opts": {'auto': '자동(테마 강조색)', 'brown': '갈색', 'black': '검정', 'grey': '회색', 'teal': '청록', 'orange': '주황', 'pink': '분홍', 'purple': '보라', 'blue': '파랑', 'green': '초록', 'maroon': '적갈색', 'custom': '사용자 지정', 'off': '끄기(숨김)'}},
+    'numeric': {"label": '●', "aria": '●', "opts": {'auto': 'auto', 'brown': '1', 'black': '2', 'grey': '3', 'teal': '4', 'orange': '5', 'pink': '6', 'purple': '7', 'blue': '8', 'green': '9', 'maroon': '10', 'custom': '*', 'off': '0'}},
+}
+# Title mascot: an original round blob drawn as inline SVG to the right of the page title. 'auto' follows the theme
+# accent (var(--accent), so it also follows the palette menu); the fixed colours are body hexes; 'off' hides it.
+# Eyes are dark or light, whichever reads better on the body; hidden in privacy mode (like the GitHub mark).
+MASCOT_CHOICES = ("auto", "brown", "black", "grey", "teal", "orange", "pink", "purple", "blue", "green", "maroon", "off")
+MASCOT_DEFAULT = "off"
+MASCOT_COLORS = {"brown": "#9A6A45", "black": "#2A2C31", "grey": "#A3ACB6", "teal": "#2CC5B0", "orange": "#FFA94D",
+                 "pink": "#F6A6CF", "purple": "#A98BF5", "blue": "#5FA8F5", "green": "#5CCB7E",
+                 "maroon": "#A8182E"}
+MASCOT_EYE_DARK, MASCOT_EYE_LIGHT, MASCOT_EYE_BLACK = "#1B1F24", "#FFF8F0", "#050506"
+
+
+MASCOT_CUSTOM = "custom"  # the user's own <data_dir>/mascot.svg (never in git, so self-update leaves it alone)
+MASCOT_FILE = "mascot.svg"
+MASCOT_MAX_BYTES = 200 * 1024
+
+
+def page_mascot(v, custom=False):
+    """A mascot setting as stored: one of MASCOT_CHOICES ('none'/'hidden'/false read as off), or 'custom' when the
+    user's mascot.svg is usable (custom=True; otherwise 'custom' falls back to off); else the default."""
+    v = str(v if v is not None else "").strip().lower()
+    v = {"none": "off", "hidden": "off", "false": "off", "gray": "grey", "default": "auto"}.get(v, v)
+    if v == MASCOT_CUSTOM:
+        return MASCOT_CUSTOM if custom else "off"
+    return v if v in MASCOT_CHOICES else MASCOT_DEFAULT
+
+
+def mascot_choices(ctx):
+    """The menu's options: MASCOT_CHOICES, plus 'custom' (right before 'off') when mascot.svg is usable."""
+    if not getattr(ctx, "mascot_custom", None):
+        return MASCOT_CHOICES
+    return MASCOT_CHOICES[:-1] + (MASCOT_CUSTOM,) + MASCOT_CHOICES[-1:]
+
+
+_SVG_PROLOG = re.compile(r"\A(?:\s+|<\?xml[^>]*\?>|<!--.*?-->|<!DOCTYPE\s+svg[^>\[]*>)*", re.S | re.I)
+
+
+def custom_mascot_uri(data_dir):
+    """<data_dir>/mascot.svg as a data:image/svg+xml;base64 URI for an <img> (never inlined into the page, so any
+    script in it cannot run), or None when it is missing, larger than MASCOT_MAX_BYTES, not UTF-8 text, has no <svg>
+    root element, or declares entities (<!ENTITY>, internal DOCTYPE subsets)."""
+    p = Path(data_dir) / MASCOT_FILE
+    try:
+        if not p.is_file() or p.stat().st_size > MASCOT_MAX_BYTES:
+            return None
+        with open(p, "rb") as fh:
+            raw = fh.read(MASCOT_MAX_BYTES + 1)
+    except OSError:
+        return None
+    if not raw or len(raw) > MASCOT_MAX_BYTES:
+        return None
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return None
+    if "\x00" in text or re.search(r"<!ENTITY", text, re.I):
+        return None
+    body = text[_SVG_PROLOG.match(text).end():]
+    if not re.match(r"<svg[\s/>]", body) or not re.search(r"</svg\s*>\s*\Z|\A<svg[^>]*/>\s*\Z", body):
+        return None
+    return "data:image/svg+xml;base64," + base64.b64encode(text.encode("utf-8")).decode("ascii")
+
+
+def _rel_lum(hexcol):
+    h = hexcol.lstrip("#")
+    c = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+    c = [x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4 for x in c]
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+
+
+def mascot_eyes(body):
+    """(eye, highlight, mouth) for a body colour. Eyes are always dark with a small white highlight (no light
+    'looking up' eyes, no rim, no outline); on a body too dark for that (black) the eyes and mouth go near-pure black."""
+    lb = _rel_lum(body)
+    if (lb + 0.05) / (_rel_lum(MASCOT_EYE_DARK) + 0.05) >= 3:
+        return MASCOT_EYE_DARK, "#FFFFFF", MASCOT_EYE_DARK
+    return MASCOT_EYE_BLACK, "#FFFFFF", MASCOT_EYE_BLACK
+
+
+MASCOT_SVG = ('<svg viewBox="0 0 40 40" aria-hidden="true" focusable="false">'
+              '<path class="mbody" d="M20 4.5C30.2 4.5 37 11.6 37 21.2 37 30.4 30 36 20 36S3 30.4 3 21.2C3 11.6 9.8 4.5 20 4.5Z"/>'
+              '<ellipse class="mshine" cx="12.6" cy="11.4" rx="4" ry="2.3" transform="rotate(-32 12.6 11.4)"/>'
+              '<ellipse class="mblush" cx="9.6" cy="25.4" rx="2.6" ry="1.5"/><ellipse class="mblush" cx="30.4" cy="25.4" rx="2.6" ry="1.5"/>'
+              '<g class="meye"><ellipse cx="14.3" cy="20.4" rx="2.7" ry="3.2"/><circle class="mhl" cx="15.2" cy="19.2" r="1"/></g>'
+              '<g class="meye"><ellipse cx="25.7" cy="20.4" rx="2.7" ry="3.2"/><circle class="mhl" cx="26.6" cy="19.2" r="1"/></g>'
+              '<path class="mmouth" d="M18.2 25.3q1.8 1.6 3.6 0"/></svg>')
+
+
+def mascot_css():
+    """Mascot styles: colour variables per option, the in-place blink (eyes scaleY, ~200 ms), reduced-motion off."""
+    # the title stays an inline h1 and the mascot flows right after its last word, so a title that wraps on a phone
+    # keeps the mascot next to the text (not pushed to the far edge); same 26px font so 'middle' centres it on the text
+    out = [".hrow{margin:4px 0 8px;font-size:26px;font-weight:700} .hrow h1{display:inline;margin:0;font-size:inherit}",
+           " .mascot{display:inline-block;vertical-align:middle;position:relative;top:-2px;width:34px;height:34px;padding:0;margin:0 0 0 10px;border:0;border-radius:50%;background:none;"
+           "cursor:pointer;-webkit-tap-highlight-color:transparent;--mb:var(--accent);--me:var(--on-accent);--mh:var(--acc-hl);--ms:transparent;--mm:var(--on-accent)}",
+           " .mascot svg{display:block;width:100%;height:100%;overflow:visible} .mascot .mbody{fill:var(--mb);stroke:var(--ms);stroke-width:.8}",
+           " .mascot .mshine{fill:#FFFFFF;opacity:.22} .mascot .mblush{fill:#FF9EBB;opacity:.4} .mascot .meye ellipse{fill:var(--me)}",
+           " .mascot .mhl{fill:var(--mh)} .mascot .mmouth{fill:none;stroke:var(--mm);stroke-width:1.3;stroke-linecap:round}",
+           " .mascot .meye{transform-box:fill-box;transform-origin:center}"]
+    for k, body in MASCOT_COLORS.items():
+        eye, hl, mouth = mascot_eyes(body)
+        out.append(f" .mascot[data-c={k}]{{--mb:{body};--me:{eye};--mh:{hl};--mm:{mouth}}}")
+    out.append(" .mascot.blink .meye{animation:mblink .2s ease-in-out} @keyframes mblink{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.1)}}"
+               " @media (max-width:480px){.mascot{width:26px;height:26px;margin-left:7px;top:-1px}}"
+               " @media (prefers-reduced-motion: reduce){.mascot .meye,.mascot.blink .meye{animation:none!important;transition:none!important}}"
+               # the user's own mascot.svg: an <img> in the same slot (same size); the built-in blob is hidden then
+               " .mascot .mcustom{display:none;width:100%;height:100%;object-fit:contain;border-radius:0}"
+               " .mascot[data-c=custom] svg{display:none} .mascot[data-c=custom] .mcustom{display:block} .mascot[data-c=custom]{border-radius:0}")
+    return "".join(out)
+
+
+def mascot_html(ctx, lk):
+    """The mascot button (empty in privacy mode, like the GitHub mark)."""
+    if ctx.privacy:
+        return ""
+    S = MASCOT_STR.get(lk) or MASCOT_STR["en"]
+    v = ctx.mascot_setting
+    uri = getattr(ctx, "mascot_custom", None)
+    # the user's SVG only ever goes in as an <img src="data:image/svg+xml;base64,..."> (scripts in it do not run)
+    img = f'<img class="mcustom" src="{html.escape(uri)}" alt="" draggable="false">' if uri else ""
+    return (f'<button type="button" class="mascot" id="mascot" data-c="{v}" aria-label="{html.escape(S["aria"])}" '
+            f'title="{html.escape(S["aria"])}"{" hidden" if v == "off" else ""}>{MASCOT_SVG}{img}</button>')
+
+
+# Blink in place: click / tap, mouse hover, Enter / Space (a real button), and an idle blink every 10-20 s while the
+# tab is visible. prefers-reduced-motion: no idle blinks and no animation. The menu calls window.usageMascot(v).
+MASCOT_JS = r"""(function(){var b=document.getElementById('mascot'),s=document.getElementById('mascotsel');if(!b)return;
+var mq=window.matchMedia?matchMedia('(prefers-reduced-motion: reduce)'):null,t=0,u=0;function rm(){return !!(mq&&mq.matches);}
+function blink(){if(rm()||b.hidden)return;b.classList.remove('blink');void b.offsetWidth;b.classList.add('blink');clearTimeout(u);u=setTimeout(function(){b.classList.remove('blink');},260);}
+function idle(){clearTimeout(t);if(document.hidden||rm())return;t=setTimeout(function(){blink();idle();},10000+Math.random()*10000);}
+function set(v){if(!/^[a-z]{1,12}$/.test(String(v)))return;b.dataset.c=v;b.hidden=v==='off';}
+b.addEventListener('click',blink);b.addEventListener('pointerenter',function(e){if(e.pointerType==='mouse')blink();});
+document.addEventListener('visibilitychange',idle);if(mq&&mq.addEventListener)mq.addEventListener('change',idle);
+window.usageMascot=set;if(s)set(s.value);idle();})();"""
 
 # Gauge "rev up" animation on the served page (the PNG never changes): off, once (default) or continuous
 ANIM_MODES = ("off", "once", "continuous")
@@ -1428,7 +1575,7 @@ def gh_link_html(lang):
 
 PICK_JS = r"""(function(){var T=(document.querySelector('meta[name="usage-token"]')||{}).content||'',served=/^https?:$/.test(location.protocol);
 [].forEach.call(document.querySelectorAll('select[data-api]'),function(s){var K=s.dataset.k,F=s.dataset.f,live=!!s.dataset.live,A=window.usageApplying||function(){};
-function apply(){if(live&&s.id==='animsel'&&window.usageGaugeMode)usageGaugeMode(s.value);}
+function apply(){if(live&&s.id==='animsel'&&window.usageGaugeMode)usageGaugeMode(s.value);if(live&&s.id==='mascotsel'&&window.usageMascot)usageMascot(s.value);}
 if(s.dataset.locked){s.disabled=true;return;}
 if(!served){if(!live||s.dataset.srv){try{localStorage.setItem(K,s.value);}catch(e){}s.disabled=true;return;}
 try{var ls=localStorage.getItem(K);if(ls&&[].some.call(s.options,function(o){return o.value==ls;}))s.value=ls;}catch(e){}
@@ -1613,7 +1760,7 @@ function rgb(h){h=String(h).replace('#','');if(h.length==3)h=h.replace(/./g,'$&$
 function mix(a,b,t){var x=rgb(a),y=rgb(b);return '#'+x.map(function(v,i){return ('0'+Math.round(v+(y[i]-v)*t).toString(16)).slice(-2);}).join('');}
 function lum(h){var c=rgb(h).map(function(v){v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4);});return 0.2126*c[0]+0.7152*c[1]+0.0722*c[2];}
 function vars(n){var c=P.table[n][V],o={};['over','under','baseline','notice'].forEach(function(k){if(!P.fixed[k])o['--'+k]=c[k];});
-var a=P.fixed.accent?P.accent:(P.fixed.under?P.under:c.under);o['--accent']=a;o['--bd']=mix(P.bg,a,0.25);o['--on-accent']=lum(a)>0.4?'#0B0F14':'#FFFFFF';return o;}
+var a=P.fixed.accent?P.accent:(P.fixed.under?P.under:c.under);o['--accent']=a;o['--bd']=mix(P.bg,a,0.25);o['--on-accent']=lum(a)>0.4?'#0B0F14':'#FFFFFF';o['--acc-hl']=lum(a)>0.4?'#FFFFFF':a;return o;}
 function mode(c){return c.l==='sd'?'sd':'o'+c.f;}function same(a,b){return a.r===b.r&&a.l===b.l&&a.f===b.f;}
 function fileOf(i,c){return i===clk?'clock-'+c.r+'-'+mode(c)+'.png':i.dataset.f0;}
 function key(n,p){return (p?n+'-pat':n)+P.osfx;}
@@ -1938,8 +2085,14 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
     # toolbar row 1 (settings) gets language + time zone; row 2 (actions) gets the animation menu + Applying status
     pick_html = (f"<label class=\"pal\" id=\"langl\">{html.escape(PK['lang'])} <select id=\"langsel\" class=\"offsel\" data-api=\"/api/lang\" data-k=\"usage.lang\" data-f=\"lang\"{lock_attr(ctx.lang_locked)}>{lang_opts}</select></label>"
                  f"<label class=\"pal\" id=\"tzl\">{html.escape(PK['tz'])} <select id=\"tzsel\" class=\"offsel\" data-api=\"/api/tz\" data-k=\"usage.tz\" data-f=\"tz\"{lock_attr(ctx.tz_locked)}>{tz_opts}</select></label>")
+    # Mascot menu (row 2, after Read interval, next to the other page-only display menu): applied at once; not in privacy mode
+    MSK = MASCOT_STR.get(ctx.lang if ctx.lang in MASCOT_STR else plang) or MASCOT_STR["en"]
+    m_opts = "".join(f"<option value='{m}'{' selected' if m == ctx.mascot_setting else ''}>{html.escape(MSK['opts'][m])}</option>" for m in mascot_choices(ctx))
+    mascot_menu = "" if ctx.privacy else (
+        f"<label class=\"pal\" id=\"mascotl\">{html.escape(MSK['label'])} <select id=\"mascotsel\" class=\"offsel\" data-api=\"/api/mascot\" "
+        f"data-k=\"usage.mascot\" data-f=\"mascot\" data-live=\"1\">{m_opts}</select></label>")
     act_html = (f"<label class=\"pal\" id=\"animl\">{html.escape(PK['anim'])} <select id=\"animsel\" class=\"offsel\" data-api=\"/api/anim\" data-k=\"usage.anim\" data-f=\"anim\" data-live=\"1\"{lock_attr(ctx.anim_locked)}>{anim_opts}</select></label>"
-                f"<label class=\"pal\" id=\"ivl\">{html.escape(PK['interval'])} <select id=\"ivsel\" class=\"offsel\" data-api=\"/api/interval\" data-k=\"usage.interval\" data-f=\"minutes\" data-live=\"1\" data-srv=\"1\"{iv_lock}>{iv_opts}</select></label>"
+                f"<label class=\"pal\" id=\"ivl\">{html.escape(PK['interval'])} <select id=\"ivsel\" class=\"offsel\" data-api=\"/api/interval\" data-k=\"usage.interval\" data-f=\"minutes\" data-live=\"1\" data-srv=\"1\"{iv_lock}>{iv_opts}</select></label>{mascot_menu}"
                  f"<span id=\"applying\" class=\"applying-msg\" role=\"status\" aria-live=\"polite\" hidden><span class=\"spin\"></span>{html.escape(PK['applying'])}</span>"
                  f"<script>{PICK_JS}</script>")
     onac, hl = _on_colour(ac), _blend(bg, tx, 0.14)
@@ -1951,7 +2104,7 @@ body{{margin:0;background:{bg};color:{tx};font-family:"Noto Sans CJK TC","Noto S
 nav{{display:inline-flex;border:1px solid var(--bd);border-radius:10px;padding:4px;background:{card};margin:6px 0 14px}}
 nav>button{{background:none;border:1px solid transparent;color:{dim};font:inherit;font-weight:700;font-size:15px;padding:6px 18px;border-radius:7px;cursor:pointer}}
 nav>button.on{{color:{tx};border-color:var(--accent)}} section{{display:none}} section.on{{display:block}} img{{width:100%;border:1px solid var(--bd);border-radius:10px}}
-:root{{--over:{T['over_color']};--under:{T['under_color']};--baseline:{T['baseline_color']};--notice:{T['notice_color']};--accent:{ac};--bd:{bd};--on-accent:{onac};--card:{card}}}
+:root{{--over:{T['over_color']};--under:{T['under_color']};--baseline:{T['baseline_color']};--notice:{T['notice_color']};--accent:{ac};--bd:{bd};--on-accent:{onac};--acc-hl:{'#FFFFFF' if onac != '#FFFFFF' else ac};--card:{card}}}
 a{{color:var(--accent)}} :focus-visible{{outline:2px solid var(--accent);outline-offset:2px}} input[type=checkbox],input[type=radio]{{accent-color:var(--accent)}}
 nav>button:hover{{color:{tx};border-color:var(--bd)}} .btn:hover,#ckbtn:hover,#ckr button:hover{{border-color:var(--accent)}}
 .warn{{border:1px solid var(--notice);color:var(--notice);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-weight:700}}
@@ -1988,8 +2141,8 @@ html[data-patterns="1"] .badge:not(.note)::before{{content:"▲ "}} .pal{{color:
 .plist li.pnote{{cursor:default;color:{dim};font-size:12px;line-height:1.45;border-top:1px solid var(--bd);border-radius:0;margin-top:4px;padding:7px 8px 4px;white-space:normal}}
 .ptog{{display:inline-flex;align-items:center;gap:5px;cursor:pointer}} .ptog input{{margin:0}} .offsel{{padding:3px 6px}} .otag{{color:{dim};font-size:.85em;font-weight:400}}
 {usage_checkins_ui.CSS}
-{GAUGE_CSS} {clocktip_css(card, tx, dim)}{gh_css(_on_colour(bg) == "#FFFFFF")}
-</style></head><body><div class="wrap"><div class="top">{html.escape(L['eyebrow'])}{f' <span class="ver" id="appver">v{APP_VERSION}</span>' if APP_VERSION else ''}</div><h1>{html.escape(title)}</h1>
+{GAUGE_CSS} {clocktip_css(card, tx, dim)}{gh_css(_on_colour(bg) == "#FFFFFF")} {mascot_css()}
+</style></head><body><div class="wrap"><div class="top">{html.escape(L['eyebrow'])}{f' <span class="ver" id="appver">v{APP_VERSION}</span>' if APP_VERSION else ''}</div><div class="hrow" id="hrow"><h1>{html.escape(title)}</h1>{mascot_html(ctx, ctx.lang if ctx.lang in MASCOT_STR else plang)}</div>
 <div class="bar"><nav>{''.join(tabs)}</nav><div class="upd"><div class="trow tset" id="tset"><span id="last" title="{html.escape(L['last'].format(t=f'{now:%H:%M}', z=zl))}">{html.escape(L.get('last_short', L['last']).format(t=f'{now:%H:%M}', z=zl))}</span>
 <span class="pal psel" id="psel"><span id="pall">{html.escape(pal_label)}</span><button type="button" class="pbtn" id="palbtn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="pall palcur"><span id="palcur">{palcur}</span></button>
 <ul class="plist" id="pallist" role="listbox" tabindex="-1" aria-labelledby="pall" hidden>{''.join(palrows)}</ul><span id="palmsg" role="status"></span></span>{cpick_html}
@@ -2009,6 +2162,7 @@ html[data-patterns="1"] .badge:not(.note)::before{{content:"▲ "}} .pal{{color:
 <script type="application/json" id="paldata">{paldata}</script><script>{PALETTE_JS}</script>
 <script type="application/json" id="clocktips">{ctjson}</script><script>{CLOCKTIP_JS}</script>
 <script type="application/json" id="updstr">{usjson}</script><script>{UPDATE_JS}</script>
+{'' if ctx.privacy else f'<script>{MASCOT_JS}</script>'}
 <script>
 var TK=(document.querySelector('meta[name="usage-token"]')||{{}}).content||'';
 document.querySelectorAll('nav>button').forEach(b=>b.onclick=()=>{{document.querySelectorAll('nav>button,section').forEach(e=>e.classList.remove('on'));
@@ -2378,7 +2532,7 @@ def serve(ctx, allow_remote=False):
         return 200, {"ok": True, "checkin": r}
 
     WRITE_PATHS = ("/api/checkin", "/api/refresh", "/api/manual", "/api/update/check", "/api/update/apply", "/api/update/settings",
-                   "/api/update/rollback", "/api/palette/render", "/api/patterns", "/api/display-offset", "/api/lang", "/api/tz", "/api/anim", "/api/interval")
+                   "/api/update/rollback", "/api/palette/render", "/api/patterns", "/api/display-offset", "/api/lang", "/api/tz", "/api/anim", "/api/mascot", "/api/interval")
 
     def pick_setting(key, d):
         """POST /api/lang {"lang": "auto"|"zh-TW"|"zh-CN"|"en"|"ja"|"ko"|"numeric"} or /api/tz {"tz": "auto"|<IANA zone>}:
@@ -2387,6 +2541,8 @@ def serve(ctx, allow_remote=False):
         v = d.get(key)
         if key == "anim" and v not in ANIM_MODES:
             return 400, {"ok": False, "error": "anim must be off, once or continuous"}
+        if key == "mascot" and not (v in MASCOT_CHOICES or (v == MASCOT_CUSTOM and custom_mascot_uri(ctx.data_dir))):
+            return 400, {"ok": False, "error": "unknown mascot colour"}
         if key == "lang" and v not in PAGE_LANGS:
             return 400, {"ok": False, "error": "unknown language"}
         if key == "tz" and not (v == "auto" or (v in PAGE_ZONES or valid_zone(v))):
@@ -2398,12 +2554,14 @@ def serve(ctx, allow_remote=False):
                 ctx.reload()
         except Exception as exc:
             return 500, {"ok": False, "error": "write failed" if ctx.privacy else f"could not save the setting: {exc}"}
-        if key == "anim":  # page-only switch: rebuild the page, no chart redraw
+        if key in ("anim", "mascot"):  # page-only switch: rebuild the page, no chart redraw
             with draw_lock:
                 try:
                     rewrite_page(ctx)
                 except Exception as exc:
                     print(f"Warning: {exc}", file=sys.stderr)
+            if key == "mascot":
+                return 200, {"ok": True, key: ctx.mascot_setting, "locked": False}
             return 200, {"ok": True, key: ctx.anim_setting, "locked": ctx.anim_locked}
         regen()
         return 200, {"ok": True, key: v, "locked": ctx.lang_locked if key == "lang" else ctx.tz_locked}
@@ -2713,7 +2871,7 @@ def serve(ctx, allow_remote=False):
                 if not isinstance(d, dict):
                     return self._send(400, {"ok": False, "error": "bad json"})
                 return self._send(*palette_render(d))
-            if u.path in ("/api/lang", "/api/tz", "/api/anim"):
+            if u.path in ("/api/lang", "/api/tz", "/api/anim", "/api/mascot"):
                 try:
                     n = int(self.headers.get("Content-Length") or 0); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
                     d = json.loads(raw or "{}")

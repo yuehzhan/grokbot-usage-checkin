@@ -6,6 +6,27 @@ MAJOR for changes that need you to do something, MINOR for new features, PATCH f
 The current version is in the `VERSION` file and shown small at the top of the page.
 The changelog is kept in English only; [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md) is no longer updated.
 
+## [1.3.0] - 2026-10-27
+
+### Added
+- Title mascot: a small original round blob (inline SVG, no external assets) right after the page title, about
+  title-cap height (smaller on phones). New **Mascot** menu on the toolbar, right after **Read interval**: Auto (theme
+  accent, follows the **Colours** menu; orange / teal → teal), Brown, Black, Grey, Teal, Orange, Pink, Purple, Blue,
+  Green, Maroon, Off (hidden); off by default, so the page looks the same for everyone until it is picked. All six page languages. Saved like the other page menus (config key `mascot`, browser key
+  `usage.mascot`, new `POST /api/mascot` with token + Host/Origin checks; page-only, no chart redraw). It blinks in
+  place on click / tap, mouse hover and Enter / Space, and every 10–20 s while the tab is visible; no blinking with
+  `prefers-reduced-motion`. Hidden in privacy mode, like the GitHub icon. Eyes and mouth are always dark with a small white highlight (no light eyes, rim or outline on Brown / Black).
+- Custom mascot image: put your own `mascot.svg` (SVG, up to 200 KB) in the data folder (`<data_dir>`, default
+  `usage-data/`, never touched by self-update) and the **Mascot** menu gets a **Custom** option (before Off; all six
+  page languages) that shows it in the same spot and size. It is shown as an `<img>` with a
+  `data:image/svg+xml;base64` URI, never inlined into the page, so scripts in it do not run; no blink or colours for it.
+  A missing or invalid file hides the option and a saved Custom reads as Off. Hidden in privacy mode. The built-in
+  mascot and the Off default are unchanged.
+
+### Fixed
+- Tests: the mid-week reset budget card test and the clock tooltip "+N more" test depended on the day / time they
+  ran and failed on some days; they now pin the clock, so the full suite passes on any date.
+
 ## [1.2.4] - 2026-10-26
 
 ### Added
