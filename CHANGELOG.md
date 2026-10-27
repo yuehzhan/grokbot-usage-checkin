@@ -6,6 +6,18 @@ MAJOR for changes that need you to do something, MINOR for new features, PATCH f
 The current version is in the `VERSION` file and shown small at the top of the page.
 The changelog is kept in English only; [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md) is no longer updated.
 
+## [1.4.1] - 2026-10-27
+
+### Fixed
+- Title mascot washed out or turned white in browsers with an automatic dark mode (Chrome's *Auto Dark Mode for Web
+  Contents*, dark-mode extensions): they lighten dark inline-SVG fills, so **Black** became a near-white blob with grey
+  eyes, every colour's dark eyes and mouth went pale, and the Halloween pumpkin's carved face turned light. The page now
+  declares its colour scheme (`<meta name="color-scheme">` + CSS `color-scheme`, dark or light by the theme) and the
+  mascot (with a still seasonal accessory) is repainted on a `<canvas>` from its own SVG, which those modes leave
+  alone; the SVG stays underneath as the fallback, blinking, the palette menu and reduced motion work as before.
+- **Auto** mascot on a dark accent had white eyes and mouth (they used the button text colour). Auto now uses the
+  same rule as the named colours: always dark eyes and mouth with a small white highlight.
+
 ## [1.4.0] - 2026-10-27
 
 ### Added

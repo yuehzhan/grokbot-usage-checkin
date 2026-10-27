@@ -450,6 +450,18 @@ def mascot_eyes(body):
     return MASCOT_EYE_BLACK, "#FFFFFF", MASCOT_EYE_BLACK
 
 
+def mascot_auto_vars(accent):
+    """:root vars for the 'auto' mascot (body = the accent): eyes / mouth by the same rule as the named colours
+    (mascot_eyes), never the button text colour --on-accent, which is white on dark accents. PALETTE_JS repeats the
+    rule when the palette menu moves the accent."""
+    from matplotlib.colors import to_hex
+    try:
+        eye, _hl, mouth = mascot_eyes(to_hex(accent))
+    except ValueError:
+        eye, mouth = MASCOT_EYE_DARK, MASCOT_EYE_DARK
+    return f"--m-eye:{eye};--m-mouth:{mouth}"
+
+
 MASCOT_SVG = ('<svg viewBox="0 0 40 40" aria-hidden="true" focusable="false">'
               '<path class="mbody" d="M20 4.5C30.2 4.5 37 11.6 37 21.2 37 30.4 30 36 20 36S3 30.4 3 21.2C3 11.6 9.8 4.5 20 4.5Z"/>'
               '<ellipse class="mshine" cx="12.6" cy="11.4" rx="4" ry="2.3" transform="rotate(-32 12.6 11.4)"/>'
@@ -592,8 +604,8 @@ def mascot_css():
     # the title stays an inline h1 and the mascot flows right after its last word, so a title that wraps on a phone
     # keeps the mascot next to the text (not pushed to the far edge); same 26px font so 'middle' centres it on the text
     out = [".hrow{margin:4px 0 8px;font-size:26px;font-weight:700} .hrow h1{display:inline;margin:0;font-size:inherit}",
-           " .mascot{display:inline-block;vertical-align:middle;position:relative;top:-2px;width:34px;height:34px;padding:0;margin:0 0 0 10px;border:0;border-radius:50%;background:none;"
-           "cursor:pointer;-webkit-tap-highlight-color:transparent;--mb:var(--accent);--me:var(--on-accent);--mh:var(--acc-hl);--ms:transparent;--mm:var(--on-accent)}",
+           " .mascot{forced-color-adjust:none;display:inline-block;vertical-align:middle;position:relative;top:-2px;width:34px;height:34px;padding:0;margin:0 0 0 10px;border:0;border-radius:50%;background:none;"
+           "cursor:pointer;-webkit-tap-highlight-color:transparent;--mb:var(--accent);--me:var(--m-eye,#1B1F24);--mh:#FFFFFF;--ms:transparent;--mm:var(--m-mouth,#1B1F24)}",
            " .mascot svg{display:block;width:100%;height:100%;overflow:visible} .mascot .mbody{fill:var(--mb);stroke:var(--ms);stroke-width:.8}",
            " .mascot .mshine{fill:#FFFFFF;opacity:.22} .mascot .mblush{fill:#FF9EBB;opacity:.4} .mascot .meye ellipse{fill:var(--me)}",
            " .mascot .mhl{fill:var(--mh)} .mascot .mmouth{fill:none;stroke:var(--mm);stroke-width:1.3;stroke-linecap:round}",
@@ -613,7 +625,11 @@ def mascot_css():
                " @media (prefers-reduced-motion: reduce){.mascot .mspark,.mascot .mwave{animation:none!important;transition:none!important}}"
                # the user's own mascot.svg: an <img> in the same slot (same size); the built-in blob is hidden then
                " .mascot .mcustom{display:none;width:100%;height:100%;object-fit:contain;border-radius:0}"
-               " .mascot[data-c=custom] svg{display:none} .mascot[data-c=custom] .mcustom{display:block} .mascot[data-c=custom]{border-radius:0}")
+               " .mascot[data-c=custom] svg{display:none} .mascot[data-c=custom] .mcustom{display:block} .mascot[data-c=custom]{border-radius:0}"
+               # MASCOT_JS repaints the blob (and a still accessory) on a <canvas>: browser auto dark modes (Chrome's
+               # Auto Dark Mode for Web Contents, ...) lighten dark inline-SVG fills and even small image icons, not canvas
+               " .mascot .mcv{position:absolute;left:-20%;top:-25%;width:140%;height:140%;pointer-events:none}"
+               " .mascot.mcv-on svg.mflat{opacity:0} .mascot[data-c=custom] .mcv{display:none}")
     return "".join(out)
 
 
@@ -639,12 +655,32 @@ def mascot_html(ctx, lk):
 # tab is visible. prefers-reduced-motion: no idle blinks and no animation. The menu calls window.usageMascot(v).
 MASCOT_JS = r"""(function(){var b=document.getElementById('mascot'),s=document.getElementById('mascotsel');if(!b)return;
 var mq=window.matchMedia?matchMedia('(prefers-reduced-motion: reduce)'):null,t=0,u=0;function rm(){return !!(mq&&mq.matches);}
-function blink(){if(rm()||b.hidden)return;b.classList.remove('blink');void b.offsetWidth;b.classList.add('blink');clearTimeout(u);u=setTimeout(function(){b.classList.remove('blink');},260);}
+function blink(){if(rm()||b.hidden)return;b.classList.remove('blink');void b.offsetWidth;b.classList.add('blink');clearTimeout(u);u=setTimeout(function(){b.classList.remove('blink');},260);if(fr.c){draw('c');setTimeout(function(){draw('o');},200);}}
 function idle(){clearTimeout(t);if(document.hidden||rm())return;t=setTimeout(function(){blink();idle();},10000+Math.random()*10000);}
-function set(v){if(!/^[a-z]{1,12}$/.test(String(v)))return;b.dataset.c=v;b.hidden=v==='off';var l=document.getElementById('seasonl');if(l)l.hidden=v==='off'||v==='custom';}
+function set(v){if(!/^[a-z]{1,12}$/.test(String(v)))return;b.dataset.c=v;b.hidden=v==='off';var l=document.getElementById('seasonl');if(l)l.hidden=v==='off'||v==='custom';paint();}
 b.addEventListener('click',blink);b.addEventListener('pointerenter',function(e){if(e.pointerType==='mouse')blink();});
 document.addEventListener('visibilitychange',idle);if(mq&&mq.addEventListener)mq.addEventListener('change',idle);
-window.usageMascot=set;if(s)set(s.value);idle();})();"""
+// paint on a canvas (auto dark modes recolour inline-SVG fills and small image icons, not canvas pixels): the svgs are
+// flattened with their computed colours (so 'auto' and the palette menu still apply), drawn eyes-open and eyes-closed,
+// and the svgs stay in place, transparent, as the fallback. Animated accessories (sparkles, streamers) stay live svg.
+var cv=document.createElement('canvas'),fr={},gen=0,PR=['fill','stroke','stroke-width','opacity','fill-opacity','stroke-opacity','stroke-linecap','stroke-linejoin','stroke-dasharray','display'];
+cv.className='mcv';cv.setAttribute('aria-hidden','true');b.appendChild(cv);
+function flat(src,closed){var c=src.cloneNode(true),a=src.querySelectorAll('*'),z=c.querySelectorAll('*');
+for(var i=0;i<a.length;i++){var cs=getComputedStyle(a[i]),st='';PR.forEach(function(p){var v=cs.getPropertyValue(p);if(v)st+=p+':'+v+';';});
+if(closed&&a[i].classList.contains('meye')){var e=a[i].querySelector('ellipse'),x=e.getAttribute('cx'),y=e.getAttribute('cy');z[i].setAttribute('transform','translate('+x+' '+y+') scale(1 .1) translate(-'+x+' -'+y+')');}
+z[i].setAttribute('style',st);z[i].removeAttribute('class');}
+['x','y','width','height'].forEach(function(k,j){c.setAttribute(k,j<2?0:40);});c.setAttribute('overflow','visible');c.removeAttribute('class');c.removeAttribute('style');return c;}
+function svgs(){return [].filter.call(b.querySelectorAll('svg'),function(x){return !x.querySelector('.mspark,.mwave');});}
+function draw(k){var im=fr[k],w=b.clientWidth,d=window.devicePixelRatio||1;if(!im||!im.complete||!w)return;
+cv.width=Math.round(w*1.4*d);cv.height=Math.round(b.clientHeight*1.4*d);var x=cv.getContext('2d');x.clearRect(0,0,cv.width,cv.height);x.drawImage(im,0,0,cv.width,cv.height);
+svgs().forEach(function(g){g.classList.add('mflat');});b.classList.add('mcv-on');}
+function paint(){if(b.hidden||b.dataset.c==='custom'||!window.XMLSerializer||!window.URL||!URL.createObjectURL)return;var n=++gen,left=2,L=svgs();
+['o','c'].forEach(function(k){var o=document.createElementNS(L[0].namespaceURI,'svg');o.setAttribute('viewBox','-8 -10 56 56');o.setAttribute('width','112');o.setAttribute('height','112');
+L.forEach(function(g){o.appendChild(flat(g,k==='c'));});var url=URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(o)],{type:'image/svg+xml'})),im=new Image();
+im.onload=function(){URL.revokeObjectURL(url);if(n!==gen)return;fr[k]=im;if(--left===0)draw(b.classList.contains('blink')?'c':'o');};im.onerror=function(){URL.revokeObjectURL(url);};im.setAttribute('src',url);});}
+if(window.MutationObserver)new MutationObserver(paint).observe(document.documentElement,{attributes:true,attributeFilter:['style','class']});
+window.addEventListener('resize',function(){draw('o');});
+window.usageMascot=set;if(s)set(s.value);else paint();idle();})();"""
 
 # Gauge "rev up" animation on the served page (the PNG never changes): off, once (default) or continuous
 ANIM_MODES = ("off", "once", "continuous")
@@ -1901,7 +1937,7 @@ function rgb(h){h=String(h).replace('#','');if(h.length==3)h=h.replace(/./g,'$&$
 function mix(a,b,t){var x=rgb(a),y=rgb(b);return '#'+x.map(function(v,i){return ('0'+Math.round(v+(y[i]-v)*t).toString(16)).slice(-2);}).join('');}
 function lum(h){var c=rgb(h).map(function(v){v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4);});return 0.2126*c[0]+0.7152*c[1]+0.0722*c[2];}
 function vars(n){var c=P.table[n][V],o={};['over','under','baseline','notice'].forEach(function(k){if(!P.fixed[k])o['--'+k]=c[k];});
-var a=P.fixed.accent?P.accent:(P.fixed.under?P.under:c.under);o['--accent']=a;o['--bd']=mix(P.bg,a,0.25);o['--on-accent']=lum(a)>0.4?'#0B0F14':'#FFFFFF';o['--acc-hl']=lum(a)>0.4?'#FFFFFF':a;return o;}
+var a=P.fixed.accent?P.accent:(P.fixed.under?P.under:c.under);o['--accent']=a;o['--bd']=mix(P.bg,a,0.25);o['--on-accent']=lum(a)>0.4?'#0B0F14':'#FFFFFF';o['--acc-hl']=lum(a)>0.4?'#FFFFFF':a;o['--m-eye']=o['--m-mouth']=(lum(a)+0.05)/(lum('#1B1F24')+0.05)>=3?'#1B1F24':'#050506';return o;}
 function mode(c){return c.l==='sd'?'sd':'o'+c.f;}function same(a,b){return a.r===b.r&&a.l===b.l&&a.f===b.f;}
 function fileOf(i,c){return i===clk?'clock-'+c.r+'-'+mode(c)+'.png':i.dataset.f0;}
 function key(n,p){return (p?n+'-pat':n)+P.osfx;}
@@ -2243,15 +2279,19 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
                  f"<span id=\"applying\" class=\"applying-msg\" role=\"status\" aria-live=\"polite\" hidden><span class=\"spin\"></span>{html.escape(PK['applying'])}</span>"
                  f"<script>{PICK_JS}</script>")
     onac, hl = _on_colour(ac), _blend(bg, tx, 0.14)
+    # declare the page's own scheme: without it Chrome's Auto Dark Mode (and similar) lightens dark inline-SVG fills,
+    # so the Black mascot turned white with grey eyes and dark eyes / mouths went pale on a dark page
+    cs = 'light' if T.get('is_light') else 'dark'
     doc = f"""<!doctype html><html lang="{ {'zh-TW': 'zh-Hant', 'zh-CN': 'zh-Hans', 'ja': 'ja', 'ko': 'ko'}.get(ctx.lang, 'en') }" data-patterns="{'1' if T.get('patterns') else ''}"><head><meta charset="utf-8"><title>{html.escape(title or '↻')}</title>
-<meta name="viewport" content="width=device-width,initial-scale=1"><style>
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="{cs}"><style>
+:root{{color-scheme:{cs}}}
 body{{margin:0;background:{bg};color:{tx};font-family:"Noto Sans CJK TC","Noto Sans TC","PingFang TC","Microsoft JhengHei","Segoe UI",sans-serif}}
 .wrap{{max-width:1060px;margin:0 auto;padding:20px}} .top{{color:var(--accent);font-size:12px;font-weight:700;letter-spacing:1px}} h1{{margin:4px 0 8px;font-size:26px}}
 .bar{{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}} .upd{{color:{dim};font-size:13px;display:flex;align-items:center;gap:10px}}
 nav{{display:inline-flex;border:1px solid var(--bd);border-radius:10px;padding:4px;background:{card};margin:6px 0 14px}}
 nav>button{{background:none;border:1px solid transparent;color:{dim};font:inherit;font-weight:700;font-size:15px;padding:6px 18px;border-radius:7px;cursor:pointer}}
 nav>button.on{{color:{tx};border-color:var(--accent)}} section{{display:none}} section.on{{display:block}} img{{width:100%;border:1px solid var(--bd);border-radius:10px}}
-:root{{--over:{T['over_color']};--under:{T['under_color']};--baseline:{T['baseline_color']};--notice:{T['notice_color']};--accent:{ac};--bd:{bd};--on-accent:{onac};--acc-hl:{'#FFFFFF' if onac != '#FFFFFF' else ac};--card:{card}}}
+:root{{--over:{T['over_color']};--under:{T['under_color']};--baseline:{T['baseline_color']};--notice:{T['notice_color']};--accent:{ac};--bd:{bd};--on-accent:{onac};--acc-hl:{'#FFFFFF' if onac != '#FFFFFF' else ac};{mascot_auto_vars(ac)};--card:{card}}}
 a{{color:var(--accent)}} :focus-visible{{outline:2px solid var(--accent);outline-offset:2px}} input[type=checkbox],input[type=radio]{{accent-color:var(--accent)}}
 nav>button:hover{{color:{tx};border-color:var(--bd)}} .btn:hover,#ckbtn:hover,#ckr button:hover{{border-color:var(--accent)}}
 .warn{{border:1px solid var(--notice);color:var(--notice);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-weight:700}}
