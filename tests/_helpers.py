@@ -12,6 +12,24 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 
+def fixed_datetime(at):
+    """A ``datetime`` stand-in whose ``now()`` is pinned to the aware datetime ``at`` (patch it over a module's
+    ``datetime`` name so date-dependent output does not depend on the day the tests run). ``isinstance`` still
+    accepts ordinary datetimes."""
+    from datetime import datetime
+
+    class _Meta(type(datetime)):
+        def __instancecheck__(cls, obj):
+            return isinstance(obj, datetime)
+
+    class FixedDatetime(datetime, metaclass=_Meta):
+        @classmethod
+        def now(cls, tz=None):
+            return at.astimezone(tz) if tz else at.astimezone().replace(tzinfo=None)
+
+    return FixedDatetime
+
+
 def scratch():
     """A temp dir under the system temp folder (never the real data folder)."""
     return tempfile.mkdtemp(prefix="usagehud-test-")

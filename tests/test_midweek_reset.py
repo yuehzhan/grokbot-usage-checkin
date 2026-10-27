@@ -14,7 +14,7 @@ from pathlib import Path
 from unittest import mock
 from zoneinfo import ZoneInfo
 
-from _helpers import NEEDS_CJK, has_cjk_font, scratch
+from _helpers import NEEDS_CJK, fixed_datetime, has_cjk_font, scratch
 from test_gauge_anim import spy_render
 
 import chart_hud
@@ -40,8 +40,10 @@ CFG = {"pace": 14, "tz": "Asia/Taipei", "reset_hm": "01:41", "reset_at": "2026-1
 
 
 def render_week(rows, out, cfg):
+    """Render the 10-24 week as seen at NOW (the 10-26 03:05 reading), whatever day the tests run."""
     real = chart_hud.render
-    with mock.patch.object(chart_hud, "render", lambda r, o, ws, c: real(r, o, "2026-10-24", c)):
+    with mock.patch.object(chart_hud, "render", lambda r, o, ws, c: real(r, o, "2026-10-24", c)), \
+            mock.patch.object(chart_hud, "datetime", fixed_datetime(NOW)):
         return spy_render(rows, out, cfg)
 
 

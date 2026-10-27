@@ -83,7 +83,10 @@ class HotspotTests(unittest.TestCase):
 
     def test_cap_and_more(self):
         write_checkins(self.dir, [(day(i % 7, 8, 0) - timedelta(minutes=i // 7), "Grey", "", "", "point") for i in range(11)])
-        _, d, _ = self.draw(make_ctx(self.dir))
+        ctx = make_ctx(self.dir)
+        # draw as of 12:00 on NOW's day, so today's 08:00 check-ins are already in the past whatever the time of day
+        ctx.now = lambda: NOW.replace(hour=12, minute=0)
+        _, d, _ = self.draw(ctx)
         self.assertEqual(len(d["spots"]), 1)
         self.assertEqual(len(d["spots"][0]["items"]), uh.CLOCK_TIP_MAX)
         self.assertEqual(d["spots"][0]["more"], 11 - uh.CLOCK_TIP_MAX)
