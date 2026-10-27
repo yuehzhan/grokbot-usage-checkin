@@ -195,9 +195,16 @@ class LocaleTests(unittest.TestCase):
 
 
 class MenuTests(unittest.TestCase):
+    def test_numeric_last_and_labelled_123456(self):
+        self.assertEqual(uh.PAGE_LANGS[-1], "numeric")
+        self.assertEqual(uh.PAGE_LANGS.count("numeric"), 1)
+        self.assertEqual(uh.LANG_NAMES["numeric"], "123456")
+        self.assertNotIn("純數字", "".join(uh.LANG_NAMES.values()))
+        self.assertNotIn("纯数字", "".join(uh.LANG_NAMES.values()))
+
     def test_order_and_native_names(self):
-        self.assertEqual(uh.PAGE_LANGS[:7], ("auto", "zh-TW", "zh-CN", "en", "ja", "ko", "numeric"))
-        self.assertEqual(uh.PAGE_LANGS[7:], ("id", "de", "es", "fr", "pt"))
+        self.assertEqual(uh.PAGE_LANGS, ("auto", "zh-TW", "zh-CN", "en", "ja", "ko", "id", "de", "es", "fr", "pt",
+                                         "numeric"))
         for lg, name in NATIVE.items():
             self.assertEqual(uh.LANG_NAMES[lg], name)
         self.assertEqual(set(uh.LANG_NAMES), set(uh.PAGE_LANGS) - {"auto"})
