@@ -37,6 +37,7 @@ import usage_offset  # noqa: E402  (display offset -2..+2 for the shown weekly %
 import usage_categories  # noqa: E402  (check-in categories; unknown -> other)
 import usage_checkins  # noqa: E402  (check-in points and start/end sessions)
 import usage_checkins_ui  # noqa: E402  (check-in tab: HTML/CSS/JS)
+import usage_history_l10n as l10n  # noqa: E402  (page strings for es / pt / fr / de / id)
 import proc_util  # noqa: E402  (Windows-safe "is this pid alive?")
 
 INTERVAL_MIN, INTERVAL_MAX, INTERVAL_DEFAULT = 15, 1440, 60
@@ -132,6 +133,21 @@ STR["numeric"] = dict(STR["en"], **{
     "none_ck": "∅", "ck_btn": "✓", "ck_hint": "", "week": "", "days": "D", "peak": "▲", "pace": "→", "at100": "100",
     "yes": "▲", "month": "", "amount": "$", "weekly_detail": "", "conn_err": "×", "clock_sub": "", "no_clock": "∅", "hour_fmt": "{h}",
 })
+
+LATIN_LANGS = l10n.LANGS  # es, pt, fr, de, id: page strings in usage_history_l10n, merged over English
+
+
+def _over_en(en, tr):
+    """English table with a translation merged over it, one level deep for nested dicts (clock_rt, opts,
+    back_states, ...), so a key missing from the translation still shows in English instead of failing."""
+    out = dict(en)
+    for k, v in tr.items():
+        out[k] = dict(en[k], **v) if isinstance(v, dict) and isinstance(en.get(k), dict) else v
+    return out
+
+
+for _lg in LATIN_LANGS:
+    STR[_lg] = _over_en(STR["en"], l10n.STR[_lg])
 
 
 # ------------------------------------------------------------------ config
@@ -249,9 +265,7 @@ class Ctx:
         return usage_offset.apply(pct, self.display_offset)
 
     def ck_strings(self):
-        if self.lang == "numeric":
-            return usage_checkins_ui.NUMERIC
-        return usage_checkins_ui.ZH_TW if self.lang.startswith("zh") else usage_checkins_ui.EN
+        return usage_checkins_ui.for_lang(self.lang)
 
     def cat_label(self, cid):
         """Display label: English, zh-TW for zh languages, position number in privacy/numeric mode."""
@@ -335,8 +349,11 @@ class Ctx:
         return dt.astimezone(self.tz)
 
 
-PAGE_LANGS = ("auto", "zh-TW", "zh-CN", "en", "ja", "ko", "numeric")
-LANG_NAMES = {"zh-TW": "繁體中文", "zh-CN": "简体中文", "en": "English", "ja": "日本語", "ko": "한국어", "numeric": "純數字 123"}
+# menu order: Auto, the languages that were there first (and numeric), then the newer ones by native name;
+# every language is listed by its own name only, one short line each
+PAGE_LANGS = ("auto", "zh-TW", "zh-CN", "en", "ja", "ko", "numeric", "id", "de", "es", "fr", "pt")
+LANG_NAMES = {"zh-TW": "繁體中文", "zh-CN": "简体中文", "en": "English", "ja": "日本語", "ko": "한국어", "numeric": "純數字 123",
+              **l10n.NAMES}
 PAGE_ZONES = ("Asia/Taipei", "Asia/Shanghai", "Asia/Hong_Kong", "Asia/Tokyo", "Asia/Seoul", "Asia/Singapore",
               "Asia/Bangkok", "Asia/Kolkata", "Asia/Dubai", "Australia/Sydney", "Pacific/Auckland", "Europe/London",
               "Europe/Paris", "Europe/Berlin", "Europe/Moscow", "America/Sao_Paulo", "America/New_York", "America/Chicago",
@@ -372,6 +389,9 @@ MASCOT_STR = {
     'ko': {"label": '마스코트', "aria": '마스코트, 클릭하면 눈을 깜빡여요', "opts": {'auto': '자동(테마 강조색)', 'brown': '갈색', 'black': '검정', 'grey': '회색', 'teal': '청록', 'orange': '주황', 'pink': '분홍', 'purple': '보라', 'blue': '파랑', 'green': '초록', 'maroon': '적갈색', 'custom': '사용자 지정', 'off': '끄기(숨김)'}, "seasonal": '시즌 장식', "sopts": {'auto': '자동(날짜별)', 'off': '끄기'}},
     'numeric': {"label": '●', "aria": '●', "opts": {'auto': 'auto', 'brown': '1', 'black': '2', 'grey': '3', 'teal': '4', 'orange': '5', 'pink': '6', 'purple': '7', 'blue': '8', 'green': '9', 'maroon': '10', 'custom': '*', 'off': '0'}, "seasonal": '✦', "sopts": {'auto': 'auto', 'off': '0'}},
 }
+for _lg in LATIN_LANGS:
+    PICK_STR[_lg] = _over_en(PICK_STR["en"], l10n.PICK[_lg])
+    MASCOT_STR[_lg] = _over_en(MASCOT_STR["en"], l10n.MASCOT[_lg])
 # Title mascot: an original round blob drawn as inline SVG to the right of the page title. 'auto' follows the theme
 # accent (var(--accent), so it also follows the palette menu); the fixed colours are body hexes; 'off' hides it.
 # Eyes are dark or light, whichever reads better on the body; hidden in privacy mode (like the GitHub mark).
@@ -704,6 +724,9 @@ def page_lang(v):
     for k in PAGE_LANGS:
         if v.lower() == k.lower():
             return k
+    base = v.replace("_", "-").split("-")[0].lower()
+    if base in LATIN_LANGS:  # 'pt-BR', 'es_419', 'de-AT' from a config -> the page language
+        return base
     return "auto" if v.lower() in ("", "local", "system") else v  # e.g. 'zh' from an old config: resolved later
 
 
@@ -1128,7 +1151,7 @@ def clock_periods(ctx, key, since, now, samples):
         d = st.replace(hour=0, minute=0, second=0, microsecond=0)
         while d < now:
             e = (d + timedelta(days=1, hours=3)).replace(hour=0, minute=0)
-            add(L["clock_day"].format(wd=L["clock_wd"][d.weekday()], md=f"{d:%m/%d}"), d, e, d.date() == now.date())
+            add(L["clock_day"].format(wd=L["clock_wd"][d.weekday()], md=_md(L, d)), d, e, d.date() == now.date())
             d = e
     elif key == "1m":
         try:
@@ -1138,7 +1161,7 @@ def clock_periods(ctx, key, since, now, samples):
         i = 1
         while ws < now:
             we = ws + timedelta(days=ctx.period_days)
-            add(L["clock_wkl"].format(i=i, a=f"{max(ws, st):%m/%d}", b=f"{min(we, now) - timedelta(seconds=1):%m/%d}"), ws, we, ws <= now < we)
+            add(L["clock_wkl"].format(i=i, a=_md(L, max(ws, st)), b=_md(L, min(we, now) - timedelta(seconds=1))), ws, we, ws <= now < we)
             ws = we; i += 1
     else:
         unit = {"3m": 1, "6m": 1, "1y": 3}.get(key, 3)
@@ -1152,7 +1175,8 @@ def clock_periods(ctx, key, since, now, samples):
             y2, m2 = (y + (m - 1 + unit) // 12, (m - 1 + unit) % 12 + 1)
             b = month_start(y2, m2)
             if unit == 1:
-                lab = L["clock_mon"].format(mon=calendar.month_abbr[m], y=y, m=m)
+                mon = L["months"][m - 1] if L.get("months") else calendar.month_abbr[m]
+                lab = L["clock_mon"].format(mon=mon, y=y, m=m)
             elif unit == 3:
                 lab = L["clock_q"].format(q=(m - 1) // 3 + 1, y=y)
             else:
@@ -1160,6 +1184,11 @@ def clock_periods(ctx, key, since, now, samples):
             add(lab, a, b, a <= now < b)
             y, m = y2, m2
     return out[-8:]
+
+
+def _md(L, d):
+    """Month/day as the language writes it: 10/27 (default), 27/10 (es, pt, fr, id), 27.10. (de)."""
+    return L.get("md_fmt", "{m:02d}/{d:02d}").format(m=d.month, d=d.day)
 
 
 def _clock_theta(t):
@@ -1237,7 +1266,7 @@ def draw_clock(ctx, samples, cks, colors, path, title, since, now, zl, key="1d",
     fig = plt.figure(figsize=(7.2, 8.6), dpi=110, facecolor=T["bg_color"])
     if L["clock_eyebrow"]:
         fig.text(0.05, 0.972, L["clock_eyebrow"], color=T["accent_color"], fontsize=9.5, fontweight="bold", va="top")
-    fig.text(0.05, 0.94, title, color=T["text_color"], fontsize=18, fontweight="bold", va="center")
+    title_t = fig.text(0.05, 0.94, title, color=T["text_color"], fontsize=18, fontweight="bold", va="center")
     st = since or (samples[0][0] if samples else now)
     fig.text(0.05, 0.908, f"{st:%Y-%m-%d %H:%M} → {now:%Y-%m-%d %H:%M}" + ("" if ctx.privacy else f" ({zl})") + f" · n={n}",
              color=T["dim"], fontsize=10, fontweight="bold", va="center")
@@ -1318,9 +1347,29 @@ def draw_clock(ctx, samples, cks, colors, path, title, since, now, zl, key="1d",
     if note:
         fig.text(0.5, 0.04, note.format(z=zl), color=T["dim"], fontsize=7.5, ha="center", wrap=True)
     if n < need:
-        fig.text(0.95, 0.94, L["collecting"].format(n=n, m=need), color=T["notice_color"], fontsize=11, fontweight="bold", ha="right", va="center",
+        badge = fig.text(0.95, 0.94, L["collecting"].format(n=n, m=need), color=T["notice_color"], fontsize=11, fontweight="bold", ha="right", va="center",
                  bbox=dict(boxstyle="round,pad=0.35", facecolor=_blend(T["bg_color"], T["notice_color"], 0.12), edgecolor=T["notice_color"]))
+        _clear_badge(fig, title_t, badge)
     fig.savefig(path, facecolor=T["bg_color"]); plt.close(fig)
+
+
+def _clear_badge(fig, title_t, badge):
+    """Keep a long (translated) clock title clear of the "collecting data" badge on its right: shrink the
+    title a little (18 -> 16 pt at most); if it still runs into the badge, keep the title size and lift the
+    badge to the eyebrow line instead (shrinking the title only if it is wider than the figure)."""
+    r = fig.canvas.get_renderer()
+    hits = lambda: title_t.get_window_extent(r).x1 > badge.get_window_extent(r).x0 - 6
+    fs0 = fs = title_t.get_fontsize()
+    while hits() and fs > fs0 - 2:
+        fs -= 1
+        title_t.set_fontsize(fs)
+    if hits():
+        title_t.set_fontsize(fs0)
+        badge.set_y(0.976)
+        fs = fs0
+        while title_t.get_window_extent(r).x1 > fig.bbox.width * 0.97 and fs > 12:
+            fs -= 1
+            title_t.set_fontsize(fs)
 
 
 CLOCK_JSON_RE = re.compile(r"^clock-(1d|[a-z0-9]{1,4}-(ot|os|sd))\.json$")  # check-in dot tooltips (clock_hotspots)
@@ -1686,6 +1735,10 @@ UPDATE_STR = {  # "Check for updates" / "Update" (POST /api/update/check, /api/u
                 "confirm": "⇪ ↻ ?", "updating": "↻ …", "slow": "× log", "failed": "×", "auto": "⇪ ⏱", "privacy": True,
                 "notes": "", "back": "⟲", "back_confirm": "⟲ {v} ?", "back_running": "⟲ …", "back_failed": "× {e}", "back_states": {}},
 }
+for _lg in LATIN_LANGS:
+    MANUAL_STR[_lg] = _over_en(MANUAL_STR["en"], l10n.MANUAL[_lg])
+    LEDGER_STR[_lg] = _over_en(LEDGER_STR["en"], l10n.LEDGER[_lg])
+    UPDATE_STR[_lg] = _over_en(UPDATE_STR["en"], l10n.UPDATE[_lg])
 UPDATE_CHECK_COOLDOWN = 30  # seconds between real "git fetch" runs; a repeat click inside it gets the last answer
 UPDATE_AUTO_FIRST_DELAY = 60  # automatic check: first look a minute after start (then about once a day)
 
@@ -1729,7 +1782,7 @@ GH_MARK_PATH = ("M6.766 11.328c-2.063-.25-3.516-1.734-3.516-3.656 0-.781.281-1.6
                 "0-1.64-.562-2.078-1.609-.172-.422-.36-.672-.719-.719-.187-.015-.25-.093-.25-.187 0-.188.313-.328.625-.328"
                 ".453 0 .844.281 1.25.86.313.452.64.655 1.031.655s.641-.14 1-.5c.266-.265.47-.5.657-.656")
 GH_LABEL = {"zh-TW": "前往 GitHub 專案頁", "zh-CN": "前往 GitHub 项目页", "en": "View on GitHub",
-            "ja": "GitHub リポジトリを開く", "ko": "GitHub 저장소 열기"}
+            "ja": "GitHub リポジトリを開く", "ko": "GitHub 저장소 열기", **l10n.GH}
 
 
 def gh_css(dark=True):
@@ -1845,7 +1898,7 @@ GAUGE_CSS = (".gwrap{position:relative} .gsvg{position:absolute;left:1px;top:1px
              " .upd .trow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 7px;min-width:0}"
              " .upd .trow>*{flex:0 0 auto;white-space:nowrap} .upd .trow>script{display:none}"
              " .upd label.pal{display:inline-flex;align-items:center;gap:4px} .upd .psel{gap:4px} .upd .pbtn{padding:4px 8px} .upd .btn{white-space:nowrap}"
-             " .upd .trow{font-size:12.5px} .upd .trow select{font:inherit} #langsel{max-width:140px} #tzsel{max-width:170px} @media (max-width:1100px){.wrap{padding-left:14px;padding-right:14px}} .upd .btn{padding:5px 11px} #rmsg:empty{display:none}"
+             " .upd .trow{font-size:12.5px} .upd .trow select{font:inherit} #langsel{max-width:180px} #tzsel{max-width:170px} @media (max-width:1100px){.wrap{padding-left:14px;padding-right:14px}} .upd .btn{padding:5px 11px} #rmsg:empty{display:none}"
              # Check for updates + Roll back: one unit, so the roll-back button never wraps onto a line of its own
              " .upd .ugrp{display:inline-flex;align-items:center;gap:7px} .upd .ugrp:not(:has(>:not([hidden]))){display:none}"
              # Auto-check switch + GitHub icon: one unit, so the icon never wraps onto a line of its own
@@ -1861,6 +1914,8 @@ CLOCKTIP_STR = {
     "zh-CN": {"point": "单次打卡", "start": "工作段开始", "more": "还有 {n} 条", "n": "{n} 条打卡"},
     "numeric": {"point": "·", "start": "▶", "more": "+{n}", "n": "✓ {n}"},
 }
+for _lg in LATIN_LANGS:
+    CLOCKTIP_STR[_lg] = _over_en(CLOCKTIP_STR["en"], l10n.CLOCKTIP[_lg])
 CLOCKTIP_JS = r"""(function(){var $=function(i){return document.getElementById(i);},D={};try{D=JSON.parse($('clocktips').textContent)||{};}catch(e){}
 var S=D.s||{},MAX=D.max||8,uid=0,all=[];
 function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=String(x);return e;}
@@ -2126,6 +2181,9 @@ PAL_STR = {"en": {"busy": "Drawing charts…", "fail": "Could not draw this pale
            "zh-TW": {"busy": "正在產生圖表…", "fail": "無法產生這組配色", "file": "請透過儀表板伺服器開啟頁面才能切換配色"},
            "zh-CN": {"busy": "正在生成图表…", "fail": "无法生成这组配色", "file": "请通过仪表板服务器打开页面才能切换配色"},
            "numeric": {"busy": "…", "fail": "×", "file": "×"}}
+for _lg in LATIN_LANGS:
+    CPICK_STR[_lg] = _over_en(CPICK_STR["en"], l10n.CPICK[_lg])
+    PAL_STR[_lg] = _over_en(PAL_STR["en"], l10n.PAL[_lg])
 
 
 def clock_tips_json(ctx):
@@ -2138,15 +2196,17 @@ def clock_tips_json(ctx):
             spots[k] = json.loads(f.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             pass
-    lk = "numeric" if ctx.privacy else ("zh-CN" if ctx.lang == "zh-CN" else ("zh-TW" if ctx.lang.startswith("zh") else "en"))
+    lk = "numeric" if ctx.privacy else ("zh-CN" if ctx.lang == "zh-CN" else ("zh-TW" if ctx.lang.startswith("zh") else
+                                                                          (ctx.lang if ctx.lang in LATIN_LANGS else "en")))
     return json.dumps({"s": CLOCKTIP_STR[lk], "max": CLOCK_TIP_MAX, "spots": spots}, ensure_ascii=False).replace("<", "\\u003c")
 
 
 def write_html(ctx, sums, now, nowa, zl, gen=""):
     L, T = ctx.L, ctx.theme
-    MS = MANUAL_STR["numeric"] if ctx.privacy else (MANUAL_STR["zh-TW"] if ctx.lang.startswith("zh") else MANUAL_STR["en"])
-    LS = LEDGER_STR["numeric"] if ctx.privacy else (LEDGER_STR[usage_dates.lang_key(ctx.lang)] if ctx.lang.startswith("zh") else LEDGER_STR["en"])
-    US = UPDATE_STR["numeric"] if ctx.privacy else (UPDATE_STR["zh-TW"] if ctx.lang.startswith("zh") else UPDATE_STR["en"])
+    latin = ctx.lang if ctx.lang in LATIN_LANGS else "en"  # es / pt / fr / de / id, else English (ja / ko too)
+    MS = MANUAL_STR["numeric"] if ctx.privacy else (MANUAL_STR["zh-TW"] if ctx.lang.startswith("zh") else MANUAL_STR[latin])
+    LS = LEDGER_STR["numeric"] if ctx.privacy else (LEDGER_STR[usage_dates.lang_key(ctx.lang)] if ctx.lang.startswith("zh") else LEDGER_STR[latin])
+    US = UPDATE_STR["numeric"] if ctx.privacy else (UPDATE_STR["zh-TW"] if ctx.lang.startswith("zh") else UPDATE_STR[latin])
     try:
         ledger = json.loads(Path(ctx.ledger_path).read_text(encoding="utf-8"))
         ledger.pop("_newAlerts", None)
@@ -2205,7 +2265,7 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
     bg, tx, ac, card, bd, dim = T["bg_color"], T["text_color"], T["accent_color"], T["card"], T["border"], T["dim"]
     # palette switcher: config default, overridden per browser (localStorage 'usage.palette')
     fixed = {k: bool(v) for k, v in _theme_explicit(ctx.theme_path).items()}
-    plang = "numeric" if ctx.privacy else ("zh-TW" if ctx.lang == "zh-TW" else ("zh-CN" if ctx.lang.startswith("zh") else "en"))
+    plang = "numeric" if ctx.privacy else ("zh-TW" if ctx.lang == "zh-TW" else ("zh-CN" if ctx.lang.startswith("zh") else latin))
     cu, co = usage_palette.parse_custom(ctx.palette) or (usage_palette.CUSTOM_DEFAULT["under"], usage_palette.CUSTOM_DEFAULT["over"])
     cc_now = {"under": cu, "over": co}
     paldata = json.dumps({"default": ctx.pal_key, "base": ctx.palette, "pat": ctx.patterns, "osfx": ctx.key_suffix, "light": T["is_light"],
@@ -2241,9 +2301,10 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
     cpick_html = (f"<span class='pal cpick' id='cpick'{'' if is_cc else ' hidden'}><label>{html.escape(CP['under'])} <input type='color' id='ccu' value='{cu.lower()}'></label>"
                   f"<label>{html.escape(CP['over'])} <input type='color' id='cco' value='{co.lower()}'></label>"
                   f"<span class='cchint' id='cchint' role='status'{'' if usage_palette.similar(cu, co) else ' hidden'}>{html.escape(CP['hint'])}</span></span>")
-    pal_label = {"numeric": "◐", "zh-TW": "配色", "zh-CN": "配色"}.get(plang, "Colours")
-    pat_label = {"numeric": "▨", "zh-TW": "加上紋路", "zh-CN": "加上纹路"}.get(plang, "Add patterns")
-    off_label = {"numeric": "±", "zh-TW": "顯示校正", "zh-CN": "显示校正"}.get(plang, "Display offset")
+    TB = l10n.TOOLBAR.get(plang, {})
+    pal_label = {"numeric": "◐", "zh-TW": "配色", "zh-CN": "配色"}.get(plang, TB.get("pal", "Colours"))
+    pat_label = {"numeric": "▨", "zh-TW": "加上紋路", "zh-CN": "加上纹路"}.get(plang, TB.get("pat", "Add patterns"))
+    off_label = {"numeric": "±", "zh-TW": "顯示校正", "zh-CN": "显示校正"}.get(plang, TB.get("off", "Display offset"))
     off_opts = "".join(f"<option value='{o}'{' selected' if o == ctx.display_offset else ''}>{html.escape(usage_offset.option_text(o, plang))}</option>"
                        for o in range(usage_offset.MIN, usage_offset.MAX + 1))
     PK = PICK_STR["numeric" if ctx.privacy else (ctx.lang if ctx.lang in PICK_STR else plang)]
@@ -2282,10 +2343,13 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
     # declare the page's own scheme: without it Chrome's Auto Dark Mode (and similar) lightens dark inline-SVG fills,
     # so the Black mascot turned white with grey eyes and dark eyes / mouths went pale on a dark page
     cs = 'light' if T.get('is_light') else 'dark'
-    doc = f"""<!doctype html><html lang="{ {'zh-TW': 'zh-Hant', 'zh-CN': 'zh-Hans', 'ja': 'ja', 'ko': 'ko'}.get(ctx.lang, 'en') }" data-patterns="{'1' if T.get('patterns') else ''}"><head><meta charset="utf-8"><title>{html.escape(title or '↻')}</title>
+    ff = '"Noto Sans CJK TC","Noto Sans TC","PingFang TC","Microsoft JhengHei","Segoe UI",sans-serif'
+    if ctx.lang in LATIN_LANGS:  # Latin fonts first: CJK fonts draw ’ “ ” « » full-width; CJK text still falls back
+        ff = '"Segoe UI","Noto Sans","Helvetica Neue",Arial,' + ff.replace(',"Segoe UI"', '')
+    doc = f"""<!doctype html><html lang="{ {'zh-TW': 'zh-Hant', 'zh-CN': 'zh-Hans', 'ja': 'ja', 'ko': 'ko', **l10n.HTML_LANG}.get(ctx.lang, 'en') }" data-patterns="{'1' if T.get('patterns') else ''}"><head><meta charset="utf-8"><title>{html.escape(title or '↻')}</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="{cs}"><style>
 :root{{color-scheme:{cs}}}
-body{{margin:0;background:{bg};color:{tx};font-family:"Noto Sans CJK TC","Noto Sans TC","PingFang TC","Microsoft JhengHei","Segoe UI",sans-serif}}
+body{{margin:0;background:{bg};color:{tx};font-family:{ff}}}
 .wrap{{max-width:1060px;margin:0 auto;padding:20px}} .top{{color:var(--accent);font-size:12px;font-weight:700;letter-spacing:1px}} h1{{margin:4px 0 8px;font-size:26px}}
 .bar{{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}} .upd{{color:{dim};font-size:13px;display:flex;align-items:center;gap:10px}}
 nav{{display:inline-flex;border:1px solid var(--bd);border-radius:10px;padding:4px;background:{card};margin:6px 0 14px}}
@@ -2722,7 +2786,7 @@ def serve(ctx, allow_remote=False):
                    "/api/update/rollback", "/api/palette/render", "/api/patterns", "/api/display-offset", "/api/lang", "/api/tz", "/api/anim", "/api/mascot", "/api/seasonal", "/api/interval")
 
     def pick_setting(key, d):
-        """POST /api/lang {"lang": "auto"|"zh-TW"|"zh-CN"|"en"|"ja"|"ko"|"numeric"} or /api/tz {"tz": "auto"|<IANA zone>}:
+        """POST /api/lang {"lang": "auto"|"zh-TW"|"zh-CN"|"en"|"ja"|"ko"|"numeric"|"id"|"de"|"es"|"fr"|"pt"} or /api/tz {"tz": "auto"|<IANA zone>}:
         saved as "lang" / "tz" in usage_config.json (or <data_dir>/page_settings.json); charts and page are redrawn
         before this returns. A --lang / --tz flag given at start still wins ("locked": true)."""
         v = d.get(key)

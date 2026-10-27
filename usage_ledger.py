@@ -72,6 +72,38 @@ TEXT["zh-CN"] = dict(TEXT["zh-TW"], title="用量提醒", spike="24 小时内用
                      resets="重置 {date}（{z}）", reset_unknown="重置时间未知", last="最后成功 {pct:g}%（{t}）",
                      no_last="尚无成功记录", wd=["周一", "周二", "周三", "周四", "周五", "周六", "周日"], dl="zh-CN")
 
+# Latin-script interface languages (weekday names and date formats come from usage_dates)
+TEXT["es"] = dict(TEXT["en"], title="Alerta de uso", spike="+{p:g}% en 24 h, ahora {pct:g}% · {reset}",
+                  budget="Uso semanal {pct:g}% (≥ {th:g}%) · {reset}",
+                  unavail="Uso no disponible {n} veces seguidas · {last}",
+                  resets="reinicio {date} ({z})", reset_unknown="reinicio desconocido",
+                  last="última lectura válida {pct:g}% ({t})", no_last="aún sin lecturas válidas",
+                  wd=usage_dates.WD["es"], dl="es")
+TEXT["pt"] = dict(TEXT["en"], title="Alerta de uso", spike="+{p:g}% em 24 h, agora {pct:g}% · {reset}",
+                  budget="Uso semanal {pct:g}% (≥ {th:g}%) · {reset}",
+                  unavail="Uso indisponível {n} vezes seguidas · {last}",
+                  resets="reinício {date} ({z})", reset_unknown="reinício desconhecido",
+                  last="última leitura válida {pct:g}% ({t})", no_last="ainda sem leituras válidas",
+                  wd=usage_dates.WD["pt"], dl="pt")
+TEXT["fr"] = dict(TEXT["en"], title="Alerte d’utilisation", spike="+{p:g} % en 24 h, maintenant {pct:g} % · {reset}",
+                  budget="Utilisation hebdo {pct:g} % (≥ {th:g} %) · {reset}",
+                  unavail="Utilisation indisponible {n} fois de suite · {last}",
+                  resets="remise à zéro {date} ({z})", reset_unknown="remise à zéro inconnue",
+                  last="dernière lecture valide {pct:g} % ({t})", no_last="aucune lecture valide",
+                  wd=usage_dates.WD["fr"], dl="fr")
+TEXT["de"] = dict(TEXT["en"], title="Nutzungswarnung", spike="+{p:g} % in 24 Std., jetzt {pct:g} % · {reset}",
+                  budget="Wochennutzung {pct:g} % (≥ {th:g} %) · {reset}",
+                  unavail="Nutzung {n}× in Folge nicht verfügbar · {last}",
+                  resets="Reset {date} ({z})", reset_unknown="Reset unbekannt",
+                  last="letzter gültiger Wert {pct:g} % ({t})", no_last="noch kein gültiger Wert",
+                  wd=usage_dates.WD["de"], dl="de")
+TEXT["id"] = dict(TEXT["en"], title="Peringatan pemakaian", spike="+{p:g}% dalam 24 jam, kini {pct:g}% · {reset}",
+                  budget="Pemakaian mingguan {pct:g}% (≥ {th:g}%) · {reset}",
+                  unavail="Pemakaian tidak tersedia {n}× berturut-turut · {last}",
+                  resets="reset {date} ({z})", reset_unknown="waktu reset tidak diketahui",
+                  last="terakhir valid {pct:g}% ({t})", no_last="belum ada data valid",
+                  wd=usage_dates.WD["id"], dl="id")
+
 
 def offset_label(dt):
     off = dt.utcoffset() or timedelta(0)
@@ -309,7 +341,7 @@ def record_hud(data_dir, cfg, pct, reset_at=None, source="sampler", error=None, 
         ps = _hud_period_start(data_dir, now, int(cfg.get("period_days", 7) or 7))
     elif reset_at is not None:
         ps = reset_at - timedelta(days=int(cfg.get("period_days", 7) or 7))
-    lg = "numeric" if lang == "numeric" else (usage_dates.lang_key(lang) if str(lang).startswith("zh") else "en")
+    lg = "numeric" if lang == "numeric" else (usage_dates.lang_key(lang) if (str(lang).startswith("zh") or lang in TEXT) else "en")
     return update(hud_ledger_path(data_dir, cfg), pct=pct, reset_at=reset_at, period_start=ps, source=source, error=error,
                   samples=samples, cfg={k: cfg.get(k) for k in ALERT_KEYS}, lang=lg, tz=tz, now=now,
                   alerts_log=os.path.join(str(data_dir), "alerts.log"),

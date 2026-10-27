@@ -7,7 +7,7 @@ so check-in files written before categories existed stay readable.
 
 Config:
   * JSON (usage_config.json):  "checkin_categories": ["web", "code", ...]
-    or entries like {"id": "gaming", "label": "Gaming", "label_zh-TW": "..."}
+    or entries like {"id": "gaming", "label": "Gaming", "label_zh-TW": "...", "label_es": "..."}
   * INI style (comma list):    categories = web, code, break, gaming:Gaming
 """
 
@@ -33,8 +33,28 @@ DEFAULTS = [
     ("learning", "Learning", "學習"),
     ("other", "Other", "其他"),
 ]
+# Built-in labels for the Latin-script interface languages: (es, pt, fr, de, id)
+LATIN_LANGS = ("es", "pt", "fr", "de", "id")
+LATIN = {
+    "web": ("Navegación web", "Navegação web", "Navigation web", "Web-Recherche", "Jelajah web"),
+    "code": ("Código", "Código", "Code", "Code", "Kode"),
+    "break": ("Descanso", "Pausa", "Pause", "Pause", "Istirahat"),
+    "image": ("Generar imágenes", "Gerar imagens", "Génération d’images", "Bildgenerierung", "Buat gambar"),
+    "publish": ("Publicación", "Publicação", "Publication", "Veröffentlichen", "Publikasi"),
+    "daily": ("Registro diario", "Registro diário", "Pointage quotidien", "Täglicher Check-in", "Check-in harian"),
+    "research": ("Investigación", "Pesquisa", "Recherche", "Recherche", "Riset"),
+    "writing": ("Escritura", "Escrita", "Rédaction", "Schreiben", "Menulis"),
+    "files": ("Gestión de archivos", "Gestão de arquivos", "Gestion de fichiers", "Dateiverwaltung", "Kelola berkas"),
+    "review": ("Revisión", "Revisão", "Relecture", "Prüfung", "Tinjauan"),
+    "maintenance": ("Mantenimiento", "Manutenção", "Maintenance", "Wartung", "Pemeliharaan"),
+    "comms": ("Comunicación", "Comunicação", "Communication", "Kommunikation", "Komunikasi"),
+    "learning": ("Aprendizaje", "Aprendizado", "Apprentissage", "Lernen", "Belajar"),
+    "other": ("Otros", "Outros", "Autre", "Sonstiges", "Lainnya"),
+}
 DEFAULT_IDS = [c[0] for c in DEFAULTS]
-_BUILTIN = {cid: {"en": en, "zh-TW": zh} for cid, en, zh in DEFAULTS}
+# stored as "label_<lang>" because the item dict already uses "id" for the category id (and "id" is Indonesian)
+_BUILTIN = {cid: {"en": en, "zh-TW": zh, **{"label_" + lg: t for lg, t in zip(LATIN_LANGS, LATIN[cid])}}
+            for cid, en, zh in DEFAULTS}
 _ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
 
 
@@ -64,7 +84,8 @@ class Categories:
     def label(self, cid: str, lang: str = "en") -> str:
         cid = self.normalize(cid)
         it = next(i for i in self.items if i["id"] == cid)
-        key = "zh-TW" if str(lang).lower().startswith("zh") else "en"
+        lang = str(lang)
+        key = "zh-TW" if lang.lower().startswith("zh") else ("label_" + lang if lang in LATIN_LANGS else "en")
         return it.get(key) or it.get("en") or cid
 
     def table(self, lang: str = "en") -> List[Dict[str, str]]:
@@ -85,6 +106,9 @@ def _entry(raw) -> Optional[Dict[str, str]]:
         for k in ("label_zh-TW", "label_zh"):
             if raw.get(k):
                 base["zh-TW"] = str(raw[k])
+        for lg in LATIN_LANGS:  # optional "label_es", "label_pt", ...; a custom id without one shows its label
+            if raw.get("label_" + lg):
+                base["label_" + lg] = str(raw["label_" + lg])
         return dict(id=cid, **base)
     text = str(raw or "").strip()
     if not text:
@@ -95,7 +119,7 @@ def _entry(raw) -> Optional[Dict[str, str]]:
         return None
     base = dict(_BUILTIN.get(cid, {"en": cid, "zh-TW": cid}))
     if lbl.strip():
-        base["en"] = base["zh-TW"] = lbl.strip()
+        base = {"en": lbl.strip(), "zh-TW": lbl.strip()}  # the written label wins in every language
     return dict(id=cid, **base)
 
 

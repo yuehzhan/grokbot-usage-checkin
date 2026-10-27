@@ -59,6 +59,104 @@ NUMERIC = dict(EN, **{
     "loading": "…", "conn_err": "⨯", "time": "", "need_name": "?", "pick_cat": "1–{n}",
 })
 
+# Latin-script interface languages; any key missing here falls back to EN (see `for_lang`)
+ES = {
+    "name": "Nombre", "note": "Nota", "category": "Categorías", "all": "Todas", "none_ck": "Sin registros",
+    "range": "Rango", "start_btn": "Iniciar", "end_btn": "Terminar…", "point_btn": "Registrar",
+    "end_title": "Terminar una sesión", "session": "Sesión", "done": "Hecha", "interrupted": "Interrumpida",
+    "running": "En curso", "open": "Abierta (sin terminar)", "point": "Registro", "status": "Estado",
+    "duration": "Duración", "usage_d": "Uso Δ", "unavailable": "no disponible", "reason": "Nota / motivo (opcional)",
+    "save": "Guardar", "cancel": "Cancelar", "no_open": "No hay sesión abierta",
+    "search": "Buscar nombre, nota, categoría…", "from": "Desde", "to": "Hasta", "matches": "{n} resultado(s)",
+    "total": "Total", "total_time": "Tiempo total", "count": "Sesiones", "interrupted_n": "Interrumpidas",
+    "open_n": "Abiertas",
+    "overlap": "Una sesión con varias categorías cuenta completa en cada una, así que los totales por categoría "
+               "pueden solaparse; la fila Total cuenta cada sesión una vez.",
+    "per_cat": "Por categoría", "per_name": "Por nombre", "by_day": "Por día",
+    "day_sub": "{n} sesión(es) · {t} · uso {u}", "max_cats": "Elige como máximo {n} categorías",
+    "loading": "Guardando…", "conn_err": "No se puede conectar con el servidor local", "time": "Hora", "hint": "",
+    "need_name": "Escribe un nombre", "pick_cat": "Elige 1–{n}", "pt": "%",
+}
+PT = {
+    "name": "Nome", "note": "Nota", "category": "Categorias", "all": "Todas", "none_ck": "Nenhum registro",
+    "range": "Período", "start_btn": "Iniciar", "end_btn": "Encerrar…", "point_btn": "Registrar",
+    "end_title": "Encerrar uma sessão", "session": "Sessão", "done": "Concluída", "interrupted": "Interrompida",
+    "running": "Em andamento", "open": "Aberta (não encerrada)", "point": "Registro", "status": "Status",
+    "duration": "Duração", "usage_d": "Uso Δ", "unavailable": "indisponível", "reason": "Nota / motivo (opcional)",
+    "save": "Salvar", "cancel": "Cancelar", "no_open": "Nenhuma sessão aberta",
+    "search": "Buscar nome, nota, categoria…", "from": "De", "to": "Até", "matches": "{n} resultado(s)",
+    "total": "Total", "total_time": "Tempo total", "count": "Sessões", "interrupted_n": "Interrompidas",
+    "open_n": "Abertas",
+    "overlap": "Uma sessão com várias categorias conta inteira em cada uma, então os totais por categoria "
+               "podem se sobrepor; a linha Total conta cada sessão uma vez.",
+    "per_cat": "Por categoria", "per_name": "Por nome", "by_day": "Por dia",
+    "day_sub": "{n} sessão(ões) · {t} · uso {u}", "max_cats": "Escolha no máximo {n} categorias",
+    "loading": "Salvando…", "conn_err": "Não foi possível conectar ao servidor local", "time": "Hora", "hint": "",
+    "need_name": "Digite um nome", "pick_cat": "Escolha 1–{n}", "pt": "%",
+}
+FR = {
+    "name": "Nom", "note": "Note", "category": "Catégories", "all": "Toutes", "none_ck": "Aucun pointage",
+    "range": "Période", "start_btn": "Démarrer", "end_btn": "Terminer…", "point_btn": "Pointer",
+    "end_title": "Terminer une session", "session": "Session", "done": "Terminée", "interrupted": "Interrompue",
+    "running": "En cours", "open": "Ouverte (non terminée)", "point": "Pointage", "status": "État",
+    "duration": "Durée", "usage_d": "Utilisation Δ", "unavailable": "indisponible",
+    "reason": "Note / motif (facultatif)", "save": "Enregistrer", "cancel": "Annuler", "no_open": "Aucune session ouverte",
+    "search": "Rechercher nom, note, catégorie…", "from": "Du", "to": "Au", "matches": "{n} résultat(s)",
+    "total": "Total", "total_time": "Durée totale", "count": "Sessions", "interrupted_n": "Interrompues",
+    "open_n": "Ouvertes",
+    "overlap": "Une session à plusieurs catégories compte entièrement dans chacune, donc les totaux par catégorie "
+               "peuvent se chevaucher ; la ligne Total compte chaque session une fois.",
+    "per_cat": "Par catégorie", "per_name": "Par nom", "by_day": "Par jour",
+    "day_sub": "{n} session(s) · {t} · utilisation {u}", "max_cats": "Choisissez au plus {n} catégories",
+    "loading": "Enregistrement…", "conn_err": "Serveur local injoignable", "time": "Heure", "hint": "",
+    "need_name": "Saisissez un nom", "pick_cat": "Choisir 1–{n}", "pt": "%",
+}
+DE = {
+    "name": "Name", "note": "Notiz", "category": "Kategorien", "all": "Alle", "none_ck": "Keine Check-ins",
+    "range": "Zeitraum", "start_btn": "Start", "end_btn": "Beenden…", "point_btn": "Einchecken",
+    "end_title": "Sitzung beenden", "session": "Sitzung", "done": "Erledigt", "interrupted": "Unterbrochen",
+    "running": "Läuft", "open": "Offen (nicht beendet)", "point": "Check-in", "status": "Status",
+    "duration": "Dauer", "usage_d": "Nutzung Δ", "unavailable": "nicht verfügbar", "reason": "Notiz / Grund (optional)",
+    "save": "Speichern", "cancel": "Abbrechen", "no_open": "Keine offene Sitzung",
+    "search": "Name, Notiz, Kategorie suchen…", "from": "Von", "to": "Bis", "matches": "{n} Treffer",
+    "total": "Gesamt", "total_time": "Gesamtzeit", "count": "Sitzungen", "interrupted_n": "Unterbrochen",
+    "open_n": "Offen",
+    "overlap": "Eine Sitzung mit mehreren Kategorien zählt in jeder Kategorie voll, daher können sich die "
+               "Kategoriesummen überschneiden; die Zeile Gesamt zählt jede Sitzung einmal.",
+    "per_cat": "Nach Kategorie", "per_name": "Nach Name", "by_day": "Nach Tag",
+    "day_sub": "{n} Sitzung(en) · {t} · Nutzung {u}", "max_cats": "Höchstens {n} Kategorien wählen",
+    "loading": "Speichern…", "conn_err": "Lokaler Server nicht erreichbar", "time": "Zeit", "hint": "",
+    "need_name": "Namen eingeben", "pick_cat": "1–{n} wählen", "pt": "%",
+}
+ID = {
+    "name": "Nama", "note": "Catatan", "category": "Kategori", "all": "Semua", "none_ck": "Belum ada check-in",
+    "range": "Rentang", "start_btn": "Mulai", "end_btn": "Akhiri…", "point_btn": "Check-in",
+    "end_title": "Akhiri sesi", "session": "Sesi", "done": "Selesai", "interrupted": "Terputus",
+    "running": "Berjalan", "open": "Terbuka (belum selesai)", "point": "Check-in", "status": "Status",
+    "duration": "Durasi", "usage_d": "Pemakaian Δ", "unavailable": "tidak tersedia",
+    "reason": "Catatan / alasan (opsional)", "save": "Simpan", "cancel": "Batal", "no_open": "Tidak ada sesi terbuka",
+    "search": "Cari nama, catatan, kategori…", "from": "Dari", "to": "Sampai", "matches": "{n} cocok",
+    "total": "Total", "total_time": "Total waktu", "count": "Sesi", "interrupted_n": "Terputus", "open_n": "Terbuka",
+    "overlap": "Sesi dengan beberapa kategori dihitung penuh di tiap kategori, jadi total per kategori bisa "
+               "tumpang tindih; baris Total menghitung tiap sesi satu kali.",
+    "per_cat": "Per kategori", "per_name": "Per nama", "by_day": "Per hari",
+    "day_sub": "{n} sesi · {t} · pemakaian {u}", "max_cats": "Pilih paling banyak {n} kategori",
+    "loading": "Menyimpan…", "conn_err": "Tidak dapat terhubung ke server lokal", "time": "Waktu", "hint": "",
+    "need_name": "Masukkan nama", "pick_cat": "Pilih 1–{n}", "pt": "%",
+}
+LANGS = {"en": EN, "zh-TW": ZH_TW, "numeric": NUMERIC, "es": ES, "pt": PT, "fr": FR, "de": DE, "id": ID}
+
+
+def for_lang(lang):
+    """String table for a page language: zh-* -> ZH_TW, unknown -> EN, missing keys filled from EN."""
+    lang = str(lang or "en")
+    if lang == "numeric":
+        return NUMERIC
+    if lang.startswith("zh"):
+        return ZH_TW
+    tbl = LANGS.get(lang)
+    return EN if tbl is None or tbl is EN else dict(EN, **tbl)
+
 
 def page_data(sessions, alias, colors, cat_label, cat_ids, max_categories, tz, cuts, cut_labels, strings,
               samples, endpoints, privacy=False, zlabel=""):

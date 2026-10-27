@@ -275,7 +275,7 @@ is on. The choice is saved in `usage_config.json` (or `<data_dir>/page_settings.
 `history/pal/orange-teal-o+1/`).
 
 **Language** and **Time zone** menus (next to **Display offset**). Language: Auto (system), 繁體中文, 简体中文,
-English, 日本語, 한국어 or numeric-only; time zone: Auto (system) or a common IANA zone, each shown with its current UTC
+English, 日本語, 한국어, numeric-only, Bahasa Indonesia, Deutsch, Español, Français or Português (each by its native name); time zone: Auto (system) or a common IANA zone, each shown with its current UTC
 offset. They use the existing `lang` / `tz` keys (saved in `usage_config.json`, or `<data_dir>/page_settings.json`
 without a config file, plus the browser keys `usage.lang` / `usage.tz`), take effect at once without a restart (charts,
 labels, reset and period dates are redrawn; a non-auto choice is part of the image cache key, e.g. `-Lja-Zasia_tokyo`),
@@ -493,12 +493,12 @@ python3 usage_record.py --print-schedule --at 13:15 --config usage_config.json
 python3 chart_hud.py <week_csv> <out_png> <week_start_date YYYY-MM-DD>
 
 # Standalone single-reading or override mode (no CSV required):
-python3 chart_hud.py --pct 73 --day 5 [--lang auto|en|zh-TW|zh-CN|ja|ko|numeric] [--privacy]
+python3 chart_hud.py --pct 73 --day 5 [--lang auto|en|zh-TW|zh-CN|ja|ko|es|pt|fr|de|id|numeric] [--privacy]
 ```
 
-- **Locale Auto-Detection (`--lang auto`, Default)**: `detect_lang()` checks Windows `ctypes.windll.kernel32.GetUserDefaultUILanguage()`, then `LC_ALL`, `LC_MESSAGES`, `LANG`, and `locale.getlocale()`, normalizing to `zh-TW`, `zh-CN` (idiomatic Mainland Simplified Chinese), `ja`, `ko`, or `en`.
+- **Locale Auto-Detection (`--lang auto`, Default)**: `detect_lang()` checks Windows `ctypes.windll.kernel32.GetUserDefaultUILanguage()`, then `LC_ALL`, `LC_MESSAGES`, `LANG`, and `locale.getlocale()`, normalizing to `zh-TW`, `zh-CN` (idiomatic Mainland Simplified Chinese), `ja`, `ko`, `es`, `pt`, `fr`, `de`, `id` (any region, e.g. `pt_BR` / `pt_PT`, `es_419`, `fr_CA`, plus the legacy Indonesian code `in` and Windows UI language ids such as `0x0416` pt-BR or `0x580a` es-419), or `en` for anything else.
 - **Custom Locale Overlays**: Place a JSON file at `locales/<lang>.json` next to `chart_hud.py` to add or override any locale (missing keys fall back to `BASE_STRINGS` in English).
-- **Cross-Platform Fonts & Cross-CJK Fallback**: Tries language-specific fonts first (`Noto Sans CJK TC/SC/JP/KR`, `Microsoft JhengHei`, `Microsoft YaHei`, `PingFang TC/SC`, `Heiti TC/SC`, `Yu Gothic`, `Meiryo`, `Hiragino Sans`, `Malgun Gothic`, `Apple SD Gothic Neo`) with cross-CJK fallback (`TC <-> SC <-> JP`) before falling back to English (`DejaVu Sans`, `Segoe UI`, `Arial`) with a `stderr` warning.
+- **Cross-Platform Fonts & Cross-CJK Fallback**: Tries language-specific fonts first (`Noto Sans CJK TC/SC/JP/KR`, `Microsoft JhengHei`, `Microsoft YaHei`, `PingFang TC/SC`, `Heiti TC/SC`, `Yu Gothic`, `Meiryo`, `Hiragino Sans`, `Malgun Gothic`, `Apple SD Gothic Neo`) with cross-CJK fallback (`TC <-> SC <-> JP`) before falling back to English (`DejaVu Sans`, `Segoe UI`, `Arial`) with a `stderr` warning. Spanish, Portuguese, French, German and Indonesian use the English list (`DejaVu Sans` first), which has every accented letter they need (é ñ ç ü ã ß …).
 
 ---
 
@@ -790,7 +790,8 @@ python3 usage_history.py ledger      # same check using the configured path; exi
 Wherever the next reset appears (history page status line, HUD **Reset In** card, viewer card, desktop
 notifications, `summary_text`, privacy/numeric mode) it is shown as an explicit local date and time, never as
 "next week" or a weekday alone: `Sat, Oct 31, 01:41` (zh-TW `10月31日（週六）01:41`, zh-CN `10月31日（周六）01:41`,
-numeric `10/31 01:41`). The countdown (`6d 7h`) stays next to it. When `/usage` printed `Resets: …`, that time is
+es `sáb 31 oct, 01:41`, pt `sáb, 31 out, 01:41`, fr `sam. 31 oct. 01:41`, de `Sa., 31. Okt., 01:41`,
+id `Sab, 31 Okt, 01:41`, numeric `10/31 01:41`). The countdown (`6d 7h`) stays next to it. When `/usage` printed `Resets: …`, that time is
 shown exactly as given (only converted to the local zone if it carried one), even if it looks past or odd; it is not
 rolled forward or corrected (`latest.json` `reset_at`, `state.json` and the ledger's `resetsAt` keep it too; week
 boundaries are still worked out from it as before). Only when `/usage` gave no reset is the fallback used
@@ -856,7 +857,7 @@ network.
 | `tz` | `"local"` | `"local"` (machine local timezone) or an IANA timezone name (e.g. `"Europe/Berlin"`). The weekly chart labels show its actual offset, e.g. `(UTC+2)`, or `(Europe/Berlin UTC+2)` when set explicitly. |
 | `period_days` | `7` | Days per quota cycle. |
 | `pace` | `14` | Daily target baseline percentage (`14%/day`). An exact even split would be 100 ÷ 7 ≈ 14.3% per day, but the default uses a whole 14% per day (day 7 = 98%), leaving about 2% headroom. Change it with `pace` in the config or `--pace`. |
-| `lang` | `"auto"` | `"auto"` (system locale), `"en"`, `"zh-TW"`, `"zh-CN"`, `"ja"`, `"ko"`, or `"numeric"`. |
+| `lang` | `"auto"` | `"auto"` (system locale), `"en"`, `"zh-TW"`, `"zh-CN"`, `"ja"`, `"ko"`, `"es"`, `"pt"`, `"fr"`, `"de"`, `"id"`, or `"numeric"`. |
 | `privacy` | `false` | Enables word-free numeric rendering, neutral `chart-YYYYMMDD.png` filename, and generic JSON keys. |
 | `refresh_mode` | `"auto"` | `"auto"` or `"manual"` refresh mode for `usage_view.py`. |
 | `refresh_interval_minutes` | `30` | Background auto-refresh interval in minutes for `usage_view.py` (minimum `5`, clamped with warning). |

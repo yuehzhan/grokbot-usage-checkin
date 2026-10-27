@@ -178,7 +178,7 @@ python3 service.py start        # 背景啟動網頁與每小時取樣；停止�
   都保持原始值，兩次讀數之間的差（打卡開始／結束、時鐘圖每小時增量）不受影響（校正值會互相抵消）。顯示值不會低於 0；
   有校正時主要百分比旁會有小小的 `(+1)`。設定存在 `usage_config.json`（沒有設定檔時存在 `<data_dir>/page_settings.json`）
   和瀏覽器（`usage.displayOffset`）；改了會重畫圖（校正值是圖片快取的一部分，例如 `history/pal/orange-teal-o+1/`）。
-- **語言**和**時區**選單（「顯示校正」旁）。語言：自動（跟系統）、繁體中文、简体中文、English、日本語、한국어、純數字；
+- **語言**和**時區**選單（「顯示校正」旁）。語言：自動（跟系統）、繁體中文、简体中文、English、日本語、한국어、純數字、Bahasa Indonesia、Deutsch、Español、Français、Português（一律顯示原文名稱）；
   時區：自動（跟系統）或常用的 IANA 時區，每個都標出目前的 UTC 時差。沿用原本的設定 `lang` / `tz`（存在 `usage_config.json`，
   沒有設定檔時存在 `<data_dir>/page_settings.json`，瀏覽器另存 `usage.lang` / `usage.tz`），不用重開服務就生效（圖、標籤、
   重置和週期日期都會重畫；非自動的選擇是圖片快取的一部分，例如 `-Lja-Zasia_tokyo`），原始 CSV／JSON 不會改變。

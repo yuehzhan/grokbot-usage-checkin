@@ -6,6 +6,32 @@ MAJOR for changes that need you to do something, MINOR for new features, PATCH f
 The current version is in the `VERSION` file and shown small at the top of the page.
 The changelog is kept in English only; [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md) is no longer updated.
 
+## [1.5.0] - 2026-10-27
+
+### Added
+- Five new interface languages: **Español** (`es`), **Português** (`pt`, Brazilian-neutral), **Français** (`fr`),
+  **Deutsch** (`de`) and **Bahasa Indonesia** (`id`), for the dashboard page (all tabs, menus, check-ins, update
+  and ledger panels, tooltips), the HUD / history / clock PNGs, reset dates (e.g. es `sáb 31 oct, 01:41`,
+  de `Sa., 31. Okt., 01:41`), palette and category names and the desktop usage alerts. Any key a translation lacks
+  falls back to English. Set them with `--lang es|pt|fr|de|id`, `"lang"` in the config, or the page's **Language**
+  menu; regional codes such as `pt-BR`, `es-419` or `de-AT` in a config map to the base language.
+- **Auto** language detection picks the new languages up from `LC_ALL` / `LC_MESSAGES` / `LANG` and
+  `locale.getlocale()` (any region, e.g. `pt_BR`, `pt_PT`, `es_419`, `fr_CA`, `de_AT`, `id_ID`, the legacy
+  Indonesian code `in`, and Windows names like `Spanish_Spain`), and from the Windows UI language id, including
+  regional ids missing from Python's table (e.g. `0x580a` es-419) by their primary language. Unknown locales still
+  fall back to English.
+
+### Changed
+- **Language** menu: **Auto** first, then the existing languages and numeric in their old order, then the new ones,
+  each by its native name only; the menu is a little wider (up to 180 px) so no entry is cut off.
+- Pages in the new languages use a Latin-first font stack (Segoe UI / Noto Sans / Helvetica Neue / Arial, CJK
+  fonts as fallback) so `’ « »` and accented letters are not drawn full-width; the PNGs use DejaVu Sans, which
+  covers every accented letter used.
+
+### Fixed
+- Clock charts: a long title no longer runs under the **Collecting data** badge; the title shrinks slightly or the
+  badge moves up to the eyebrow line (English titles are drawn as before).
+
 ## [1.4.1] - 2026-10-27
 
 ### Fixed

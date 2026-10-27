@@ -67,7 +67,8 @@ PALETTES = {
     "green-mono": _p("#A8F0BC", "#288C48", "#B48CFF", "#1E9A45", "#0A431F", "#7A4FC9"),
 }
 MONO = ("teal-mono", "pink-mono", "purple-mono", "blue-mono", "green-mono")
-MONO_GROUP = {"en": "Solid colours", "zh-TW": "純色", "zh-CN": "纯色", "ja": "単色"}
+MONO_GROUP = {"en": "Solid colours", "zh-TW": "純色", "zh-CN": "纯色", "ja": "単色",
+              "es": "Colores sólidos", "pt": "Cores sólidas", "fr": "Couleurs unies", "de": "Einfarbig", "id": "Warna solid"}
 
 # "custom": two colours picked by the user (page colour pickers, or config "palette": "custom" with
 # "custom_colors": {"under": "#RRGGBB", "over": "#RRGGBB"}). The key carries the colours --
@@ -75,7 +76,8 @@ MONO_GROUP = {"en": "Solid colours", "zh-TW": "純色", "zh-CN": "纯色", "ja":
 # reused; derive() adjusts each for contrast on dark / light backgrounds and picks a notice colour of another hue.
 CUSTOM = "custom"
 CUSTOM_DEFAULT = {"under": "#23C4AE", "over": "#FFA51F"}
-CUSTOM_LABEL = {"en": "Custom…", "zh-TW": "自訂顏色…", "zh-CN": "自定义颜色…"}
+CUSTOM_LABEL = {"en": "Custom…", "zh-TW": "自訂顏色…", "zh-CN": "自定义颜色…",
+                "es": "Personalizado…", "pt": "Personalizado…", "fr": "Personnalisé…", "de": "Eigene Farben…", "id": "Kustom…"}
 _CUSTOM_RE = __import__("re").compile(r"custom-([0-9a-f]{6})([0-9a-f]{6})")
 _HEX_RE = __import__("re").compile(r"#[0-9A-Fa-f]{6}")
 _BG = {"dark": "#0B0F14", "light": "#F4F4F0"}
@@ -112,9 +114,141 @@ LABELS = {
     "green-mono": {"en": "All green", "zh-TW": "全綠", "zh-CN": "全绿"},
 }
 
+# Latin-script interface languages (es, pt, fr, de, id), in the LABELS order above; merged in below
+LATIN_LABELS = {
+    "es": (
+        "Naranja / verde azulado",
+        "Naranja / azul",
+        "Naranja / azul oscuro",
+        "Naranja dorado / morado",
+        "Rosa / verde",
+        "Dorado / celeste",
+        "Naranja / morado",
+        "Magenta / verde azulado",
+        "Amarillo / índigo",
+        "Melocotón / menta",
+        "Mandarina / cian",
+        "Rosa / lima",
+        "Girasol / azul marino",
+        "Amarillo vivo / azul cielo intenso",
+        "Naranja de seguridad / azul ultramar",
+        "Mandarina / violeta",
+        "Naranja ámbar / azul cobalto",
+        "Todo verde azulado",
+        "Todo rosa",
+        "Todo morado",
+        "Todo azul",
+        "Todo verde",
+    ),
+    "pt": (
+        "Laranja / verde-azulado",
+        "Laranja / azul",
+        "Laranja / azul-escuro",
+        "Laranja-dourado / roxo",
+        "Rosa / verde",
+        "Dourado / azul-celeste",
+        "Laranja / roxo",
+        "Magenta / verde-azulado",
+        "Amarelo / índigo",
+        "Pêssego / menta",
+        "Tangerina / ciano",
+        "Rosa / lima",
+        "Girassol / azul-marinho",
+        "Amarelo vivo / azul-celeste intenso",
+        "Laranja de segurança / ultramarino",
+        "Tangerina / violeta",
+        "Laranja-âmbar / azul-cobalto",
+        "Todo verde-azulado",
+        "Todo rosa",
+        "Todo roxo",
+        "Todo azul",
+        "Todo verde",
+    ),
+    "fr": (
+        "Orange / bleu canard",
+        "Orange / bleu",
+        "Orange / bleu foncé",
+        "Orange doré / violet",
+        "Rose / vert",
+        "Or / bleu ciel",
+        "Orange / violet",
+        "Magenta / bleu canard",
+        "Jaune / indigo",
+        "Pêche / menthe",
+        "Mandarine / cyan",
+        "Rose vif / citron vert",
+        "Tournesol / bleu marine",
+        "Jaune vif / bleu ciel profond",
+        "Orange sécurité / outremer",
+        "Mandarine / violet",
+        "Orange ambré / bleu cobalt",
+        "Tout bleu canard",
+        "Tout rose",
+        "Tout violet",
+        "Tout bleu",
+        "Tout vert",
+    ),
+    "de": (
+        "Orange / Petrol",
+        "Orange / Blau",
+        "Orange / Dunkelblau",
+        "Goldorange / Lila",
+        "Pink / Grün",
+        "Gold / Himmelblau",
+        "Orange / Lila",
+        "Magenta / Petrol",
+        "Gelb / Indigo",
+        "Pfirsich / Mint",
+        "Mandarine / Cyan",
+        "Rosé / Limette",
+        "Sonnengelb / Marineblau",
+        "Leuchtgelb / tiefes Himmelblau",
+        "Signalorange / Ultramarin",
+        "Mandarine / Violett",
+        "Bernsteinorange / Kobaltblau",
+        "Ganz Petrol",
+        "Ganz Pink",
+        "Ganz Lila",
+        "Ganz Blau",
+        "Ganz Grün",
+    ),
+    "id": (
+        "Oranye / hijau toska",
+        "Oranye / biru",
+        "Oranye / biru tua",
+        "Oranye keemasan / ungu",
+        "Merah muda / hijau",
+        "Emas / biru langit",
+        "Oranye / ungu",
+        "Magenta / hijau toska",
+        "Kuning / nila",
+        "Persik / mint",
+        "Jeruk / sian",
+        "Mawar / limau",
+        "Bunga matahari / biru dongker",
+        "Kuning terang / biru langit pekat",
+        "Oranye keselamatan / ultramarin",
+        "Jeruk / violet",
+        "Oranye amber / biru kobalt",
+        "Serba hijau toska",
+        "Serba merah muda",
+        "Serba ungu",
+        "Serba biru",
+        "Serba hijau",
+    ),
+}
+for _lg, _names in LATIN_LABELS.items():
+    for _key, _name in zip(LABELS, _names):
+        LABELS[_key][_lg] = _name
+
 # one neutral line under the menu explaining the ★
 STAR_NOTE = {"en": "★ = stronger contrast, easy to tell apart for every kind of colour vision",
-             "zh-TW": "★ = 對比較強，各種色覺都容易分辨", "zh-CN": "★ = 对比较强，各种色觉都容易分辨"}
+             "zh-TW": "★ = 對比較強，各種色覺都容易分辨", "zh-CN": "★ = 对比较强，各种色觉都容易分辨",
+             "es": "★ = más contraste, fácil de distinguir con cualquier tipo de visión del color",
+             "pt": "★ = mais contraste, fácil de distinguir com qualquer tipo de visão de cores",
+             "fr": "★ = contraste renforcé, facile à distinguer pour tous les types de vision des couleurs",
+             "de": "★ = stärkerer Kontrast, für jede Art des Farbsehens gut unterscheidbar",
+             "id": "★ = kontras lebih kuat, mudah dibedakan untuk semua jenis penglihatan warna"}
 
 
 def cvd_safe(name=None):

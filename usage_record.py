@@ -22,7 +22,7 @@ USAGE
         [--period-days 7] \
         [--pace 14] \
         [--theme PATH] \
-        [--lang auto|en|zh-TW|zh-CN|ja|ko|numeric] \
+        [--lang auto|en|zh-TW|zh-CN|ja|ko|es|pt|fr|de|id|numeric] \
         [--no-cache] \
         [--no-render] \
         [--no-open]
@@ -417,7 +417,7 @@ def main(argv: Optional[List[str]] = None):
     p.add_argument("--period-days", default=None, help="Days per cycle (default: 7)")
     p.add_argument("--pace", default=None, help="Daily baseline pace %% (default: 14)")
     p.add_argument("--theme", default=None, help="Theme JSON path for renderer")
-    p.add_argument("--lang", default=None, help="Language code (auto, en, zh-TW, zh-CN, ja, ko, numeric)")
+    p.add_argument("--lang", default=None, help="Language code (auto, en, zh-TW, zh-CN, ja, ko, es, pt, fr, de, id, numeric)")
     p.add_argument("--title", default=None, help="Custom dashboard title")
     p.add_argument("--bg-color", default=None)
     p.add_argument("--accent-color", default=None)
