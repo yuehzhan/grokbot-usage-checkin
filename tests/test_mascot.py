@@ -145,10 +145,14 @@ class MascotPageTests(unittest.TestCase):
         ac = c.theme["accent_color"]
         self.assertEqual(ac, c.theme["under_color"])  # orange/teal -> teal accent -> teal mascot
         self.assertIn(f"--accent:{ac};", self.page)
-        self.assertIn(".mascot{display:inline-block;", self.page)
-        self.assertIn("--mb:var(--accent);--me:var(--on-accent);--mh:var(--acc-hl)", uh.mascot_css())
-        self.assertIn("--acc-hl:", self.page)
-        self.assertIn("o['--acc-hl']=", uh.PALETTE_JS)  # the palette menu moves the accent and the mascot with it
+        self.assertIn(".mascot{forced-color-adjust:none;display:inline-block;", self.page)
+        # eyes / mouth come from --m-eye / --m-mouth (mascot_eyes rule), never from the button text colour --on-accent
+        self.assertIn("--mb:var(--accent);--me:var(--m-eye,#1B1F24);--mh:#FFFFFF;", uh.mascot_css())
+        self.assertIn("--mm:var(--m-mouth,#1B1F24)", uh.mascot_css())
+        self.assertNotIn("var(--on-accent)", uh.mascot_css())
+        eye, _hl, mouth = uh.mascot_eyes(ac)
+        self.assertIn(f"--m-eye:{eye};--m-mouth:{mouth};", self.page)
+        self.assertIn("o['--m-eye']=o['--m-mouth']=", uh.PALETTE_JS)  # the palette menu moves the accent and the mascot with it
         # a theme that pins its accent: the mascot follows that one
         p = os.path.join(self.data, uh.PAGE_SETTINGS)
         try:
@@ -159,6 +163,65 @@ class MascotPageTests(unittest.TestCase):
             os.remove(p)
         self.assertIn("--accent:#6B93A8;", page)
         self.assertIn('data-c="auto"', page)
+
+    def test_auto_eyes_dark_on_dark_accent(self):
+        # v1.4.1 fix: a dark accent made --on-accent white, and the 'auto' mascot's eyes and mouth turned white with it
+        th = os.path.join(self.data, "dark-teal.json")
+        with open(th, "w", encoding="utf-8") as fh:
+            json.dump({"bg_color": "#000000", "text_color": "#E8F4FF", "accent_color": "#006D5B"}, fh)
+        p = os.path.join(self.data, uh.PAGE_SETTINGS)
+        try:
+            with open(p, "w", encoding="utf-8") as fh:
+                json.dump({"mascot": "auto"}, fh)
+            page = self.rebuild(theme=th)
+        finally:
+            os.remove(p)
+            os.remove(th)
+        self.assertIn("--on-accent:#FFFFFF;", page)  # the primary button keeps white text on the dark accent
+        root = re.search(r":root\{--over[^}]*\}", page).group(0)
+        self.assertIn(f"--m-eye:{uh.MASCOT_EYE_BLACK};--m-mouth:{uh.MASCOT_EYE_BLACK};", root)
+        for acc in ("#006D5B", "#2A2C31", "#0B8A7E", "#E8D9C0", "#23C4AE", "#FFFFFF"):
+            eye, hl, mouth = uh.mascot_eyes(acc)
+            self.assertIn(f"--m-eye:{eye};--m-mouth:{mouth}", uh.mascot_auto_vars(acc))
+            self.assertIn(eye, (uh.MASCOT_EYE_DARK, uh.MASCOT_EYE_BLACK))
+        self.assertIn(f"--m-eye:{uh.MASCOT_EYE_DARK}", uh.mascot_auto_vars("teal"))  # named colours too
+
+    def test_auto_eyes_js_matches_python(self):
+        # the palette menu's JS rule gives the same eyes as mascot_eyes() for every palette's accent (dark + light)
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node not installed")
+        import subprocess
+        m = re.search(r"function rgb\(h\).*?\n", uh.PALETTE_JS)
+        lm = re.search(r"function lum\(h\).*?\n", uh.PALETTE_JS)
+        rule = re.search(r"o\['--m-eye'\]=o\['--m-mouth'\]=([^;]*);", uh.PALETTE_JS).group(1)
+        accs = sorted({v["under"] for pal in uh.usage_palette.PALETTES.values() for v in pal.values()}
+                      | set(uh.MASCOT_COLORS.values()) | {"#006D5B", "#E8D9C0", "#000000", "#FFFFFF", "#565B63"})
+        js = (m.group(0) + lm.group(0) + "var A=" + json.dumps(accs) + ";console.log(JSON.stringify(A.map(function(a){return "
+              + rule + ";})));")
+        out = json.loads(subprocess.run([node, "-e", js], capture_output=True, text=True, check=True).stdout)
+        self.assertEqual(out, [uh.mascot_eyes(a)[0] for a in accs])
+
+    def test_survives_browser_auto_dark(self):
+        # v1.4.1 fix: Chrome's Auto Dark Mode (and dark-mode extensions) lightened every dark inline-SVG fill, so Black
+        # turned white with grey eyes and dark eyes went pale; the page now declares its scheme and the mascot is
+        # repainted on a canvas, which auto dark leaves alone (the svgs stay as the fallback underneath)
+        self.assertIn('<meta name="color-scheme" content="dark">', self.page)
+        self.assertIn(":root{color-scheme:dark}", self.page)
+        light = self.rebuild(theme=os.path.join(ROOT, "themes", "light.json"))
+        self.assertIn('<meta name="color-scheme" content="light">', light)
+        self.rebuild()
+        js = uh.MASCOT_JS
+        for part in ("createElement('canvas')", "getComputedStyle(", "XMLSerializer", "createObjectURL(", "drawImage(", "new MutationObserver(paint)",
+                     "draw('c')", "scale(1 .1)", ".mspark,.mwave"):
+            self.assertIn(part, js)
+        css = uh.mascot_css()
+        self.assertIn(".mascot .mcv{position:absolute;left:-20%;top:-25%;width:140%;height:140%;pointer-events:none}", css)
+        self.assertIn(".mascot.mcv-on svg.mflat{opacity:0}", css)
+        self.assertIn(".mascot[data-c=custom] .mcv{display:none}", css)
+        self.assertIn("forced-color-adjust:none", css)
+        # blink still respects reduced motion before touching the canvas
+        self.assertIn("function blink(){if(rm()||b.hidden)return;", js)
 
     def test_colours_readable(self):
         for k, body in uh.MASCOT_COLORS.items():
@@ -196,6 +259,10 @@ class MascotPageTests(unittest.TestCase):
         for part in (uh.MASCOT_SVG, uh.mascot_css(), uh.MASCOT_JS):
             for bad in ("http", "://", "url(", "@import", "<image", "<img", "href", "src=", "fetch(", "xlink", "@font-face"):
                 self.assertNotIn(bad, part, bad)
+        # the canvas repaint loads only a blob of the page's own flattened svg, nothing from outside
+        self.assertEqual(uh.MASCOT_JS.count("setAttribute('src',"), 1)
+        self.assertIn("setAttribute('src',url)", uh.MASCOT_JS)
+        self.assertIn("url=URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(o)]", uh.MASCOT_JS)
         m = self.button(self.page)
         self.assertNotRegex(m.group(0), r"https?:|url\(|href")
 
