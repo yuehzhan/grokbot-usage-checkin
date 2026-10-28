@@ -6,6 +6,23 @@ MAJOR for changes that need you to do something, MINOR for new features, PATCH f
 The current version is in the `VERSION` file and shown small at the top of the page.
 The changelog is kept in English only; [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md) is no longer updated.
 
+## [1.8.0] - 2026-10-29
+
+### Added
+- **Built-in** tab, right after **Check-ins** (zh-TW: 「內建」): shows Grok Bot's built-in usage report, which the dashboard
+  cannot read by itself: plan, weekly limit used, Grok Bot's share, a note when the limit is shared with other apps, the reset
+  time with a countdown, share bars **by bot**, and the **by activity** split with the routines nested under *Routines*
+  (name, share, about N runs a week). Shows "as of ..." with the snapshot age (older than 36 h is flagged in the notice colour)
+  and, when the previous snapshot is from the same period and reset, the change in percentage points. Theme-aware (all
+  palettes, light and dark) and translated in every page language.
+- Snapshots are plain JSON files in `usage-data/breakdown/` (a documented, leniently parsed format: missing fields, `"<1%"`
+  and `"61.1% used"` text, maps instead of lists are all accepted). Your Grok Bot writes them from a routine; the README has a
+  ready-to-paste prompt in English and Traditional Chinese. Every snapshot is kept (never overwritten) for later trend views;
+  only the newest is shown. The empty state explains the setup.
+- `python3 usage_history.py breakdown [FILE|-]` imports a snapshot by hand (a ```` ```json ```` fence or surrounding text is fine) or
+  prints the newest one. The served page rebuilds itself when a newer snapshot file appears.
+- Privacy mode: bot and routine names show as `#1`, `#2` ..., and the plan, extra-usage source, notes and prompt are hidden.
+
 ## [1.7.1] - 2026-10-29
 
 ### Fixed

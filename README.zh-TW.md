@@ -281,6 +281,38 @@ python3 service.py start        # 背景啟動網頁與每小時取樣；停止�
 
 一段工作最多可以選 3 個類別。
 
+## 「內建」分頁：Grok Bot 自己的用量報告（`usage-data/breakdown/`）
+
+**內建**分頁（在「打卡」分頁的右邊）顯示 Grok Bot *內建*用量報告裡的內容，這些是儀表板自己讀不到的：你的方案、每週上限已用多少、其中 Grok Bot 用了多少、上限是否和其他應用程式共用、何時重置，以及 Grok Bot 依「機器人」和依「活動」的用量（對話、每個排程的占比和每週大約執行幾次、機器人之間、群組聊天）。儀表板不會去抓畫面：由你的 Grok Bot 讀自己的報告，存成一個小小的 JSON 檔，儀表板只顯示 `usage-data/breakdown/` 裡的檔案。
+
+- **顯示：** 方案、每週已用、Grok Bot 的占比、與其他應用程式共用時的提示、重置時間（附倒數）、依機器人的橫向占比條、依活動的占比（排程底下列出各排程的名稱、占比、每週約幾次），以及「截至……」和它距今多久。超過 36 小時的快照會用提示色（紫色）標示：你的排程可能已經沒有在存檔了。若上一份快照是同一個期間、同一次重置，卡片上還會顯示增減的百分點。長條用儀表板的強調色，不用「超過／低於」的顏色。每個 `share` 都是「該期間 Grok Bot 全部用量」的百分比，不是占上限的百分比。
+- **歷史：** 每份快照是一個獨立的檔案，不會被覆蓋，之後可以拿來做趨勢；目前只顯示最新的一份。
+- **空狀態：** 還沒有檔案時，分頁會說明設定步驟，並顯示下面的提示詞。
+- **隱私模式：** 機器人和排程的名稱改成 `#1`、`#2`……；方案、額外用量來源、備註和提示詞都會隱藏，活動名稱換成沒有文字的符號；百分比保留。
+- 用 `usage_history.py serve` 開頁面時，發現有較新的檔案就會自動重建，重新整理就好。若只開靜態的 `index.html`，請先執行一次 `python3 usage_history.py`（或下面的匯入）。
+
+**設定（只要一次）：** 幫你的 Grok Bot 建一個排程（每天一次就夠），貼上下面這段提示詞，每次執行會存一個新檔：
+
+```text
+每天早上 9:00，查看我這週的用量報告（方案、每週用量上限已用多少、其中 Grok Bot 用了多少、這個上限是否和其他應用程式共用、何時重置，以及 Grok Bot 依「機器人」和依「活動」的用量：對話、每個排程的占比和每週大約執行幾次、機器人之間、群組聊天）。把結果存成「一個新的」JSON 檔，放在 grokbot-usage-checkin 資料夾裡的 usage-data/breakdown/<YYYY-MM-DDTHH-MM>.json（資料夾不存在就建立；不要覆蓋舊檔）。格式如下，報告沒有顯示的欄位就省略：{"captured_at":"<現在時間，ISO 8601，含我的 UTC 偏移>","period":"this_week","plan":"...","weekly_used_pct":0,"grokbot_used_pct":0,"shared_with_other_apps":true,"resets_at":"<ISO 8601>","extra_usage_source":"...","by_bot":[{"name":"...","share":0}],"by_activity":[{"name":"Chats with the user","share":0},{"name":"Routines","share":0,"routines":[{"name":"...","share":0,"runs_per_week":0}]},{"name":"Bot-to-Bot","share":0}],"notes":""}。百分比用一般數字（或文字 "<1%"）。不要把檔案傳給任何人。完成後只回覆「saved」，或無法儲存的原因。
+```
+
+想用英文？貼這個版本（檔案格式相同）：
+
+```text
+Every day at 09:00, look at my usage report for this week (the plan, the weekly limit used, how much of it is Grok Bot's, whether the limit is shared with other apps, when it resets, and Grok Bot's usage by bot and by activity: chats, each routine with its share and about how many runs a week, bot-to-bot, group chats). Save it as ONE new JSON file named usage-data/breakdown/<YYYY-MM-DDTHH-MM>.json inside the grokbot-usage-checkin folder (create the folder if it is missing; never overwrite an older file). Use this shape and leave out anything the report does not show: {"captured_at":"<now, ISO 8601 with my UTC offset>","period":"this_week","plan":"...","weekly_used_pct":0,"grokbot_used_pct":0,"shared_with_other_apps":true,"resets_at":"<ISO 8601>","extra_usage_source":"...","by_bot":[{"name":"...","share":0}],"by_activity":[{"name":"Chats with the user","share":0},{"name":"Routines","share":0,"routines":[{"name":"...","share":0,"runs_per_week":0}]},{"name":"Bot-to-Bot","share":0}],"notes":""}. Percentages are plain numbers (or the text "<1%"). Do not send the file anywhere. Reply only "saved", or the reason it could not be saved.
+```
+
+**手動匯入：** `python3 usage_history.py breakdown report.json`（或用 `breakdown -` 從標準輸入讀；文字可以包在 ```` ```json ```` 區塊裡，前後有說明也行）。會驗證、存成新的快照並重建頁面。只打 `python3 usage_history.py breakdown` 會印出最新的快照。結束碼 `2` 表示沒有可用內容、什麼都沒存。
+
+**檔案格式**（`usage-data/breakdown/<YYYY-MM-DDTHH-MM>.json`，第 1 版）：欄位全部可省略；不認得的欄位會被忽略，某個值有問題只會丟掉那個欄位，超過 256 KB 的檔案會被跳過，完全沒有可用內容的檔案會被忽略。範例見英文版 README（`captured_at`、`period`、`plan`、`weekly_used_pct`、`grokbot_used_pct`、`shared_with_other_apps`、`resets_at`、`extra_usage_source`、`by_bot`、`by_activity`〔含 `routines` 與 `runs_per_week`〕、`by_day`、`notes`）。
+
+- `period`：`this_week`（預設）、`last_7_days` 或 `last_30_days`。沒有 `captured_at` 就用檔案的修改時間。
+- 百分比可以是數字，或像 `"61.1% used"`、`"<1%"` 這樣的文字（顯示成 `<1%`，畫成一小條）；範圍限制在 0–100。
+- `by_bot`、`by_activity` 也接受 `[名稱, 占比]` 配對或 `{名稱: 占比}` 的對照表。活動依名稱辨識（對話、排程、其他排程、非排程、機器人之間、群組聊天，中英文都可以）；不認得的名稱照原樣顯示。`captured_at`、`resets_at` 接受 ISO 8601（沒寫偏移就用儀表板時區），或報告原本的寫法，例如 `Saturday Oct 31 01:41`。
+- `by_day` 先存起來給之後的趨勢用，目前不顯示；報告若沒有逐日拆分就省略。
+- 報告裡沒有「各模型用量」、「其他應用程式的用量」和「上週百分比」，所以不會顯示，也不會編造。
+
 ## Windows 上哪些可用
 
 | 功能 | Windows |

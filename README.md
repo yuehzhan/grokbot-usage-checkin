@@ -580,7 +580,7 @@ cat usage-data/history_server.json             # {"url": "http://127.0.0.1:PORT/
 
 | Route | Method | Description |
 | :--- | :--- | :--- |
-| `/` | GET | History page (tabs: ranges, clock, check-ins). |
+| `/` | GET | History page (tabs: ranges, clock, check-ins, built-in). |
 | `/api/status` | GET | JSON with `ok`, `last_update`, `busy`, `timezone`, `sample_interval_minutes`, `pct_source`, `boot` (changes on every start; the page uses it to see that an update has finished), `updating`. |
 | `/api/manual` | POST | Record a value you read yourself: JSON `{"pct": "42", "reset": "Sat 09:00"}` (`reset` optional; weekday+time, `Oct 31, 09:00` or ISO). Token required; `400 bad_manual_value` for a % outside 0–200 or an unreadable reset; `409` while another write runs. |
 | `/api/refresh` | POST | Take a sample now and regenerate (token required). In manual mode it returns `400 {"code":"manual_mode"}`. `409 {"error":"busy"}` while a read runs, `429 {"error":"cooldown","retry_in":N}` within the cooldown (`manual_refresh_cooldown_seconds`, default 60). |
@@ -704,6 +704,79 @@ Other categories:
 
 A session can have up to 3 categories.
 
+### Built-in tab: Grok Bot's own usage report (`usage-data/breakdown/`)
+
+The **Built-in** tab (right after **Check-ins**) shows what Grok Bot's *built-in* usage report says, which the dashboard
+cannot read by itself: your plan, how much of the weekly limit is used, how much of that is Grok Bot's, whether the limit is
+shared with other apps, when it resets, and Grok Bot's usage **by bot** and **by activity** (chats, each routine with its
+share and about how many runs a week, bot-to-bot, group chats). Nothing is scraped: your Grok Bot reads its own report and
+saves it as a small JSON file; the dashboard only displays files in `usage-data/breakdown/`.
+
+- **Display:** plan, weekly limit used, Grok Bot's share, a note when the limit is shared with other apps, the reset time with
+  a countdown, horizontal share bars by bot, the activity split with the routines nested under *Routines* (name, share, about N
+  runs a week), and "as of ..." with its age. A snapshot older than 36 hours is flagged in the notice colour (purple): your
+  routine has probably stopped saving. When the previous snapshot is from the same period and the same reset, the cards also
+  show the change in percentage points. The bars use the dashboard accent, never the over / under colours. Every `share` is a
+  percentage of **all Grok Bot usage in that period**, not of the limit.
+- **History:** every snapshot is a separate file that is never overwritten, so a later trend view can use them. Only the newest is shown.
+- **Empty state:** with no file yet, the tab explains the setup and shows the prompt below.
+- **Privacy mode:** bot and routine names become `#1`, `#2` ..., the plan, the extra-usage source, the notes and the prompt are
+  hidden, activity names are replaced by word-free marks; the percentages stay.
+- Opening the page through `usage_history.py serve` rebuilds it when a newer file has appeared, so a refresh is enough. With a
+  static `index.html`, run `python3 usage_history.py` (or the import below) once.
+
+**Set it up** (once): create a routine for your Grok Bot, daily is plenty, and paste this prompt. It saves one new file per run:
+
+```text
+Every day at 09:00, look at my usage report for this week (the plan, the weekly limit used, how much of it is Grok Bot's, whether the limit is shared with other apps, when it resets, and Grok Bot's usage by bot and by activity: chats, each routine with its share and about how many runs a week, bot-to-bot, group chats). Save it as ONE new JSON file named usage-data/breakdown/<YYYY-MM-DDTHH-MM>.json inside the grokbot-usage-checkin folder (create the folder if it is missing; never overwrite an older file). Use this shape and leave out anything the report does not show: {"captured_at":"<now, ISO 8601 with my UTC offset>","period":"this_week","plan":"...","weekly_used_pct":0,"grokbot_used_pct":0,"shared_with_other_apps":true,"resets_at":"<ISO 8601>","extra_usage_source":"...","by_bot":[{"name":"...","share":0}],"by_activity":[{"name":"Chats with the user","share":0},{"name":"Routines","share":0,"routines":[{"name":"...","share":0,"runs_per_week":0}]},{"name":"Bot-to-Bot","share":0}],"notes":""}. Percentages are plain numbers (or the text "<1%"). Do not send the file anywhere. Reply only "saved", or the reason it could not be saved.
+```
+
+Prefer Traditional Chinese? Paste this version instead (same file format):
+
+```text
+每天早上 9:00，查看我這週的用量報告（方案、每週用量上限已用多少、其中 Grok Bot 用了多少、這個上限是否和其他應用程式共用、何時重置，以及 Grok Bot 依「機器人」和依「活動」的用量：對話、每個排程的占比和每週大約執行幾次、機器人之間、群組聊天）。把結果存成「一個新的」JSON 檔，放在 grokbot-usage-checkin 資料夾裡的 usage-data/breakdown/<YYYY-MM-DDTHH-MM>.json（資料夾不存在就建立；不要覆蓋舊檔）。格式如下，報告沒有顯示的欄位就省略：{"captured_at":"<現在時間，ISO 8601，含我的 UTC 偏移>","period":"this_week","plan":"...","weekly_used_pct":0,"grokbot_used_pct":0,"shared_with_other_apps":true,"resets_at":"<ISO 8601>","extra_usage_source":"...","by_bot":[{"name":"...","share":0}],"by_activity":[{"name":"Chats with the user","share":0},{"name":"Routines","share":0,"routines":[{"name":"...","share":0,"runs_per_week":0}]},{"name":"Bot-to-Bot","share":0}],"notes":""}。百分比用一般數字（或文字 "<1%"）。不要把檔案傳給任何人。完成後只回覆「saved」，或無法儲存的原因。
+```
+
+**Import by hand:** `python3 usage_history.py breakdown report.json` (or `... breakdown -` to read stdin; the text may be
+wrapped in a ```` ```json ```` fence or have words around it) validates it, saves it as a new snapshot and rebuilds the page.
+`python3 usage_history.py breakdown` alone prints the newest snapshot. Exit code `2` = nothing usable, nothing saved.
+
+**File format** (`usage-data/breakdown/<YYYY-MM-DDTHH-MM>.json`, version 1). Every field is optional; unknown fields are
+ignored, a bad value drops only that field, files over 256 KB are skipped, and a file with nothing usable is ignored.
+
+```json
+{
+  "captured_at": "2026-10-22T21:20:00+08:00",
+  "period": "this_week",
+  "plan": "Demo plan",
+  "weekly_used_pct": 48.5,
+  "grokbot_used_pct": 41.2,
+  "shared_with_other_apps": true,
+  "resets_at": "2026-10-23T09:00:00+08:00",
+  "extra_usage_source": "additional usage credits",
+  "by_bot": [ {"name": "Helper A", "share": 46}, {"name": "Helper B", "share": "<1%"} ],
+  "by_activity": [
+    {"name": "Chats with the user", "share": 71},
+    {"name": "Routines", "share": 19, "routines": [
+      {"name": "Daily digest", "share": 9, "runs_per_week": 7},
+      {"name": "Other routines", "share": 4} ]},
+    {"name": "Bot-to-Bot", "share": 8},
+    {"name": "Group chats", "share": 2}
+  ],
+  "by_day": [ {"date": "2026-10-21", "share": 14} ],
+  "notes": ""
+}
+```
+
+- `period`: `this_week` (default), `last_7_days` or `last_30_days`. `captured_at` missing: the file's modified time is used.
+- Percentages may be numbers or text such as `"61.1% used"` or `"<1%"` (shown as `<1%`, drawn as a sliver); they are clamped to 0-100.
+- `by_bot` and `by_activity` also accept `[name, share]` pairs or a `{name: share}` map. Activities are recognised by name
+  (chats, routines, other routines, not from a routine, bot-to-bot, group chats, also in Traditional / Simplified Chinese);
+  an unknown name is shown as written. `captured_at` and `resets_at` accept ISO 8601 (no offset = the dashboard time zone) or the
+  report's own wording such as `Saturday Oct 31 01:41`.
+- `by_day` is stored for later trends and not displayed yet. The report may not offer a per-day split; leave it out then.
+- The report has no per-model usage, no other apps' usage and no last-week percentage, so none is shown or invented.
+
 ### Local Server Security
 
 Both `usage_history.py serve` and `usage_view.py`:
@@ -748,6 +821,7 @@ The served page embeds the write token, so any device on your tailnet can refres
 
 With `privacy: true` / `--privacy` (or `lang: "numeric"`), the history and clock PNGs use word-free numeric labels and symbols, omit timezone names and the header kicker, and show check-in names as `#1`, `#2` ... in the PNG legend, on the page and in the check-in/search API responses
 (notes are hidden, category labels become numbers). The CSV files keep the real names locally.
+The **Built-in** tab shows bot and routine names as `#1`, `#2` ... and hides the plan, notes and setup prompt (see above).
 
 ---
 

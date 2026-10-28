@@ -15,9 +15,10 @@ Subcommands (all accept --config / --data-dir / --tz / --lang / --privacy / --th
   checkin NAME [NOTE]     Append a check-in to <data_dir>/checkins.csv (--category ID, default other)
   serve                   Localhost viewer: history page, manual refresh, check-in API, check for updates
   status                  Print sampler/server status JSON
+  breakdown [FILE|-]      Import a usage breakdown snapshot (JSON file or stdin) into <data_dir>/breakdown/; no argument: show the newest
 
 Files written: samples.csv (timestamp ISO-8601 with UTC offset, pct), checkins.csv
-(timestamp, name, note), history/* (history/pal/<palette>/* for the page's palette switcher),
+(timestamp, name, note), breakdown/*.json (usage breakdown snapshots, see usage_breakdown.py), history/* (history/pal/<palette>/* for the page's palette switcher),
 sampler.pid, history_server.json, history_server.token (mode 600), sampler.log.
 Every CSV/JSON write holds <data_dir>/.write.lock (usage_lock.py).
 """
@@ -37,6 +38,8 @@ import usage_offset  # noqa: E402  (display offset -2..+2 for the shown weekly %
 import usage_categories  # noqa: E402  (check-in categories; unknown -> other)
 import usage_checkins  # noqa: E402  (check-in points and start/end sessions)
 import usage_checkins_ui  # noqa: E402  (check-in tab: HTML/CSS/JS)
+import usage_breakdown  # noqa: E402  (usage breakdown snapshots saved by the user's Grok Bot)
+import usage_breakdown_ui  # noqa: E402  (Built-in tab: HTML/CSS/JS)
 import usage_history_l10n as l10n  # noqa: E402  (page strings for es / pt / fr / de / id)
 import proc_util  # noqa: E402  (Windows-safe "is this pid alive?")
 
@@ -996,6 +999,24 @@ def checkin_page_data(ctx, sums):
         {S["key"]: int(S["start"].replace(tzinfo=ctx.tz).timestamp()) for S in sums}, {S["key"]: S["label"] for S in sums},
         ctx.ck_strings(), usage_checkins.load_samples(str(ctx.data_dir / "samples.csv")),
         {"write": "/api/checkin", "status": "/api/status"}, ctx.privacy, ctx.zlabel())
+
+
+def breakdown_page_data(ctx):
+    """Data of the Built-in tab: the newest usage breakdown snapshot (and the previous one for the small delta)."""
+    return usage_breakdown_ui.page_data(usage_breakdown.load(ctx.data_dir, ctx.tz), ctx.lang, ctx.tz, ctx.privacy)
+
+
+def breakdown_import(ctx, text):
+    """Paste / import path: save a snapshot given as JSON text, then rebuild the page. Returns a result dict."""
+    try:
+        snap, path = usage_breakdown.import_text(ctx.data_dir, text, ctx.tz, ctx.now())
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+    try:
+        rewrite_page(ctx)
+    except Exception as exc:
+        print(f"Warning: {exc}", file=sys.stderr)
+    return {"ok": True, "file": path.name, "captured_at": snap["captured_at"], "period": snap["period"]}
 
 
 def public_checkins(ctx, rows, names):
@@ -2533,6 +2554,10 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
     rjs = json.dumps({k: L[k] for k in ("loading", "refresh", "conn_err", "refreshing", "ph_read", "ph_draw")}, ensure_ascii=False).replace("<", "\\u003c")
     tabs.append(f"<button data-k='checkin'>{html.escape(L['checkin_tab'])}</button>")
     panes.append(usage_checkins_ui.pane_html(ctx.ck_strings(), html.escape(L["ck_hint"])))
+    bdstr = usage_breakdown_ui.for_lang(ctx.lang)  # the Built-in tab: Grok Bot's built-in usage report (newest snapshot)
+    tabs.append(f"<button data-k='breakdown'>{html.escape(bdstr['tab'])}</button>")
+    panes.append(usage_breakdown_ui.pane_html(bdstr))
+    bddata = usage_breakdown_ui.to_script_json(breakdown_page_data(ctx))
     title = "" if ctx.privacy else L["title"]
     bg, tx, ac, card, bd, dim = T["bg_color"], T["text_color"], T["accent_color"], T["card"], T["border"], T["dim"]
     # palette switcher: config default, overridden per browser (localStorage 'usage.palette')
@@ -2664,6 +2689,7 @@ html[data-patterns="1"] .badge:not(.note)::before{{content:"▲ "}} .pal{{color:
 .plist li.pnote{{cursor:default;color:{dim};font-size:12px;line-height:1.45;border-top:1px solid var(--bd);border-radius:0;margin-top:4px;padding:7px 8px 4px;white-space:normal}}
 .ptog{{display:inline-flex;align-items:center;gap:5px;cursor:pointer}} .ptog input{{margin:0}} .offsel{{padding:3px 6px}} .otag{{color:{dim};font-size:.85em;font-weight:400}}
 {usage_checkins_ui.CSS}
+{usage_breakdown_ui.CSS}
 {GAUGE_CSS} {WKVIEW_CSS} {SEL_CSS} {clocktip_css(card, tx, dim)}{gh_css(_on_colour(bg) == "#FFFFFF")} {mascot_css()}
 </style></head><body><div class="wrap"><div class="top">{html.escape(L['eyebrow'])}{f' <span class="ver" id="appver">v{APP_VERSION}</span>' if APP_VERSION else ''}</div><div class="hrow" id="hrow"><h1>{html.escape(title)}</h1>{mascot_html(ctx, ctx.lang if ctx.lang in MASCOT_STR else plang)}</div>
 <div class="bar"><nav>{''.join(tabs)}</nav><div class="upd"><div class="trow tset" id="tset"><span id="last" title="{html.escape(L['last'].format(t=f'{now:%H:%M}', z=zl))}">{html.escape(L.get('last_short', L['last']).format(t=f'{now:%H:%M}', z=zl))}</span>
@@ -2680,6 +2706,7 @@ html[data-patterns="1"] .badge:not(.note)::before{{content:"▲ "}} .pal{{color:
 <button class="btn" type="submit">{html.escape(MS['save'])}</button><span class="sub">{html.escape(MS['hint'])}</span><span id="mmsg"></span></form>
 <div id="ledger"></div>{''.join(panes)}</div>
 <script type="application/json" id="ckdata">{ckdata}</script><script>{usage_checkins_ui.JS}</script>
+<script type="application/json" id="bddata">{bddata}</script><script>{usage_breakdown_ui.JS}</script>
 <script type="application/json" id="ledgerdata">{ledjson}</script><script type="application/json" id="ledgerstr">{lsjson}</script><script>{LEDGER_JS}</script>
 <script type="application/json" id="gaugedata">{gjson}</script><script>{GAUGE_JS}</script><script>{WKVIEW_JS}</script><script>{SEL_JS}</script>
 <script type="application/json" id="paldata">{paldata}</script><script>{PALETTE_JS}</script>
@@ -3332,6 +3359,12 @@ def serve(ctx, allow_remote=False):
                 p = ctx.hist_dir / "index.html"
                 if not p.exists():
                     return self._send(404, {"ok": False, "error": "not rendered"})
+                if usage_breakdown.newest_mtime(ctx.data_dir) > p.stat().st_mtime:  # a snapshot was dropped in: page only
+                    with draw_lock:
+                        try:
+                            rewrite_page(ctx)
+                        except Exception as exc:
+                            print(f"Warning: {exc}", file=sys.stderr)
                 page = local_guard.inject_token(p.read_text(encoding="utf-8"), token)
                 return self._send(200, page.encode("utf-8"), "text/html; charset=utf-8")
             parts = u.path[1:].split("/")
@@ -3525,8 +3558,8 @@ def status(ctx):
 def main(argv=None):
     p = argparse.ArgumentParser(description="Grok Bot Usage & Check-in (usage-hud): long-range history, sampler, clock chart, check-ins and viewer")
     p.add_argument("cmd", choices=["history", "clock", "sample", "sampler", "checkin", "start", "end", "search", "serve",
-                                   "status", "ledger"])
-    p.add_argument("rest", nargs="*", help="checkin/start/end: NAME [NOTE...]; search: WORDS...")
+                                   "status", "ledger", "breakdown"])
+    p.add_argument("rest", nargs="*", help="checkin/start/end: NAME [NOTE...]; search: WORDS...; breakdown: FILE or - (stdin)")
     p.add_argument("--config"); p.add_argument("--data-dir", dest="data_dir"); p.add_argument("--tz")
     p.add_argument("--lang"); p.add_argument("--theme"); p.add_argument("--pace", type=float)
     p.add_argument("--anim", choices=ANIM_MODES, help="page gauge animation (default: config 'anim' or once)")
@@ -3598,6 +3631,17 @@ def main(argv=None):
         serve(ctx, a.allow_remote)
     elif a.cmd == "status":
         print(json.dumps(status(ctx), ensure_ascii=False))
+    elif a.cmd == "breakdown":  # import a usage breakdown snapshot (JSON file or stdin); no argument: show the newest
+        if a.rest:
+            try:
+                text = sys.stdin.read() if a.rest[0] == "-" else Path(a.rest[0]).read_text(encoding="utf-8-sig")
+            except OSError as exc:
+                print(json.dumps({"ok": False, "error": f"cannot read file: {exc.strerror}"})); sys.exit(2)
+            r = breakdown_import(ctx, text)
+        else:
+            snaps = usage_breakdown.load(ctx.data_dir, ctx.tz)
+            r = {"ok": bool(snaps), "snapshots": len(snaps), "latest": snaps[-1] if snaps else None}
+        print(json.dumps(r, ensure_ascii=False)); sys.exit(0 if r["ok"] else 2)
     elif a.cmd == "ledger":  # for assistants: exit 0 = fresh, 3 = stale or missing
         import usage_ledger
         r = usage_ledger.read(ctx.ledger_path, a.max_age_hours)
