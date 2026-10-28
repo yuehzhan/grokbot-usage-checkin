@@ -6,6 +6,18 @@ MAJOR for changes that need you to do something, MINOR for new features, PATCH f
 The current version is in the `VERSION` file and shown small at the top of the page.
 The changelog is kept in English only; [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md) is no longer updated.
 
+## [1.7.0] - 2026-10-28
+
+### Added
+- **Daily** tab, per-day and per-hour views: the chart columns and the log cards / rows now share **one selection**.
+  It starts on today (per hour: the latest hour). Clicking either side moves a light mask on the chart column and the
+  highlight on the list. Days that are not recorded yet can be selected too. The selection is not remembered across a
+  reload.
+
+### Changed
+- Per-hour view: reading-gap bars are now a low neutral grey band drawn at their average per hour. The purple dotted
+  box and the inflated y-scale are gone; the label text is unchanged.
+
 ## [1.6.0] - 2026-10-28
 
 ### Added

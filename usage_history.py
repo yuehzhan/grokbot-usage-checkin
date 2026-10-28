@@ -1603,6 +1603,7 @@ def render_clock_range(ctx, name, key, mode="ot", dial="24"):
 
 
 WEEK_VIEW_FILES = ("week-current.png", "week-daily.png", "week-hourly.png")  # 本週總覽 / 每日增量 per day / per hour
+SEL_SPRITES = tuple(f"week-{v}-{k}.png" for v in ("daily", "hourly") for k in ("off", "on"))  # linked selection (chart_hud.write_sel_sprites)
 
 
 def render_current_week(ctx, nowa, names=None):
@@ -1615,7 +1616,7 @@ def render_current_week(ctx, nowa, names=None):
         rows = [r for r in csv.DictReader(f.open(encoding="utf-8"))] if f.exists() else []
         if not rows:
             for d in ([ctx.hist_dir] if publish else []) + [dd for _, dd in _palette_dirs(ctx, names)]:
-                for fn in WEEK_VIEW_FILES + ("week-current.json",):
+                for fn in WEEK_VIEW_FILES + SEL_SPRITES + ("week-current.json",):
                     if (d / fn).exists():
                         (d / fn).unlink()
             return False
@@ -1632,13 +1633,21 @@ def render_current_week(ctx, nowa, names=None):
                     "display_offset": ctx.display_offset, "reset_at": shown_reset(ctx), "tz": ctx.tz_spec,
                     "samples": samples}
             # 本週總覽 (default) + 每日增量 per day / per hour: same header and cards, the page switches between them
+            sels = {}
             for view, fn in zip(("daily", "hourly"), WEEK_VIEW_FILES[1:]):
-                chart_hud.render(rows, str(d / fn), f"{ws.astimezone(ctx.tz):%Y-%m-%d}", dict(hcfg, view=view))
+                vm = chart_hud.render(rows, str(d / fn), f"{ws.astimezone(ctx.tz):%Y-%m-%d}", dict(hcfg, view=view, sel_sprites=True))
+                if (vm or {}).get("sel"):
+                    sels[view] = vm["sel"]
+                else:  # no selection this time (e.g. too few hourly readings): drop sprites left by an earlier render
+                    for k in ("off", "on"):
+                        (d / f"week-{view}-{k}.png").unlink(missing_ok=True)
             meta = chart_hud.render(rows, str(d / "week-current.png"), f"{ws.astimezone(ctx.tz):%Y-%m-%d}", dict(hcfg, view="week"))
+            if sels:  # where the 每日增量 days / hours are on each picture, and which one is selected when the page opens
+                meta["sel"] = sels
             # gauge geometry/colours for the page's animated overlay (the PNG stays the static export)
             _write_text(d / "week-current.json", json.dumps(meta or {}, ensure_ascii=False))
         if publish:
-            _publish_default(ctx, list(WEEK_VIEW_FILES) + ["week-current.json"])
+            _publish_default(ctx, list(WEEK_VIEW_FILES) + list(SEL_SPRITES) + ["week-current.json"])
         return True
     except Exception as exc:
         print(f"Warning: current week chart failed: {exc}", file=sys.stderr)
@@ -2340,6 +2349,53 @@ var g=b.getAttribute('data-go');show(g==='inc'?unit():g,g);});
 var t=null;try{t=localStorage.getItem(TK);}catch(e){}if(t==='inc')show(unit());})();"""
 
 
+# 每日增量 (per day / per hour): the linked selection. The chart's columns and the log's cards are real click areas laid
+# over the picture; the selection itself is two transparent sprites (the pixels chart_hud changes between "nothing" and
+# "everything" selected), clipped to the chosen column / card, so the faint band stays behind the bars and nothing else
+# changes colour. Nothing is stored: a reload selects today (per day) / the newest hour (per hour) again.
+SEL_CSS = ("[data-wv] .dsel{position:absolute;display:block;box-sizing:border-box;background:transparent;border:0;padding:0;margin:0;border-radius:9px;cursor:pointer}"
+           " [data-wv] .dsel:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}"
+           " [data-wv] img.ssprite{position:absolute;left:1px;top:1px;width:100%;height:auto;border:0;border-radius:0;pointer-events:none}")
+SEL_JS = r"""(function(){var sec=document.getElementById('p-wk');if(!sec)return;
+function init(w){var img=w.querySelector('img[data-f]'),S=[].slice.call(w.querySelectorAll('img.ssprite')),off=S[0],onc=S[1],onr=S[2],I=[].slice.call(w.querySelectorAll('[data-i]'));
+if(!img||S.length<3||!I.length)return;var d0=+off.getAttribute('data-sel'),cur=d0,ready=false,seq=0;
+function url(k){var s=img.getAttribute('src')||'';return /week-(daily|hourly)\.png/.test(s)?s.replace(/week-(daily|hourly)\.png/,'week-$1-'+k+'.png'):'';}
+function find(c,i){for(var j=0;j<I.length;j++)if(I[j].classList.contains(c)&&+I[j].getAttribute('data-i')===i)return I[j];return null;}
+function box(e){var c=e.getAttribute('data-clip');return c?c.split(',').map(parseFloat):[parseFloat(e.style.left),parseFloat(e.style.top),parseFloat(e.style.width),parseFloat(e.style.height)];}
+function clip(im,e){if(!e){im.hidden=true;return;}var r=box(e);im.style.clipPath='inset('+r[1]+'% '+(100-r[0]-r[2])+'% '+(100-r[1]-r[3])+'% '+r[0]+'%)';im.hidden=false;}
+function mark(){I.forEach(function(e){if(e.getAttribute('aria-pressed')!==null)e.setAttribute('aria-pressed',+e.getAttribute('data-i')===cur?'true':'false');});}
+function render(){mark();if(!ready||cur===d0){S.forEach(function(im){im.hidden=true;});return;}off.hidden=false;clip(onc,find('dcol',cur));clip(onr,find('dcard',cur));}
+function load(){ready=false;S.forEach(function(im){im.hidden=true;});var a=url('off'),b=url('on'),my=++seq,n=0;if(!a||w.hidden)return;
+[a,b].forEach(function(u){var im=new Image();im.onload=function(){if(my!==seq)return;if(++n===2){off.src=a;onc.src=b;onr.src=b;ready=true;render();}};im.src=u;});}
+w.addEventListener('click',function(e){var t=e.target&&e.target.closest?e.target.closest('[data-i]'):null;if(!t)return;cur=+t.getAttribute('data-i');render();});
+if(window.MutationObserver){new MutationObserver(load).observe(img,{attributes:true,attributeFilter:['src']});
+new MutationObserver(function(){if(!w.hidden&&!ready)load();}).observe(w,{attributes:true,attributeFilter:['hidden']});}
+mark();load();}
+['daily','hourly'].forEach(function(v){var w=sec.querySelector("[data-wv='"+v+"']");if(w)init(w);});})();"""
+
+
+def select_html(sel, label_of):
+    """The click areas of one 每日增量 view (the page's own buttons / areas over the picture; no new text: a card's
+    accessible name is its day label or its time range). (html, selected index), or (None, None) without selection data."""
+    try:
+        cols, rows, i0 = sel["cols"], sel["rows"], int(sel["i"])
+        clips = sel.get("clips") or [None] * len(cols)
+        if not cols or len(rows) != len(cols) or not 0 <= i0 < len(cols):
+            return None, None
+    except (KeyError, TypeError, ValueError):
+        return None, None
+    box = lambda r: f"left:{r[0]}%;top:{r[1]}%;width:{r[2]}%;height:{r[3]}%"
+    out = [f"<img class='ssprite' alt='' hidden data-sel='{i0}'><img class='ssprite' alt='' hidden><img class='ssprite' alt='' hidden>"]
+    for k, r in enumerate(cols):
+        clip = f" data-clip='{','.join(str(v) for v in clips[k])}'" if clips[k] and clips[k] != r else ""
+        out.append(f"<div class='dsel dcol' data-i='{k}' aria-hidden='true' style='{box(r)}'{clip}></div>")
+    for k, r in enumerate(rows):
+        if r:
+            out.append(f"<button type='button' class='dsel dcard' data-i='{k}' aria-pressed='{'true' if k == i0 else 'false'}'"
+                       f" aria-label='{html.escape(str(label_of(k)))}' style='{box(r)}'></button>")
+    return "".join(out), i0
+
+
 def week_views_html(ctx, gmeta, b64):
     """The 本週總覽 pane: the overview image (embedded) plus the 每日增量 images when rendered (loaded from beside the
     page on first use), each with buttons over the tabs drawn in it. Labels follow the page language (numeric in privacy)."""
@@ -2367,8 +2423,12 @@ def week_views_html(ctx, gmeta, b64):
     if have:
         for v, fn in zip(("daily", "hourly"), WEEK_VIEW_FILES[1:]):
             ver = int((ctx.hist_dir / fn).stat().st_mtime)
+            sel = ((gmeta or {}).get("sel") or {}).get(v)
+            day_label = lambda k: chart_hud.sfmt(HL["day_fmt"], d=k + 1, day=k + 1)
+            hour_label = lambda k: (sel.get("labels") or [])[k] or ""
+            dsel, i0 = select_html(sel, day_label if v == "daily" else hour_label) if sel else (None, None)
             parts.append(f"<div class='gwrap' data-wv='{v}' hidden><img alt='' loading='lazy' data-f='{fn}' src='{fn}?v={ver}'>"
-                         + tabs(v) + units(v) + "</div>")
+                         + (dsel or "") + tabs(v) + units(v) + "</div>")
     dinc = html.escape(json.dumps({"rich": bool(inc.get("rich")), "hours": inc.get("hours")}), quote=True)
     return f"<section id='p-wk' class='on' data-inc=\"{dinc}\">" + "".join(parts) + "</section>"
 
@@ -2565,7 +2625,7 @@ html[data-patterns="1"] .badge:not(.note)::before{{content:"▲ "}} .pal{{color:
 .plist li.pnote{{cursor:default;color:{dim};font-size:12px;line-height:1.45;border-top:1px solid var(--bd);border-radius:0;margin-top:4px;padding:7px 8px 4px;white-space:normal}}
 .ptog{{display:inline-flex;align-items:center;gap:5px;cursor:pointer}} .ptog input{{margin:0}} .offsel{{padding:3px 6px}} .otag{{color:{dim};font-size:.85em;font-weight:400}}
 {usage_checkins_ui.CSS}
-{GAUGE_CSS} {WKVIEW_CSS} {clocktip_css(card, tx, dim)}{gh_css(_on_colour(bg) == "#FFFFFF")} {mascot_css()}
+{GAUGE_CSS} {WKVIEW_CSS} {SEL_CSS} {clocktip_css(card, tx, dim)}{gh_css(_on_colour(bg) == "#FFFFFF")} {mascot_css()}
 </style></head><body><div class="wrap"><div class="top">{html.escape(L['eyebrow'])}{f' <span class="ver" id="appver">v{APP_VERSION}</span>' if APP_VERSION else ''}</div><div class="hrow" id="hrow"><h1>{html.escape(title)}</h1>{mascot_html(ctx, ctx.lang if ctx.lang in MASCOT_STR else plang)}</div>
 <div class="bar"><nav>{''.join(tabs)}</nav><div class="upd"><div class="trow tset" id="tset"><span id="last" title="{html.escape(L['last'].format(t=f'{now:%H:%M}', z=zl))}">{html.escape(L.get('last_short', L['last']).format(t=f'{now:%H:%M}', z=zl))}</span>
 <span class="pal psel" id="psel"><span id="pall">{html.escape(pal_label)}</span><button type="button" class="pbtn" id="palbtn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="pall palcur"><span id="palcur">{palcur}</span></button>
@@ -2582,7 +2642,7 @@ html[data-patterns="1"] .badge:not(.note)::before{{content:"▲ "}} .pal{{color:
 <div id="ledger"></div>{''.join(panes)}</div>
 <script type="application/json" id="ckdata">{ckdata}</script><script>{usage_checkins_ui.JS}</script>
 <script type="application/json" id="ledgerdata">{ledjson}</script><script type="application/json" id="ledgerstr">{lsjson}</script><script>{LEDGER_JS}</script>
-<script type="application/json" id="gaugedata">{gjson}</script><script>{GAUGE_JS}</script><script>{WKVIEW_JS}</script>
+<script type="application/json" id="gaugedata">{gjson}</script><script>{GAUGE_JS}</script><script>{WKVIEW_JS}</script><script>{SEL_JS}</script>
 <script type="application/json" id="paldata">{paldata}</script><script>{PALETTE_JS}</script>
 <script type="application/json" id="clocktips">{ctjson}</script><script>{CLOCKTIP_JS}</script>
 <script type="application/json" id="updstr">{usjson}</script><script>{UPDATE_JS}</script>

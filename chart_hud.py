@@ -2184,6 +2184,12 @@ def draw_daily_bars_panel(fig, ax_hud, data, cfg, L, pal, card=None, axes=None, 
         c_bg = pal["cell_odd"] if n % 2 == 1 else pal["cell_even"]
         ax.add_patch(Rectangle((n - 1, 0), 1.0, bar_ymax, facecolor=c_bg, edgecolor="none", zorder=0))
 
+    sel = data.get("sel")
+    if sel is not None:  # linked day selection: the band sits at zorder .5, under the grid lines and the bars
+        mcol, malpha = sel_mask_style(pal)
+        sel_add(sel, ax.add_patch(Rectangle((0, 0), 7.0, bar_ymax, facecolor=mcol, alpha=malpha, edgecolor="none", zorder=0.5)), every=True)
+        sel_add(sel, ax.add_patch(Rectangle((sel["id"], 0), 1.0, bar_ymax, facecolor=mcol, alpha=malpha, edgecolor="none", zorder=0.5)), cur=True)
+
     for div_x in range(1, 7):
         ax.axvline(div_x, color=pal["grid"], alpha=0.45 if pal["is_light"] else 0.32, lw=1.0, ls="-", zorder=2)
 
@@ -2256,7 +2262,7 @@ def draw_daily_log_panel(ax_hud, data, cfg, L, pal, t_info):
     row_map = data["row_map"]
     latest_day = data["latest_day"]
 
-    lx, ly, lw, lh = 0.690, 0.048, 0.285, 0.632
+    lx, ly, lw, lh = DAY_LOG_CARD
     draw_card(ax_hud, lx, ly, lw, lh, pal, accent=pal["accent"], radius=14.0)
 
     ax_hud.text((lx + 0.018) * FIG_W, (ly + lh - 0.025) * FIG_H, str(L["log_title"]), color=pal["text"], fontsize=13, fontweight="bold", va="center")
@@ -2274,6 +2280,22 @@ def draw_daily_log_panel(ax_hud, data, cfg, L, pal, t_info):
     row_h = (lh - 0.095) / 7.0
     bar_x0 = (lx + 0.020) * FIG_W
     bar_w_max = (lw - 0.040) * FIG_W
+
+    sel = data.get("sel")
+
+    def highlight(d, col):
+        """The highlighted card (box in the day's colour). With a day selection every day gets one, hidden until selected
+        (the page's sprites are the difference between two selections); without, only the latest recorded day."""
+        rb = (top_y - d * row_h) * FIG_H
+        hl = FancyBboxPatch(
+            ((lx + 0.010) * FIG_W, rb + 3.0), (lw - 0.020) * FIG_W, row_h * FIG_H - 6.0,
+            boxstyle="round,pad=0,rounding_size=7",
+            facecolor=blend_color(pal["card_fill"], col, 0.10),
+            edgecolor=col, alpha=0.85, lw=0.9, zorder=2,
+        )
+        ax_hud.add_patch(hl)
+        if sel is not None:
+            sel_add(sel, hl, cur=(d - 1 == sel["id"]), every=True)
 
     for d in range(1, 8):
         ry_top = top_y - (d - 1) * row_h
@@ -2300,14 +2322,8 @@ def draw_daily_log_panel(ax_hud, data, cfg, L, pal, t_info):
             gap_suffix = f" · {sfmt(L['gap_fmt'], g=gap)}" if gap > 1 else ""
             sub_txt = f"{mm_dd}  {note}{gap_suffix}".strip()
 
-            if d == latest_day:
-                hl = FancyBboxPatch(
-                    ((lx + 0.010) * FIG_W, ry_bot + 3.0), (lw - 0.020) * FIG_W, row_h * FIG_H - 6.0,
-                    boxstyle="round,pad=0,rounding_size=7",
-                    facecolor=blend_color(pal["card_fill"], cum_col, 0.10),
-                    edgecolor=cum_col, alpha=0.85, lw=0.9, zorder=2,
-                )
-                ax_hud.add_patch(hl)
+            if sel is not None or d == latest_day:
+                highlight(d, cum_col)
 
             ax_hud.text(x_day, ry_mid + 13.5, sfmt(L["day_fmt"], d=d, day=d), color=pal["text"], fontsize=12, fontweight="bold", va="center", zorder=4)
             ax_hud.text(x_day, ry_mid - 9.0, sub_txt, color=pal["text_dim"], fontsize=9.5, fontweight="bold", va="center", zorder=4)
@@ -2325,6 +2341,8 @@ def draw_daily_log_panel(ax_hud, data, cfg, L, pal, t_info):
             is_missing = d < latest_day
             alpha_val = 0.55 if is_missing else 0.35
             note_lbl = str(L["no_data"] if is_missing else L["future_note"])
+            if sel is not None:
+                highlight(d, pal["accent"])  # a day with no record can be selected too; its card keeps its text
             ax_hud.text(x_day, ry_mid + 12.0, sfmt(L["day_fmt"], d=d, day=d), color=pal["text_dim"], alpha=alpha_val, fontsize=11.5, fontweight="bold", va="center", zorder=4)
             ax_hud.text(x_day, ry_mid - 9.5, f"{d_date_str}  {note_lbl}", color=pal["text_dim"], alpha=alpha_val, fontsize=9.5, va="center", zorder=4)
             ax_hud.text(x_cum, ry_mid + 1.0, "--", color=pal["text_dim"], alpha=alpha_val, fontsize=12, fontweight="bold", ha="right", va="center", zorder=4)
@@ -2410,6 +2428,17 @@ def _hm_range(r, start):
     return f"{a.strftime('%m-%d %H:%M')} → {tail}"
 
 
+def gap_bar_height(r):
+    """Drawn height (%/h) of an hour group: the increase itself, or for a reading gap its average per hour (the whole span's
+    increase is shown in the label), so a long gap is a low band instead of a tall box."""
+    return r["inc"] / max(r["span_h"], 1e-6) if r["gap"] else r["inc"]
+
+
+def gap_fill(pal):
+    """Neutral faint grey of the reading-gap bars (and legend swatch): not an over / under colour."""
+    return blend_color(pal["card_fill"], pal["text_dim"], 0.30)
+
+
 def draw_hourly_panel(fig, ax_hud, data, cfg, L, pal, t_info, card, axes):
     is_num = bool(cfg.get("privacy")) or (cfg.get("_eff_lang") == "numeric")
     pace = float(cfg["pace"])
@@ -2435,7 +2464,7 @@ def draw_hourly_panel(fig, ax_hud, data, cfg, L, pal, t_info, card, axes):
     ax.set_xlim(0, span_total)
     xh = lambda t: (t - start).total_seconds() / 3600.0
     per_h = pace / 24.0
-    top = max([r["inc"] for r in rows] + [per_h * 3.0, 2.0])
+    top = max([gap_bar_height(r) for r in rows] + [per_h * 3.0, 2.0])  # gaps count by their per-hour average
     ymax = top * 1.30
     ax.set_ylim(0, ymax)
 
@@ -2459,6 +2488,34 @@ def draw_hourly_panel(fig, ax_hud, data, cfg, L, pal, t_info, card, axes):
     ax.set_xticklabels([(start + timedelta(hours=x)).strftime("%H") for x in minor], fontsize=8.5, color=pal["text_dim"])
     ax.tick_params(axis="x", length=3, pad=2, colors=pal["text_dim"])
 
+    sel = data.get("sel")
+    if sel is not None:  # linked hour selection: band behind the selected hour's column (at least a few px wide)
+        min_w = HOURLY_MASK_MIN_PX / (axes[2] * FIG_W / span_total)
+        mcol, malpha = sel_mask_style(pal)
+        ax_l, ax_b, ax_w, ax_h = axes
+        cols, clips, bands = [], [], []
+        for r in rows:
+            a, b = xh(r["t0"]), xh(r["t1"])
+            if r["gap"]:
+                x0, x1 = a, b
+            else:  # the clock hour the group sits in (a group may reach a little past it)
+                hx = xh(r["hour"])
+                x0, x1 = min(a, hx), max(b, hx + 1.0)
+            x0, x1 = max(0.0, x0), min(span_total, x1)
+            c = (x0 + x1) / 2
+            w0 = max(x1 - x0, min_w)
+            bands.append((c - w0 / 2, c + w0 / 2))
+            rect = lambda u0, u1: [round((ax_l + max(0.0, u0) / span_total * ax_w) * 100, 3), round((1 - ax_b - ax_h) * 100, 3),
+                                   round((min(span_total, u1) - max(0.0, u0)) / span_total * ax_w * 100, 3), round((ax_h + 0.045) * 100, 3)]
+            cols.append(rect(x0, x1))      # what a click on the chart hits (the columns tile the axis)
+            clips.append(rect(*bands[-1]))  # the band shown (wider than a column when that is only a few px)
+        i0 = min(max(int(cfg.get("sel_idx") if cfg.get("sel_idx") is not None else len(rows) - 1), 0), len(rows) - 1)
+        sel_add(sel, ax.add_patch(Rectangle((0, 0), span_total, ymax, facecolor=mcol, alpha=malpha, edgecolor="none", zorder=0.5)), every=True)
+        sel_add(sel, ax.add_patch(Rectangle((bands[i0][0], 0), bands[i0][1] - bands[i0][0], ymax, facecolor=mcol, alpha=malpha,
+                                            edgecolor="none", zorder=0.5)), cur=True)
+        sel["id"] = i0
+        sel["meta"] = {"i": i0, "cols": cols, "clips": clips, "rows": [None] * len(rows), "labels": [None] * len(rows)}
+
     ax.axhline(per_h, color=pal["orange"], alpha=0.9, lw=1.6, ls="--", zorder=4)
     ax.add_patch(Rectangle((0, 0), span_total, ymax, fill=False, edgecolor=pal["accent"], alpha=0.55, lw=1.4, zorder=5, clip_on=False))
 
@@ -2468,10 +2525,11 @@ def draw_hourly_panel(fig, ax_hud, data, cfg, L, pal, t_info, card, axes):
         mid = (a + b) / 2
         over = r["inc"] / max(r["span_h"], 1e-6) > per_h
         col = pal["purple"] if over else pal["green"]
-        h = min(r["inc"], ymax * 0.92)
-        if r["gap"]:
-            ax.add_patch(Rectangle((mid - w / 2, 0), w, h, facecolor=blend_color(pal["card_fill"], col, 0.18), edgecolor=col,
-                                   hatch="..", lw=0.9, ls=(0, (3, 2)), alpha=0.9, zorder=3))
+        h = min(gap_bar_height(r), ymax * 0.92)
+        if r["gap"]:  # no reading for a long time: a low neutral band at the average per hour, no dots, no over / under colour
+            ax.add_patch(Rectangle((mid - w / 2, 0), w, h, facecolor=gap_fill(pal), alpha=0.6, zorder=3,
+                                   edgecolor=pal["text_dim"] if pal["patterns"] else "none", lw=0.8 if pal["patterns"] else 0,
+                                   ls=(0, (3, 2)) if pal["patterns"] else "-"))
         else:
             ax.add_patch(Rectangle((mid - w / 2, 0), w, h, facecolor=blend_color(pal["card_fill"], col, 0.72 if pal["is_light"] else 0.62),
                                    edgecolor=col, lw=0.8, zorder=3))
@@ -2492,7 +2550,8 @@ def draw_hourly_panel(fig, ax_hud, data, cfg, L, pal, t_info, card, axes):
             if r["gap"]:
                 txt += f" ({sfmt(L['hourly_span'], h=_span_label(r['span_h']))})"
             over = r["inc"] / max(r["span_h"], 1e-6) > per_h
-            ax.annotate(txt, xy=(m, min(r["inc"], ymax * 0.92)), textcoords="offset points", xytext=(0, 4), color=pal["purple"] if over else pal["green"],
+            ax.annotate(txt, xy=(m, min(gap_bar_height(r), ymax * 0.92)), textcoords="offset points", xytext=(0, 4),
+                        color=pal["text_dim"] if r["gap"] else (pal["purple"] if over else pal["green"]),
                         fontsize=8.6, fontweight="bold", ha="center", va="bottom", zorder=7,
                         bbox=dict(boxstyle="round,pad=0.12", facecolor=pal["card_fill"], edgecolor="none", alpha=0.85))
 
@@ -2502,7 +2561,8 @@ def draw_hourly_panel(fig, ax_hud, data, cfg, L, pal, t_info, card, axes):
     else:
         handles = [Line2D([0], [0], color=pal["green"], lw=6, label=("▼ " + str(L["under_short"])).strip()),
                    Line2D([0], [0], color=pal["purple"], lw=6, label=("▲ " + str(L["over_short"])).strip()),
-                   Patch(facecolor="none", edgecolor=pal["text_dim"], hatch="..", ls=(0, (3, 2)), label=str(L["hourly_gap_leg"])),
+                   Patch(facecolor=gap_fill(pal), alpha=0.6, edgecolor=pal["text_dim"] if pal["patterns"] else "none",
+                         ls=(0, (3, 2)) if pal["patterns"] else "-", label=str(L["hourly_gap_leg"])),
                    Line2D([0], [0], color=pal["orange"], lw=2.2, ls="--", label=sfmt(L["hourly_base_line"], v=per_h))]
     ax.legend(handles=handles, loc="lower right", bbox_to_anchor=(1.0, 1.015), ncol=len(handles), frameon=False, fontsize=8.6,
               labelcolor=pal["text"], handlelength=1.4, columnspacing=0.9, borderaxespad=0.0)
@@ -2525,7 +2585,9 @@ def draw_hourly_log_panel(ax_hud, data, cfg, L, pal, t_info, max_rows=14):
     pace = float(cfg["pace"])
     per_h = pace / 24.0
     rows = list(reversed(data["hourly"]["rows"]))[:max_rows]
-    lx, ly, lw, lh = 0.690, 0.048, 0.285, 0.632
+    n_all = len(data["hourly"]["rows"])
+    sel = data.get("sel")
+    lx, ly, lw, lh = DAY_LOG_CARD
     draw_card(ax_hud, lx, ly, lw, lh, pal, accent=pal["accent"], radius=14.0)
     ax_hud.text((lx + 0.018) * FIG_W, (ly + lh - 0.025) * FIG_H, str(L["hourly_log_title"]), color=pal["text"], fontsize=13, fontweight="bold", va="center")
     hy = (ly + lh - 0.058) * FIG_H
@@ -2544,9 +2606,20 @@ def draw_hourly_log_panel(ax_hud, data, cfg, L, pal, t_info, max_rows=14):
     for i, r in enumerate(rows):
         ry_mid = (top_y - (i + 0.5) * row_h) * FIG_H
         over = r["inc"] / max(r["span_h"], 1e-6) > per_h
-        col = pal["purple"] if over else pal["green"]
+        col = pal["text_dim"] if r["gap"] else (pal["purple"] if over else pal["green"])  # a reading gap is neutral
         sub = []
         main = _hm_range(r, t_info.get("start_dt"))
+        if sel is not None and sel.get("meta"):  # the newest row is the default selection; each shown row can be selected
+            k = n_all - 1 - i
+            rb = (top_y - (i + 1) * row_h) * FIG_H
+            hl = FancyBboxPatch(((lx + 0.010) * FIG_W, rb + 3.0), (lw - 0.020) * FIG_W, row_h * FIG_H - 6.0,
+                                boxstyle="round,pad=0,rounding_size=7", facecolor=blend_color(pal["card_fill"], col, 0.10),
+                                edgecolor=col, alpha=0.85, lw=0.9, zorder=2)
+            ax_hud.add_patch(hl)
+            sel_add(sel, hl, cur=(k == sel["id"]), every=True)
+            sel["meta"]["rows"][k] = [round((lx + 0.010) * 100, 3), round((1 - (top_y - i * row_h)) * 100, 3),
+                                      round((lw - 0.020) * 100, 3), round(row_h * 100, 3)]
+            sel["meta"]["labels"][k] = main
         if len(main) > 20:  # spans past the next midnight: "MM-DD HH:MM →" + far end on the second line
             main, far = main.split(" → ", 1)
             main += " →"
@@ -2560,15 +2633,88 @@ def draw_hourly_log_panel(ax_hud, data, cfg, L, pal, t_info, max_rows=14):
         if sub:
             ax_hud.text(x_t, ry_mid - 10.0, " · ".join(sub), color=pal["text_dim"], fontsize=8.5, fontweight="bold", va="center", zorder=4)
         ax_hud.text(x_cum, ry_mid, f"{r['pct']:.0f}%", color=pal["text"], fontsize=10.5, fontweight="bold", ha="right", va="center", zorder=4)
-        inc_txt = (("▲" if over else "▼") if pal.get("patterns") else "") + f"{r['inc']:+.1f}%"
+        inc_txt = (("▲" if over else "▼") if pal.get("patterns") and not r["gap"] else "") + f"{r['inc']:+.1f}%"
         ax_hud.text(x_inc, ry_mid, inc_txt, color=col, fontsize=10.5, fontweight="bold", ha="right", va="center", zorder=4)
         if i < len(rows) - 1:
             yb = (top_y - (i + 1) * row_h) * FIG_H
             ax_hud.plot([(lx + 0.015) * FIG_W, (lx + lw - 0.015) * FIG_W], [yb, yb], color=pal["card_border"], lw=0.6, alpha=0.6)
 
 
+SEL_MASK_ALPHA = 0.12  # the linked selection's band behind a bar column: white at 12% on dark themes ...
+SEL_MASK_ALPHA_LIGHT = 0.08  # ... and the theme's dark text colour at 8% on light themes
 INC_CARD = (0.025, 0.048, 0.650, 0.632)
 INC_AXES = (0.078, 0.122, 0.580, 0.468)
+DAY_LOG_CARD = (0.690, 0.048, 0.285, 0.632)  # the 每日紀錄 / 每小時紀錄 card (figure fractions)
+HOURLY_MASK_MIN_PX = 12.0  # an hour is ~6 px wide on the 7-day axis: its selection band is at least this wide (image px), centred
+
+
+# ---- linked selection (每日增量): a faint band behind the selected column on the chart + the selected card in the log.
+# Every selection artist is drawn hidden; three states are rendered: "base" (the default selection: the saved chart),
+# "none" and "all" (a band over the whole plot + every card boxed). write_sel_sprites() keeps only the pixels that differ,
+# so the page can lay them over the chart, clipped to any one column / card, with the band truly behind the bars.
+def sel_add(sel, art, cur=False, every=False):
+    art.set_visible(False)
+    sel["arts"].append((art, bool(cur), bool(every)))
+    return art
+
+
+def sel_state(sel, state):
+    for art, cur, every in sel["arts"]:
+        art.set_visible({"base": cur, "none": False, "all": every}[state])
+
+
+def sel_sprite_name(out_png, kind):
+    """week-daily.png -> week-daily-on.png / week-daily-off.png (beside the chart they belong to)."""
+    p = Path(out_png)
+    return p.with_name(f"{p.stem}-{kind}{p.suffix}")
+
+
+def sel_mask_style(pal):
+    """The band's (colour, alpha): white 12% on dark themes, the dark text colour 8% on light ones (white would vanish
+    there). Both clearly lighter / darker than the alternating cell shading (that is only ~2-4%), but still faint."""
+    return (pal["text"], SEL_MASK_ALPHA_LIGHT) if pal["is_light"] else ("#FFFFFF", SEL_MASK_ALPHA)
+
+
+def sel_geometry(i):
+    """Clickable areas of the daily view for the page, in % of the image (left, top, width, height; y down): the seven
+    bar columns (with their day labels) and the seven log cards, plus the selected index when the chart is drawn."""
+    ax_l, ax_b, ax_w, ax_h = INC_AXES
+    cols = [[round((ax_l + d * ax_w / 7.0) * 100, 3), round((1 - ax_b - ax_h) * 100, 3),
+             round(ax_w / 7.0 * 100, 3), round((ax_h + 0.045) * 100, 3)] for d in range(7)]
+    lx, ly, lw, lh = DAY_LOG_CARD
+    row_h = (lh - 0.095) / 7.0
+    top_y = ly + lh - 0.080
+    rows = [[round((lx + 0.010) * 100, 3), round((1 - (top_y - d * row_h)) * 100, 3),
+             round((lw - 0.020) * 100, 3), round(row_h * 100, 3)] for d in range(7)]
+    return {"i": int(i), "cols": cols, "rows": rows}
+
+
+def write_sel_sprites(fig, sel, out_png):
+    """<chart>-off.png: the default selection's pixels with the selection taken away (the page shows it whenever another
+    column / card is selected). <chart>-on.png: everything the "all" state adds (band + card boxes), opaque copies of the
+    real drawing, so clipped to one column or card it is exactly that selection."""
+    from PIL import Image
+
+    def grab(state):
+        sel_state(sel, state)
+        fig.canvas.draw()
+        return np.asarray(fig.canvas.buffer_rgba()).copy()
+    base, none, every = grab("base"), grab("none"), grab("all")
+    sel_state(sel, "base")
+    for kind, new, old in (("off", none, base), ("on", every, none)):
+        diff = (new != old).any(axis=2)
+        for _ in range(2):  # + 2 px all round (the same pixels as the other state there): the page scales the picture and the
+            # sprite alike, and a one-pixel line (a card's border) would otherwise leave a faint trace at the sprite's edge
+            grown = diff.copy()
+            grown[1:, :] |= diff[:-1, :]
+            grown[:-1, :] |= diff[1:, :]
+            grown[:, 1:] |= diff[:, :-1]
+            grown[:, :-1] |= diff[:, 1:]
+            diff = grown
+        sprite = np.zeros_like(new)
+        sprite[diff] = new[diff]
+        sprite[diff, 3] = 255
+        Image.fromarray(sprite, "RGBA").save(str(sel_sprite_name(out_png, kind)), optimize=True)
 
 
 def draw_increments_view(fig, ax_hud, data, cfg, L, pal, t_info, view):
@@ -2642,12 +2788,14 @@ def configure_fonts_and_locale(lang: str) -> str:
 
 def render(rows, out_png, week_start, cfg=None):
     """Render the weekly usage HUD dashboard from `rows` (list of dicts with day,date,pct,note)."""
+    sel_cfg = {k: (cfg or {}).get(k) for k in ("sel_day", "sel_idx", "sel_sprites")}  # linked selection (每日增量 views only)
     samples = (cfg or {}).get("samples")  # finer readings for a mid-week reset's time (not a theme/config key)
     view = (cfg or {}).get("view") or "week"  # "week" overview (default) | "daily" / "hourly" increments
     if view not in VIEWS:
         view = "week"
     cfg = normalize_cfg(cfg)
     cfg["samples"] = samples
+    cfg.update(sel_cfg)
     eff_lang = configure_fonts_and_locale(cfg["lang"])
     cfg["_eff_lang"] = eff_lang
     ext_overlay = {} if eff_lang == "numeric" else (load_locale_overlay(eff_lang) or {})
@@ -2815,6 +2963,12 @@ def render(rows, out_png, week_start, cfg=None):
     for y_scan in np.linspace(10, FIG_H - 10, 165):
         ax_hud.axhline(y_scan, color=accent_col, alpha=0.016 if is_light else 0.012, lw=0.6, zorder=1)
 
+    if view in ("daily", "hourly"):  # linked selection: drawn hidden, shown for the default (daily: today; hourly: the newest hour)
+        data["sel"] = {"id": None, "arts": [], "meta": None}
+        if view == "daily":
+            data["sel"]["id"] = min(max(int(cfg.get("sel_day") or day_now), 1), 7) - 1
+            data["sel"]["meta"] = sel_geometry(data["sel"]["id"])
+
     draw_header(ax_hud, cfg, L, pal, t_info, view)
     draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info)
     if view == "week":
@@ -2827,9 +2981,18 @@ def render(rows, out_png, week_start, cfg=None):
 
     out_path = Path(out_png).resolve()
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    sel = data.get("sel")
+    if sel is not None and (sel["id"] is None or not sel["arts"]):
+        sel = None  # nothing to select (e.g. the hourly view says there are too few readings)
+    if sel is not None:
+        sel_state(sel, "base")
     fig.savefig(str(out_path), dpi=150, facecolor=bg)
+    if sel is not None and cfg.get("sel_sprites"):
+        write_sel_sprites(fig, sel, out_path)
     plt.close(fig)
     meta = t_info.get("meta", {})
+    if sel is not None:
+        meta["sel"] = sel["meta"]
     meta.update(data.get("chart_meta", {}))
     hb = data["hourly"]
     meta["view"] = view
