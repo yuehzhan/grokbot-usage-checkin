@@ -62,7 +62,7 @@ def composite(d, view, meta, k):
     out = over(out, px(os.path.join(d, f"w-{view}-off.png")))
     on = px(os.path.join(d, f"w-{view}-on.png"))
     out = over(out, clip_to(on, (sel.get("clips") or sel["cols"])[k]))
-    if sel["rows"][k]:
+    if sel["rows"][k] and not sel.get("strip"):  # (the per-hour list is a scrolling picture of its own, not part of the chart)
         out = over(out, clip_to(on, sel["rows"][k]))
     return out
 
@@ -152,7 +152,7 @@ class PictureTests(unittest.TestCase):
         self.assertGreater(n, 10)
         self.assertEqual(sel["i"], n - 1)  # the right list is newest first: the default is its top row
         shown = [(k, r) for k, r in enumerate(sel["rows"]) if r]
-        self.assertEqual(len(shown), 14)
+        self.assertEqual(len(shown), n)  # no row cap: every hour of the chart is in the list
         self.assertEqual(max(k for k, _ in shown), n - 1)
         self.assertEqual(min(shown, key=lambda kr: kr[1][1])[0], n - 1)  # topmost card
         self.assertIn("→", sel["labels"][n - 1])
@@ -176,7 +176,7 @@ class PictureTests(unittest.TestCase):
         _, meta = render("hourly", self.d, sel_sprites=True)
         n = len(meta["sel"]["cols"])
         for k in (n - 3, n - 1):
-            want, _m = render("hourly", self.d, name=f"k{k}", sel_idx=k)
+            want, _m = render("hourly", self.d, name=f"k{k}", sel_idx=k, sel_sprites=True)
             got, ref = composite(self.d, "hourly", meta, k), px(want)
             wrong = (np.abs(got - ref).max(axis=2) > 6).mean()
             self.assertLess(wrong, 0.0005, f"hour row {k}: {wrong:.5f} of the pixels differ")
@@ -291,6 +291,119 @@ class MaskIsDrawnTests(unittest.TestCase):
             self.assertGreater(cell_lum(img, mid(shown), fx=0.0) - cell_lum(img, mid(sel["cols"][k]), fx=0.0), 15, f"hour row {i} vs {k}")
 
 
+def week_samples(hours=7 * 24):
+    """One reading per hour for the whole week (2026-01-01 00:00 UTC on): 168 hour rows, the busy hours at 1-3 %."""
+    t0 = datetime(2026, 1, 1, 0, 0, tzinfo=timezone.utc)
+    out, v = [], 1.0
+    for h in range(hours):
+        v += 0.2 + (h % 7) * 0.4 if 8 <= (h % 24) <= 22 else 0.1
+        out.append((t0 + timedelta(hours=h), round(min(v, 99.0), 1)))
+    return out
+
+
+class HourlyListTests(unittest.TestCase):
+    """The per-hour list is not limited to one day: every hour row of the 7-day chart is in it (newest first, scrolled by the page)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.d = scratch()
+        cls.out = os.path.join(cls.d, "w-hourly.png")
+        cls.meta = chart_hud.render(HOURLY_ROWS, cls.out, "2026-01-01", {"lang": "en", "view": "hourly", "tz": "UTC", "samples": week_samples(),
+                                                                       "sel_sprites": True})
+        cls.sel = cls.meta["sel"]
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.d)
+
+    def test_every_hour_of_the_chart_has_a_row(self):
+        sel = self.sel
+        n = len(sel["cols"])
+        self.assertGreaterEqual(n, 160)  # a full week of hourly readings: ~168 rows, not the 14 / one day the card used to show
+        self.assertEqual(len(sel["rows"]), n)
+        self.assertTrue(all(sel["rows"]) and all(sel["labels"]))
+        dates = {lb[:5] for lb in sel["labels"]}
+        self.assertEqual(len(dates), 7, sorted(dates))  # all seven days are in the list, not only the newest one
+
+    def test_list_is_newest_first_and_the_default_is_its_top_row(self):
+        sel = self.sel
+        n = len(sel["rows"])
+        tops = [sel["rows"][k][1] for k in range(n)]
+        self.assertEqual(tops, sorted(tops, reverse=True))  # k = oldest .. newest; the newest sits at the top
+        self.assertEqual(tops[n - 1], 0.0)
+        self.assertEqual(sel["i"], n - 1)
+        self.assertLess(sel["labels"][0], sel["labels"][n - 1])  # 'MM-DD HH:MM' sorts by time within the week
+
+    def test_rows_tile_the_strip_picture_exactly(self):
+        sel = self.sel
+        n = len(sel["rows"])
+        img = Image.open(os.path.join(self.d, "w-hourly-rows.png"))
+        self.assertEqual(img.mode, "RGBA")
+        w, h = img.size
+        lay = chart_hud.hourly_list_layout()
+        self.assertAlmostEqual(h / n, lay["row_h"] * chart_hud.FIG_H, delta=0.5)
+        self.assertAlmostEqual(w, lay["width"] * chart_hud.FIG_W, delta=1)
+        self.assertAlmostEqual(sel["strip"]["px"][1], h, delta=1)
+        heights = {round(r[3], 3) for r in sel["rows"]}
+        self.assertEqual(len(heights), 1)
+        self.assertAlmostEqual(sum(r[3] for r in sel["rows"]), 100.0, delta=0.01)
+        a = np.asarray(img)[..., 3]
+        for k in (0, n // 2, n - 1):  # text is drawn in each row's own band (old, middle, newest)
+            r = sel["rows"][k]
+            y0, y1 = int(r[1] / 100 * h) + 2, int((r[1] + r[3]) / 100 * h) - 2
+            self.assertGreater((a[y0:y1] > 0).sum(), 300, f"row {k} has no text")
+
+    def test_viewport_is_the_cards_row_area_with_room_for_the_scrollbar(self):
+        x, y, w, hh = self.sel["strip"]["box"]
+        lx, ly, lw, lh = chart_hud.DAY_LOG_CARD
+        self.assertGreater(x, lx * 100)
+        self.assertLess(x + w, (lx + lw) * 100 - 1.0)  # the page adds a 16 px scrollbar to the right of it
+        self.assertAlmostEqual(hh, 14 * ((lh - 0.095) / 14) * 100, 2)  # 14 rows are visible at once
+
+    def test_the_card_itself_no_longer_draws_a_capped_list(self):
+        """The saved chart carries the title and column heads only; the sprites do not contain any row box either."""
+        on = px(os.path.join(self.d, "w-hourly-on.png"))
+        x, y, w, hh = self.sel["strip"]["box"]
+        H, W = on.shape[:2]
+        region = on[int(y / 100 * H):int((y + hh) / 100 * H), int(x / 100 * W):int((x + w) / 100 * W)]
+        self.assertEqual(int((region[..., 3] > 0).sum()), 0)
+
+    def test_plain_png_export_still_lists_the_newest_rows(self):
+        out = os.path.join(self.d, "plain.png")
+        meta = chart_hud.render(HOURLY_ROWS, out, "2026-01-01", {"lang": "en", "view": "hourly", "tz": "UTC", "samples": week_samples()})
+        self.assertEqual(sorted(f for f in os.listdir(self.d) if f.startswith("plain")), ["plain.png"])
+        self.assertEqual(sum(1 for r in meta["sel"]["rows"] if r), 14)  # a static picture cannot scroll
+
+    def test_chart_and_mask_work_for_every_hour_of_the_week(self):
+        sel = self.sel
+        n = len(sel["cols"])
+        W = chart_hud.FIG_W
+        for k in range(n):
+            self.assertGreaterEqual(sel["clips"][k][2] / 100 * W, 11.5, k)
+        # the band of the oldest hour of day 1 and of the newest one are inside the plot, at both ends of the 7-day axis
+        self.assertLess(sel["clips"][0][0], sel["clips"][n - 1][0])
+        ax_l, _b, ax_w, _h = chart_hud.INC_AXES
+        for k in (0, n - 1):
+            self.assertGreaterEqual(sel["clips"][k][0], ax_l * 100 - 0.01)
+            self.assertLessEqual(sel["clips"][k][0] + sel["clips"][k][2], (ax_l + ax_w) * 100 + 0.01)
+
+    def test_old_hour_selection_picture_has_the_mask_and_matches_the_sprites(self):
+        n = len(self.sel["cols"])
+        for k in (0, 30, n // 2):
+            want = os.path.join(self.d, f"k{k}-hourly.png")
+            chart_hud.render(HOURLY_ROWS, want, "2026-01-01", {"lang": "en", "view": "hourly", "tz": "UTC", "samples": week_samples(), "sel_idx": k, "sel_sprites": True})
+            got, ref = composite(self.d, "hourly", self.meta, k), px(want)
+            self.assertLess((np.abs(got - ref).max(axis=2) > 6).mean(), 0.0005, f"hour {k}")
+            # and the band really is there: lighter than the same place without a selection
+            plain = px(os.path.join(self.d, "w-hourly.png"))
+            c = self.sel["clips"][k]
+            H, Wd = ref.shape[:2]
+            x0, x1 = int(c[0] / 100 * Wd), int((c[0] + c[2]) / 100 * Wd)
+            y0, y1 = int((c[1] + c[3] * 0.05) / 100 * H), int((c[1] + c[3] * 0.20) / 100 * H)
+            diff = (ref[y0:y1, x0 + 1:x1 - 1, :3].astype(float).mean(axis=2) - plain[y0:y1, x0 + 1:x1 - 1, :3].astype(float).mean(axis=2)).mean()
+            self.assertGreater(diff, 3, f"hour {k}")
+
+
 class PageTests(unittest.TestCase):
     def setUp(self):
         self.data = scratch()
@@ -340,13 +453,42 @@ class PageTests(unittest.TestCase):
     def test_hourly_list_defaults_to_its_newest_row(self):
         page = self.page()
         hourly = self.wrap(page, "hourly")
-        cards = re.findall(r"class='dsel dcard' data-i='(\d+)' aria-pressed='(true|false)' aria-label='([^']*)'", hourly)
+        cards = re.findall(r"class='dsel hrow' data-i='(\d+)' aria-pressed='(true|false)' aria-label='([^']*)'", hourly)
         n = len(re.findall(r"class='dsel dcol'", hourly))
-        self.assertEqual(len(cards), 14)
+        self.assertEqual(len(cards), n)  # every hour of the chart has a row in the scrolling list
         self.assertEqual([c[0] for c in cards if c[1] == "true"], [str(n - 1)])
         self.assertIn(f"data-sel='{n - 1}'", hourly)
         self.assertIn("→", [c[2] for c in cards if c[1] == "true"][0])
         self.assertIn("data-clip=", hourly)  # single hours get a wider band than their column
+
+    def test_hourly_list_is_a_scrollable_viewport_with_every_row_and_a_visible_scrollbar(self):
+        page = self.page()
+        hourly = self.wrap(page, "hourly")
+        n = len(re.findall(r"class='dsel dcol'", hourly))
+        self.assertGreater(n, 40)  # three days of hourly readings: far more than the 14 the card shows at once
+        self.assertEqual(len(re.findall(r"class='dsel hrow'", hourly)), n)
+        self.assertEqual(len(re.findall(r"<div class='hscroll' style='[^']*width:calc\([\d.]+% \+ 16px\)", hourly)), 1)
+        self.assertIn("data-f='week-hourly-rows.png' src='week-hourly-rows.png?v=", hourly)
+        self.assertNotIn("dcard", hourly)
+        for pal in os.listdir(os.path.join(self.hist, "pal")):
+            self.assertTrue(os.path.isfile(os.path.join(self.hist, "pal", pal, uh.HOURLY_ROWS_FILE)), pal)  # follows palette switches
+        self.assertTrue(os.path.isfile(os.path.join(self.hist, uh.HOURLY_ROWS_FILE)))
+        # rows carry their own colour for the selection box
+        self.assertRegex(hourly, r"class='dsel hrow' data-i='0' aria-pressed='false' aria-label='\d\d-\d\d [^']*' style='[^']*--c:#[0-9a-f]{6}'")
+        wk = self.wrap(page, "daily")
+        self.assertNotIn("hscroll", wk)  # the per-day view is unchanged
+
+    def test_scrollbar_css_is_always_visible_wide_and_themed(self):
+        css = uh.SEL_CSS
+        self.assertIn("overflow-y:scroll", css)  # a track is always there, never auto-hidden
+        for bad in ("overlay", "scrollbar-width:none", "scrollbar-width:thin", "::-webkit-scrollbar{display:none", "::-webkit-scrollbar-thumb{display:none"):
+            self.assertNotIn(bad, css, bad)
+        self.assertRegex(css, r"\.hscroll::-webkit-scrollbar\{width:(1[4-9]|[2-9]\d)px")  # wide enough to grab
+        self.assertRegex(css, r"::-webkit-scrollbar-thumb\{background:var\(--accent\)")  # theme accent on a grey track
+        self.assertIn("::-webkit-scrollbar-track", css)
+        self.assertIn("scrollbar-color:var(--accent)", css)  # Firefox
+        page = self.page()
+        self.assertIn(css, page)
 
     def test_click_areas_do_not_collide_with_the_tab_handler(self):
         page = self.page()
@@ -393,7 +535,8 @@ function El(attrs, cls) { this.a = attrs || {}; this.cls = cls || []; this.style
   this.classList = {contains: function (c) { return this.cls.indexOf(c) >= 0; }.bind(this)}; }
 El.prototype.getAttribute = function (k) { return k in this.a ? this.a[k] : null; };
 El.prototype.setAttribute = function (k, v) { this.a[k] = String(v); };
-El.prototype.closest = function () { var e = this; while (e && !('data-i' in e.a)) e = e.parent; return e; };
+El.prototype.closest = function (sel) { if (sel === '.hscroll') return this.scroller || null; var e = this; while (e && !('data-i' in e.a)) e = e.parent; return e; };
+El.prototype.getBoundingClientRect = function () { return this.rect || {top: 0, bottom: 0}; };
 var img = new El({'data-f': 'week-%(v)s.png', src: 'pal/orange-teal/week-%(v)s.png?v=7'});
 var sp = [new El({'data-sel': '%(d0)s'}), new El(), new El()];
 var areas = %(areas)s.map(function (x) { var e = new El({'data-i': String(x.i)}, [x.c]); e.style = x.s;
@@ -469,6 +612,22 @@ class ClickLogicTests(unittest.TestCase):
         self.assertEqual(out["a"]["clip"][1], "inset(10% 97.5% 40% 1.8%)")
         self.assertEqual(out["a"]["clip"][2], "inset(34% 5% 58% 70%)")
         self.assertTrue(out["a"]["src"][0].endswith("week-hourly-off.png?v=7"))
+
+    def test_hourly_bar_click_scrolls_its_list_row_into_view_and_row_click_keeps_it(self):
+        """A bar of an hour outside the list's viewport scrolls the list to that row (both ways); the 7-day axis is not limited."""
+        areas = ([{"i": i, "c": "dcol", "s": {"left": f"{i}%", "top": "10%", "width": "0.3%", "height": "50%"}} for i in range(30)]
+                 + [{"i": i, "c": "hrow", "s": {"left": "0%", "top": f"{(29 - i) * 3}%", "width": "100%", "height": "3%"}} for i in range(30)])
+        steps = ("var sc = {scrollTop: 0, getBoundingClientRect: function () { return {top: 100, bottom: 200}; }};"  # a 100 px viewport, 10 px rows
+                 "areas.forEach(function (e) { if (e.cls.indexOf('hrow') >= 0) { e.scroller = sc; (function (e) { Object.defineProperty(e, 'rect', {get: function () {"
+                 " var t = 100 + (29 - e.a['data-i']) * 10 - sc.scrollTop; return {top: t, bottom: t + 10}; }}); })(e); } });"
+                 "click(2,'dcol'); out.a = {s: sc.scrollTop, hidden: state().hidden}; click(29,'hrow'); out.b = sc.scrollTop;"
+                 "click(15,'hrow'); out.c = sc.scrollTop; click(0,'dcol'); out.d = sc.scrollTop;")
+        out = self.run_js(steps, v="hourly", d0=29, areas=areas)
+        self.assertEqual(out["a"]["s"], 180)  # hour 2 is the 28th row (y 370..380): scrolled just far enough to end at the viewport's bottom
+        self.assertEqual(out["a"]["hidden"], [False, False, True])  # the band is on that old hour (the list highlights its row itself, no row sprite)
+        self.assertEqual(out["b"], 0)  # back to the newest row: scrolled to the top
+        self.assertEqual(out["c"], 50)  # a half-hidden row is brought fully into view
+        self.assertEqual(out["d"], 200)  # the oldest hour of the week: the list scrolled to its last row
 
     def test_palette_switch_reloads_the_sprites_and_hidden_view_loads_nothing(self):
         out = self.run_js("click(1,'dcol'); img.a.src = 'pal/orange-deepblue/week-daily.png?v=9'; img.getAttribute = function (k) { return k === 'src' ? 'pal/orange-deepblue/week-daily.png?v=9' : this.a[k] || null; };"
