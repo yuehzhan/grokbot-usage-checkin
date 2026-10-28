@@ -61,6 +61,9 @@ STR = {
         "clock_rt": {"wk": "this week", "1m": "last month", "3m": "last quarter", "6m": "last 6 months", "1y": "last year", "all": "all"},
         "clock_ro": {"wk": "This week", "1m": "Last month", "3m": "Last quarter", "6m": "Last 6 months", "1y": "Last year", "all": "All"}, "clock_rl": "Range",
         "clock_lo": {"ov": "Overlay", "sd": "Side by side"}, "clock_ll": "Layout", "clock_fo": {"t": "Translucent", "s": "Solid"}, "clock_fl": "Fill",
+        "clock_dl": "Hours", "clock_do": {"24": "Last 24 h", "auto": "Last 12 h", "am": "AM 12 h", "pm": "PM 12 h"},
+        "clock_hl": {"am": "AM 0:00–12:00", "pm": "PM 12:00–24:00"}, "clock_hp": "{h} · {s}",
+        "clock_face": {"am": "AM", "pm": "PM"}, "clock_tg": "{t} ({h})", "clock_1h": {"am": "Usage Clock — AM 12 hours", "pm": "Usage Clock — PM 12 hours"}, "clock_1a": "Usage Clock — last 12 hours ({h})",
         "clock_wd": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], "clock_day": "{wd} {md}", "clock_wkl": "Wk {i} {a}–{b}",
         "clock_mon": "{mon} {y}", "clock_q": "Q{q} {y}", "clock_today": "{l} (today)", "clock_curp": "{l} (now)",
         "clock_note_g": "Times in {z} · colour = day (or week / month / quarter), see the legend · length = % increase in that hour · long gaps skipped",
@@ -74,7 +77,7 @@ STR = {
         "category": "Category", "per_cat": "Per category", "count": "Check-ins", "share": "Share", "last_ck": "Last",
         "week": "Week start", "days": "Days", "peak": "Peak", "pace": "Pace", "at100": "100%", "yes": "yes",
         "month": "Month", "amount": "Amount", "weekly_detail": "Weekly detail", "conn_err": "Cannot reach local server",
-        "clock_sub": "% increase per hour ({z}); 0:00 at top, clockwise. Left: last 24 hours. Right: colour = day (or week / month / quarter), see the legend under the dial; length = % increase in that hour", "no_clock": "Collecting data — clock charts appear after sampling starts",
+        "clock_sh": "% increase per hour ({z}); 12 at top, clockwise. Left: {l}. Right: the same 12 hours, colour = day (or week / month / quarter), see the legend under the dial; length = % increase in that hour", "clock_sl": {"am": "AM 12 hours (0:00–12:00)", "pm": "PM 12 hours (12:00–24:00)"}, "clock_sa": "last 12 hours ({h})", "clock_sub": "% increase per hour ({z}); 0:00 at top, clockwise. Left: last 24 hours. Right: colour = day (or week / month / quarter), see the legend under the dial; length = % increase in that hour", "no_clock": "Collecting data — clock charts appear after sampling starts",
         "hour_fmt": "{h}",
     },
     "zh-TW": {
@@ -90,6 +93,9 @@ STR = {
         "clock_rt": {"wk": "本週", "1m": "近一月", "3m": "近一季", "6m": "近半年", "1y": "近一年", "all": "全部"},
         "clock_ro": {"wk": "本週", "1m": "近一月", "3m": "近一季", "6m": "近半年", "1y": "近一年", "all": "全部"}, "clock_rl": "範圍",
         "clock_lo": {"ov": "疊加", "sd": "並排"}, "clock_ll": "排列", "clock_fo": {"t": "半透明", "s": "實心"}, "clock_fl": "填色",
+        "clock_dl": "時制", "clock_do": {"24": "近 24 小時", "auto": "近 12 小時", "am": "上午 12 小時", "pm": "下午 12 小時"},
+        "clock_hl": {"am": "上午 0:00–12:00", "pm": "下午 12:00–24:00"}, "clock_hp": "{h}　{s}",
+        "clock_face": {"am": "上午", "pm": "下午"}, "clock_tg": "{t}（{h}）", "clock_1h": {"am": "用量時鐘 — 上午 12 小時", "pm": "用量時鐘 — 下午 12 小時"}, "clock_1a": "用量時鐘 — 近 12 小時（{h}）",
         "clock_wd": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"], "clock_day": "{md} {wd}", "clock_wkl": "第{i}週 {a}–{b}",
         "clock_mon": "{y}年{m}月", "clock_q": "{y} Q{q}", "clock_today": "{l}（今天）", "clock_curp": "{l}（目前）",
         "clock_note_g": "時刻為 {z} · 顏色 = 不同天（或週／月／季），對照圖例 · 長度 = 該小時用量增加 · 間隔過長略過",
@@ -103,7 +109,7 @@ STR = {
         "category": "類別", "per_cat": "各類別統計", "count": "次數", "share": "占比", "last_ck": "最近一次",
         "week": "週起始", "days": "天數", "peak": "峰值", "pace": "基準", "at100": "達 100%", "yes": "是",
         "month": "月份", "amount": "金額", "weekly_detail": "每週明細", "conn_err": "無法連線到本機服務",
-        "clock_sub": "每小時用量增加（{z}），0 時在上、順時針。左圖：近 24 小時。右圖：顏色 = 不同天（或週／月／季），對照下方圖例；長度 = 該小時用量增加", "no_clock": "資料收集中 — 開始取樣後才會產生時鐘圖",
+        "clock_sh": "每小時用量增加（{z}），12 時在上、順時針。左圖：{l}。右圖：同樣的 12 小時，顏色 = 不同天（或週／月／季），對照下方圖例；長度 = 該小時用量增加", "clock_sl": {"am": "上午 12 小時（0:00–12:00）", "pm": "下午 12 小時（12:00–24:00）"}, "clock_sa": "近 12 小時（{h}）", "clock_sub": "每小時用量增加（{z}），0 時在上、順時針。左圖：近 24 小時。右圖：顏色 = 不同天（或週／月／季），對照下方圖例；長度 = 該小時用量增加", "no_clock": "資料收集中 — 開始取樣後才會產生時鐘圖",
         "hour_fmt": "{h}時",
     },
 }
@@ -114,8 +120,10 @@ STR["zh-CN"] = dict(STR["zh-TW"], **{
     "clock_rt": {"wk": "本周", "1m": "近一月", "3m": "近一季", "6m": "近半年", "1y": "近一年", "all": "全部"},
     "clock_ro": {"wk": "本周", "1m": "近一月", "3m": "近一季", "6m": "近半年", "1y": "近一年", "all": "全部"}, "clock_rl": "范围",
     "clock_lo": {"ov": "叠加", "sd": "并排"}, "clock_ll": "排列", "clock_fo": {"t": "半透明", "s": "实心"}, "clock_fl": "填色",
+    "clock_dl": "时制", "clock_do": {"24": "近 24 小时", "auto": "近 12 小时", "am": "上午 12 小时", "pm": "下午 12 小时"},
+    "clock_1h": {"am": "用量时钟 — 上午 12 小时", "pm": "用量时钟 — 下午 12 小时"}, "clock_1a": "用量时钟 — 近 12 小时（{h}）", "clock_tg": "{t}（{h}）",
     "clock_wd": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"], "clock_wkl": "第{i}周 {a}–{b}", "clock_curp": "{l}（当前）",
-    "clock_sub": "每小时用量增加（{z}），0 时在上、顺时针。左图：近 24 小时。右图：颜色 = 不同天（或周／月／季），对照下方图例；长度 = 该小时用量增加",
+    "clock_sh": "每小时用量增加（{z}），12 时在上、顺时针。左图：{l}。右图：同样的 12 小时，颜色 = 不同天（或周／月／季），对照下方图例；长度 = 该小时用量增加", "clock_sl": {"am": "上午 12 小时（0:00–12:00）", "pm": "下午 12 小时（12:00–24:00）"}, "clock_sa": "近 12 小时（{h}）", "clock_sub": "每小时用量增加（{z}），0 时在上、顺时针。左图：近 24 小时。右图：颜色 = 不同天（或周／月／季），对照下方图例；长度 = 该小时用量增加",
     "clock_note_g": "时刻为 {z} · 颜色 = 不同天（或周／月／季），对照图例 · 长度 = 该小时用量增加 · 间隔过长略过",
 })
 STR["numeric"] = dict(STR["en"], **{
@@ -126,12 +134,15 @@ STR["numeric"] = dict(STR["en"], **{
     "clock_eyebrow": "", "clock_1d": "◷ 1", "clock_r": "◷ {r}", "clock_rt": {"wk": "W", "1m": "1M", "3m": "3M", "6m": "6M", "1y": "1Y", "all": "∞"},
     "clock_ro": {"wk": "W", "1m": "1M", "3m": "3M", "6m": "6M", "1y": "1Y", "all": "∞"}, "clock_rl": "◷",
     "clock_lo": {"ov": "▤", "sd": "▥"}, "clock_ll": "◫", "clock_fo": {"t": "◌", "s": "●"}, "clock_fl": "◐",
+    "clock_dl": "12/24", "clock_do": {"24": "24", "auto": "12", "am": "0–11", "pm": "12–23"},
+    "clock_hl": {"am": "0:00–12:00", "pm": "12:00–24:00"}, "clock_hp": "{h} · {s}",
+    "clock_face": {"am": "0–11", "pm": "12–23"}, "clock_tg": "{t} ({h})", "clock_1h": {"am": "◷ 0–11", "pm": "◷ 12–23"}, "clock_1a": "◷ 12 ({h})",
     "clock_wd": ["1", "2", "3", "4", "5", "6", "7"], "clock_day": "{md}", "clock_wkl": "{i}: {a}–{b}", "clock_mon": "{y}-{m:02d}", "clock_q": "{y} Q{q}",
     "clock_today": "{l} ●", "clock_curp": "{l} ●", "clock_note_g": "", "clock_peak": "▲ {h}–{h2}  +{v:.1f}  ({n})", "clock_none": "∅",
     "collecting": "{n}/{m}", "clock_note": "", "ck_legend": "✓ {n}", "last": "↻ {t}", "last_short": "↻ {t}", "refresh": "↻", "loading": "…", "refreshing": "… {s}", "ph_read": "", "ph_draw": "",
     "range": "", "name": "", "all": "∗", "note": "", "time": "", "recent": "✓", "per_name": "∑", "top_hour": "▲",
     "none_ck": "∅", "ck_btn": "✓", "ck_hint": "", "week": "", "days": "D", "peak": "▲", "pace": "→", "at100": "100",
-    "yes": "▲", "month": "", "amount": "$", "weekly_detail": "", "conn_err": "×", "clock_sub": "", "no_clock": "∅", "hour_fmt": "{h}",
+    "yes": "▲", "month": "", "amount": "$", "weekly_detail": "", "conn_err": "×", "clock_sh": "", "clock_sl": {"am": "", "pm": ""}, "clock_sa": "", "clock_sub": "", "no_clock": "∅", "hour_fmt": "{h}",
 })
 
 LATIN_LANGS = l10n.LANGS  # es, pt, fr, de, id: page strings in usage_history_l10n, merged over English
@@ -1130,6 +1141,38 @@ def hourly_rates(samples, since, max_gap_h, until=None):
 
 
 CLOCK_MODES = ("ot", "os", "sd")  # overlay translucent (default) / overlay solid / side by side
+# 時制: "24" = the whole day on a 24-slot dial (0:00 at the top, default); "am" / "pm" = only hours 0-11 / 12-23 on a
+# 12-hour clock face (12 at the top). The other half is left out, never folded onto the shown one. "auto" (近 12 小時)
+# is not a drawing of its own: it picks "am" (local hour < 12) or "pm" at render time and then is exactly that half.
+CLOCK_DIALS = ("24", "auto", "am", "pm")
+
+
+AUTO_FILES = ("auto-am", "auto-pm")  # the left dial of 近 12 小時 is its own file (its title differs from an explicit AM / PM)
+
+
+def dial_for(dial, now, key):
+    """The dial token that names a PNG: the resolved half, 'auto-am' / 'auto-pm' for the left dial of 近 12 小時."""
+    half = resolve_dial(dial, now)
+    return f"auto-{half}" if dial == "auto" and key == "1d" else half
+
+
+def resolve_dial(dial, now):
+    """'auto' -> 'am' before 12:00 local time, 'pm' from 12:00 on; every other value is returned as is."""
+    return ("am" if now.hour < 12 else "pm") if dial == "auto" else dial
+
+
+def dial_hours(dial):
+    return list(range(12)) if dial == "am" else (list(range(12, 24)) if dial == "pm" else list(range(24)))
+
+
+def clock_sub_texts(L, zl):
+    """The line under the clock toolbar for every Hours state the page can show, keyed '24' / 'am' / 'pm' / 'auto-am' /
+    'auto-pm' (the page picks one when the menu changes). 24H is the v1.5.1 sentence, character for character."""
+    out = {"24": L["clock_sub"].format(z=zl)}
+    for h in ("am", "pm"):
+        out[h] = L["clock_sh"].format(z=zl, l=L["clock_sl"][h])
+        out["auto-" + h] = L["clock_sh"].format(z=zl, l=L["clock_sa"].format(h=L["clock_hl"][h]))
+    return out
 
 
 def clock_periods(ctx, key, since, now, samples):
@@ -1194,7 +1237,24 @@ def _md(L, d):
     return L.get("md_fmt", "{m:02d}/{d:02d}").format(m=d.month, d=d.day)
 
 
-def _clock_theta(t):
+def _half_spans(L, since, now, dial):
+    """The stretches of [since, now] that fall in the AM (0-11) or PM (12-23) half, oldest first, as text:
+    '10-27 02:37–12:00' (a stretch that ends at midnight reads 24:00). Over 24 h they add up to 12 hours."""
+    lo, hi = (0, 12 * 60) if dial == "am" else (12 * 60, 24 * 60)
+    out, day = [], since.replace(hour=0, minute=0, second=0, microsecond=0)
+    while day <= now:
+        a, b = max(since, day + timedelta(minutes=lo)), min(now, day + timedelta(minutes=hi))
+        if b > a:
+            mm = lambda t, d=day: int((t - d).total_seconds() // 60)
+            f = lambda m: f"{m // 60:02d}:{m % 60:02d}"
+            out.append(f"{_md(L, day)} {f(mm(a))}–{f(mm(b))}")
+        day = (day + timedelta(days=1, hours=12)).replace(hour=0, minute=0, second=0, microsecond=0)  # next local midnight
+    return out
+
+
+def _clock_theta(t, dial="24"):
+    if dial in ("am", "pm"):
+        return (((t.hour % 12) + t.minute / 60) / 12) * 2 * math.pi
     return ((t.hour + t.minute / 60) / 24) * 2 * math.pi
 
 
@@ -1247,7 +1307,7 @@ def clock_hotspots(ctx, fig, ax, marks, colors, names, now):
     return {"w": int(round(W)), "h": int(round(H)), "spots": out}
 
 
-def draw_clock(ctx, samples, cks, colors, path, title, since, now, zl, key="1d", mode="ot"):
+def draw_clock(ctx, samples, cks, colors, path, title, since, now, zl, key="1d", mode="ot", dial="24"):
     import chart_hud  # trim_num / sfmt: one decimal only when needed
     plt = _plt(ctx)
     from matplotlib.colors import LinearSegmentedColormap, Normalize, to_rgba
@@ -1256,35 +1316,54 @@ def draw_clock(ctx, samples, cks, colors, path, title, since, now, zl, key="1d",
     T, L = ctx.theme, ctx.L
     cmap = LinearSegmentedColormap.from_list("hud", [T["under_color"], T["over_color"]])
     max_gap = max(2.0, 1.5 * ctx.interval / 60)
-    b, n = hourly_rates(samples, since, max_gap)
-    avg = [(sum(v) / len(v)) if v else 0.0 for _, v in sorted(b.items())]
+    auto = dial == "auto" or dial in AUTO_FILES  # 近 12 小時: the drawing of the half it resolves to, with its own left-dial title
+    dial = dial[5:] if dial in AUTO_FILES else dial
+    dial = resolve_dial(dial if dial in CLOCK_DIALS else "24", now)
+    hrs = dial_hours(dial); S = len(hrs)  # slots on the dial; summaries count only the hours shown
+    b, _n = hourly_rates(samples, since, max_gap)
+    n = sum(len(b[h]) for h in hrs)
+    avg = [(sum(b[h]) / len(b[h])) if b[h] else 0.0 for h in hrs]
     need = max(6, min(24, int(24 * 60 / ctx.interval)))
+    if S < 24:
+        need = max(3, need // 2)
+    half = L["clock_hl"][dial] if S < 24 else ""
     periods = clock_periods(ctx, key, since, now, samples)
     series = []  # (label, colour, [24 values], has_data, is_current)
     if periods:
         cols = usage_palette.period_colors(T["palette"], T["is_light"], 8)
         for gi, (lab, a, e, cur) in enumerate(periods):
-            gb, gn = hourly_rates(samples, a, max_gap, e)
-            series.append((lab, cols[gi % len(cols)], [(sum(v) / len(v)) if v else 0.0 for _, v in sorted(gb.items())], gn > 0, cur))
+            gb, _gn = hourly_rates(samples, a, max_gap, e)
+            series.append((lab, cols[gi % len(cols)], [(sum(gb[h]) / len(gb[h])) if gb[h] else 0.0 for h in hrs],
+                           any(gb[h] for h in hrs), cur))
     fig = plt.figure(figsize=(7.2, 8.6), dpi=110, facecolor=T["bg_color"])
     if L["clock_eyebrow"]:
         fig.text(0.05, 0.972, L["clock_eyebrow"], color=T["accent_color"], fontsize=9.5, fontweight="bold", va="top")
+    if S < 24:  # the title says what is drawn: the left dial covers 12 hours, the range dial is "… this week (AM)"
+        if key != "1d":
+            title = L["clock_tg"].format(t=title, h=L["clock_face"][dial])
+        else:
+            title = L["clock_1a"].format(h=L["clock_face"][dial]) if auto else L["clock_1h"][dial]
     title_t = fig.text(0.05, 0.94, title, color=T["text_color"], fontsize=18, fontweight="bold", va="center")
     st = since or (samples[0][0] if samples else now)
-    fig.text(0.05, 0.908, f"{st:%Y-%m-%d %H:%M} → {now:%Y-%m-%d %H:%M}" + ("" if ctx.privacy else f" ({zl})") + f" · n={n}",
+    if S < 24 and key == "1d":  # last 24 h ∩ this half: exactly 12 clock hours, as one or two stretches (never the 24 h range)
+        span = " + ".join(_half_spans(L, st, now, dial))
+        sub = span + ("" if ctx.privacy else f" ({zl})") + f" · n={n}"
+    else:
+        sub = f"{st:%Y-%m-%d %H:%M} → {now:%Y-%m-%d %H:%M}" + ("" if ctx.privacy else f" ({zl})") + (f" · {half}" if half else "") + f" · n={n}"
+    fig.text(0.05, 0.908, sub,
              color=T["dim"], fontsize=10, fontweight="bold", va="center")
     ax = fig.add_axes([0.14, 0.27, 0.72, 0.59], projection="polar", facecolor=T["card"])
     ax.set_theta_zero_location("N"); ax.set_theta_direction(-1)
-    w = 2 * math.pi / 24; th = [(h + 0.5) * w for h in range(24)]
+    w = 2 * math.pi / S; th = [(i + 0.5) * w for i in range(S)]
     vmax = max([max(avg), 1.0] + [max(v) for _, _, v, _, _ in series]); norm = Normalize(0, vmax)
     if not series:
         ax.bar(th, avg, width=w * 0.86, color=[cmap(norm(a)) for a in avg], edgecolor=T["border"], lw=0.6, alpha=0.95, zorder=3)
     elif mode == "sd":  # thin wedges side by side, one per period, oldest first (clockwise)
         g = len(series); ww = w * 0.86 / g
         for gi, (_, col, vals, _, _) in enumerate(series):
-            ax.bar([h * w + w * 0.07 + (gi + 0.5) * ww for h in range(24)], vals, width=ww * 0.92, color=col, edgecolor=T["card"], lw=0.3, zorder=3)
+            ax.bar([i * w + w * 0.07 + (gi + 0.5) * ww for i in range(S)], vals, width=ww * 0.92, color=col, edgecolor=T["card"], lw=0.3, zorder=3)
     else:  # overlay: full-width bars per hour, longest drawn first so a shorter bar never hides a taller one
-        for h in range(24):
+        for h in range(S):
             order = sorted(range(len(series)), key=lambda gi: -series[gi][2][h])
             for rank, gi in enumerate(order):
                 v = series[gi][2][h]
@@ -1295,22 +1374,30 @@ def draw_clock(ctx, samples, cks, colors, path, title, since, now, zl, key="1d",
                     ax.bar(th[h], v, width=w * 0.86, color=col, edgecolor=T["card"], lw=0.6, zorder=3 + rank * 0.01)
                 else:
                     ax.bar(th[h], v, width=w * 0.86, facecolor=to_rgba(col, 0.4), edgecolor=col, lw=1.1, zorder=3 + rank * 0.01)
-    ax.set_xticks([h * w for h in range(0, 24, 3)])
-    ax.set_xticklabels([L["hour_fmt"].format(h=h) for h in range(0, 24, 3)], color=T["text_color"], fontsize=11, fontweight="bold")
+    if S < 24:  # a traditional clock face: 12 at the top, then 1-11 clockwise
+        ax.set_xticks([i * w for i in range(12)])
+        ax.set_xticklabels([str(i or 12) for i in range(12)], color=T["text_color"], fontsize=12, fontweight="bold")
+    else:
+        ax.set_xticks([h * w for h in range(0, 24, 3)])
+        ax.set_xticklabels([L["hour_fmt"].format(h=h) for h in range(0, 24, 3)], color=T["text_color"], fontsize=11, fontweight="bold")
     ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{chart_hud.trim_num(v)}%")); ax.set_rlabel_position(7.5)
     ax.tick_params(axis="y", colors=T["dim"], labelsize=8); ax.grid(color=T["grid"], alpha=0.5, ls=":", lw=0.8)
     ax.spines["polar"].set_color(T["border"])
-    ck = [r for r in cks if r["t"] <= now and (since is None or r["t"] >= since)]
+    ck = [r for r in cks if r["t"] <= now and (since is None or r["t"] >= since) and r["t"].hour in hrs]
     names = []
     for r in ck:
         if r["name"] not in names:
             names.append(r["name"])
     shown = names[:8]
     ax.set_ylim(0, vmax * (1.15 + 0.07 * len(shown)))
+    if S < 24:  # 12-hour face: bars start at a small hub that carries the half (上午 / 下午), like a clock's AM / PM marker
+        ax.set_rorigin(-vmax * (1.15 + 0.07 * len(shown)) * 0.2)
+        ax.text(0.5, 0.5, L["clock_face"][dial], transform=ax.transAxes, color=T["text_color"], fontsize=12, fontweight="bold",
+                ha="center", va="center", alpha=0.9, zorder=7, gid="clock_face")
     marks = []  # (check-in row, theta, r) of every dot drawn: the page's hover tooltips (clock_hotspots)
     for i, nm in enumerate(shown):
         rows = [r for r in ck if r["name"] == nm]
-        tt = [_clock_theta(r["t"]) for r in rows]
+        tt = [_clock_theta(r["t"], dial) for r in rows]
         ax.scatter(tt, [vmax * (1.12 + 0.07 * i)] * len(tt), s=22, color=colors[nm], edgecolors=T["card"], linewidths=0.5, zorder=6,
                    label=(f"#{names.index(nm) + 1}" if ctx.privacy else nm))
         marks += [(r, a, vmax * (1.12 + 0.07 * i)) for r, a in zip(rows, tt)]
@@ -1324,10 +1411,12 @@ def draw_clock(ctx, samples, cks, colors, path, title, since, now, zl, key="1d",
             if a > 0 and a >= vmax * 0.35:
                 ax.text(th[h], a + vmax * 0.06, chart_hud.trim_num(a), color=T["text_color"], fontsize=8, ha="center", va="center", zorder=5)
     if n:
-        top = max(range(24), key=lambda h: avg[h])
-        summ = chart_hud.sfmt(L["clock_peak"], h=top, h2=top + 1, v=float(avg[top]), n=n)
+        top = max(range(S), key=lambda i: avg[i])
+        summ = chart_hud.sfmt(L["clock_peak"], h=hrs[top], h2=hrs[top] + 1, v=float(avg[top]), n=n)
     else:
         summ = L["clock_none"]
+    if half:  # say which half the peak / average / count describe
+        summ = L["clock_hp"].format(h=half, s=summ)
     fig.text(0.5, 0.222, summ, color=T["text_color"], fontsize=11, fontweight="bold", ha="center")
     if series:  # legend under the dial: colour = period (oldest first); periods without data are dimmed
         hs = [Patch(facecolor=to_rgba(col, 0.45 if (mode == "ot" and has) else (1.0 if has else 0.25)), edgecolor=to_rgba(col, 1.0 if has else 0.3),
@@ -1375,7 +1464,7 @@ def _clear_badge(fig, title_t, badge):
             title_t.set_fontsize(fs)
 
 
-CLOCK_JSON_RE = re.compile(r"^clock-(1d|[a-z0-9]{1,4}-(ot|os|sd))\.json$")  # check-in dot tooltips (clock_hotspots)
+CLOCK_JSON_RE = re.compile(r"^clock-(1d|[a-z0-9]{1,4}-(ot|os|sd))((?:-auto)?-am|(?:-auto)?-pm)?\.json$")  # check-in dot tooltips (clock_hotspots)
 GEN_FILE = ".gen"  # history/.gen: id of the latest render; history/pal/<name>/.gen: render that palette matches
 
 
@@ -1462,17 +1551,19 @@ def _clock_title(ctx, key):
     return L["clock_1d"] if key == "1d" else L["clock_r"].format(r=L["clock_rt"][key])
 
 
-def clock_file(key, mode=None):
-    return "clock-1d.png" if key == "1d" else f"clock-{key}-{mode or CLOCK_MODES[0]}.png"
+def clock_file(key, mode=None, dial="24"):
+    sfx = f"-{dial}" if dial in ("am", "pm") + AUTO_FILES else ""
+    return f"clock-1d{sfx}.png" if key == "1d" else f"clock-{key}-{mode or CLOCK_MODES[0]}{sfx}.png"
 
 
 def _draw_clocks(ctx, names, now, zl, s, ck, items=(("1d", None), ("wk", "ot"))):
     cks, _, colors = ck
     for name, d in _palette_dirs(ctx, names):
         d.mkdir(parents=True, exist_ok=True)
-        for key, mode in items:
-            _with_palette(ctx, name, lambda: draw_clock(ctx, s, cks, colors, d / clock_file(key, mode), _clock_title(ctx, key),
-                                                          _clock_since(ctx, key, now), now, zl, key, mode or "ot"))
+        for key, mode, *dl in items:
+            dial = dl[0] if dl else "24"
+            _with_palette(ctx, name, lambda: draw_clock(ctx, s, cks, colors, d / clock_file(key, mode, dial), _clock_title(ctx, key),
+                                                          _clock_since(ctx, key, now), now, zl, key, mode or "ot", dial))
 
 
 def render_clock(ctx):
@@ -1489,19 +1580,29 @@ def render_clock(ctx):
     return {"ok": True, "samples": len(s), "files": [str(ctx.hist_dir / "clock-1d.png"), str(ctx.hist_dir / clock_file("wk"))]}
 
 
-def render_clock_range(ctx, name, key, mode="ot"):
-    """history/pal/<name>/clock-<key>-<mode>.png for the clock tab's range / layout menus; cached until the next refresh."""
+def render_clock_range(ctx, name, key, mode="ot", dial="24"):
+    """history/pal/<name>/clock-<key>-<mode>[-am|-pm].png for the clock tab's range / layout / 時制 menus (with am / pm,
+    the 24-hour dial on the left is drawn for that half too); cached until the next refresh."""
     d = ctx.hist_dir / "pal" / name
     gen = _read_text(ctx.hist_dir / GEN_FILE)
-    fn = clock_file(key, mode)
-    stamp = d / f"{GEN_FILE}-{fn[:-4]}"
-    if gen and (d / fn).exists() and _read_text(stamp) == gen:
+    now0 = ctx.now()
+    want = [(key, mode, dial_for(dial, now0, key))] + ([("1d", None, dial_for(dial, now0, "1d"))] if dial != "24" and key != "1d" else [])
+    todo = []
+    for k, m, dl in want:
+        fn = clock_file(k, m, dl)
+        if not (gen and (d / fn).exists() and _read_text(d / f"{GEN_FILE}-{fn[:-4]}") == gen):
+            todo.append((k, m, dl))
+    if not todo:
         return False
     now, zl, s, ck = _clock_inputs(ctx)
-    _draw_clocks(ctx, [name], now, zl, s, ck, items=((key, mode),))
+    _draw_clocks(ctx, [name], now, zl, s, ck, items=tuple(todo))
     if gen:
-        _write_text(stamp, gen)
+        for k, m, dl in todo:
+            _write_text(d / f"{GEN_FILE}-{clock_file(k, m, dl)[:-4]}", gen)
     return True
+
+
+WEEK_VIEW_FILES = ("week-current.png", "week-daily.png", "week-hourly.png")  # 本週總覽 / 每日增量 per day / per hour
 
 
 def render_current_week(ctx, nowa, names=None):
@@ -1513,10 +1614,10 @@ def render_current_week(ctx, nowa, names=None):
         f = ctx.data_dir / f"week-{ws.astimezone(ctx.tz):%Y-%m-%d}.csv"
         rows = [r for r in csv.DictReader(f.open(encoding="utf-8"))] if f.exists() else []
         if not rows:
-            for d in ([out] if publish else []) + [dd / "week-current.png" for _, dd in _palette_dirs(ctx, names)]:
-                for x in (d, d.with_suffix(".json")):
-                    if x.exists():
-                        x.unlink()
+            for d in ([ctx.hist_dir] if publish else []) + [dd for _, dd in _palette_dirs(ctx, names)]:
+                for fn in WEEK_VIEW_FILES + ("week-current.json",):
+                    if (d / fn).exists():
+                        (d / fn).unlink()
             return False
         import chart_hud
         # hourly readings narrow a mid-week reset's estimated time (usage_rate.py)
@@ -1524,17 +1625,20 @@ def render_current_week(ctx, nowa, names=None):
         for name, d in _palette_dirs(ctx, names):
             d.mkdir(parents=True, exist_ok=True)
             base, pat = usage_palette.split_key(strip_offset(name))
-            meta = chart_hud.render(rows, str(d / "week-current.png"), f"{ws.astimezone(ctx.tz):%Y-%m-%d}",
-                             {"lang": "numeric" if ctx.privacy else ctx.lang, "privacy": ctx.privacy, "pace": ctx.pace,
-                              "palette": base, "reset_hm": f"{ws.astimezone(ctx.tz):%H:%M}",
-                              "accent_color": _theme_explicit_value(ctx.theme_path, "accent"),
-                              "patterns": pat or bool(_theme_file(ctx.theme_path).get("patterns")),
-                              "display_offset": ctx.display_offset, "reset_at": shown_reset(ctx), "tz": ctx.tz_spec,
-                              "samples": samples})
+            hcfg = {"lang": "numeric" if ctx.privacy else ctx.lang, "privacy": ctx.privacy, "pace": ctx.pace,
+                    "palette": base, "reset_hm": f"{ws.astimezone(ctx.tz):%H:%M}",
+                    "accent_color": _theme_explicit_value(ctx.theme_path, "accent"),
+                    "patterns": pat or bool(_theme_file(ctx.theme_path).get("patterns")),
+                    "display_offset": ctx.display_offset, "reset_at": shown_reset(ctx), "tz": ctx.tz_spec,
+                    "samples": samples}
+            # 本週總覽 (default) + 每日增量 per day / per hour: same header and cards, the page switches between them
+            for view, fn in zip(("daily", "hourly"), WEEK_VIEW_FILES[1:]):
+                chart_hud.render(rows, str(d / fn), f"{ws.astimezone(ctx.tz):%Y-%m-%d}", dict(hcfg, view=view))
+            meta = chart_hud.render(rows, str(d / "week-current.png"), f"{ws.astimezone(ctx.tz):%Y-%m-%d}", dict(hcfg, view="week"))
             # gauge geometry/colours for the page's animated overlay (the PNG stays the static export)
             _write_text(d / "week-current.json", json.dumps(meta or {}, ensure_ascii=False))
         if publish:
-            _publish_default(ctx, ["week-current.png", "week-current.json"])
+            _publish_default(ctx, list(WEEK_VIEW_FILES) + ["week-current.json"])
         return True
     except Exception as exc:
         print(f"Warning: current week chart failed: {exc}", file=sys.stderr)
@@ -1603,7 +1707,7 @@ def _prune_custom(ctx, keep):
         shutil.rmtree(d, ignore_errors=True)
 
 
-def render_palette(ctx, name, clock=None, mode=None, patterns=False):
+def render_palette(ctx, name, clock=None, mode=None, patterns=False, dial=None):
     """Draw one palette's full image set into history/pal/<key>/ when the page switches to it (plus, with
     clock=<range>, that clock-tab range); key = name, or name + '-pat' with patterns. Cached: nothing is drawn
     while the files match the latest render."""
@@ -1617,13 +1721,17 @@ def render_palette(ctx, name, clock=None, mode=None, patterns=False):
         return {"ok": False, "error": "unknown clock range"}
     if mode is not None and mode not in CLOCK_MODES:
         return {"ok": False, "error": "unknown clock layout"}
-    extra = clock is not None and (clock, mode or "ot") != ("wk", "ot")
+    if dial is not None and dial not in CLOCK_DIALS:
+        return {"ok": False, "error": "unknown clock dial"}
+    raw = dial or "24"
+    dial = resolve_dial(raw, ctx.now())  # "auto" is today's half; the page learns which from the reply
+    extra = clock is not None and (clock, mode or "ot", dial) != ("wk", "ot", "24")
     d = ctx.hist_dir / "pal" / name
     gen = _read_text(ctx.hist_dir / GEN_FILE)
     t0 = time.perf_counter()
     if gen and _read_text(d / GEN_FILE) == gen:
-        drew = extra and render_clock_range(ctx, name, clock, mode or "ot")
-        out = {"ok": True, "name": name, "v": gen, "cached": not drew}
+        drew = extra and render_clock_range(ctx, name, clock, mode or "ot", raw)
+        out = {"ok": True, "name": name, "v": gen, "cached": not drew, "dial": dial}
         return dict(out, seconds=round(time.perf_counter() - t0, 2)) if drew else out
     ctx.hist_dir.mkdir(parents=True, exist_ok=True)
     now, zl, s, ck = _clock_inputs(ctx)
@@ -1635,8 +1743,8 @@ def render_palette(ctx, name, clock=None, mode=None, patterns=False):
         gen = f"{time.time_ns():x}"; _write_text(ctx.hist_dir / GEN_FILE, gen)
     _write_text(d / GEN_FILE, gen)
     if extra:
-        render_clock_range(ctx, name, clock, mode or "ot")
-    return {"ok": True, "name": name, "v": gen, "cached": False, "seconds": round(time.perf_counter() - t0, 2)}
+        render_clock_range(ctx, name, clock, mode or "ot", raw)
+    return {"ok": True, "name": name, "v": gen, "cached": False, "dial": dial, "seconds": round(time.perf_counter() - t0, 2)}
 
 
 # Ledger status bar + browser notifications (Web Notifications API; permission is asked from a button,
@@ -1923,7 +2031,7 @@ CLOCKTIP_JS = r"""(function(){var $=function(i){return document.getElementById(i
 var S=D.s||{},MAX=D.max||8,uid=0,all=[];
 function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=String(x);return e;}
 function fmt(t,n){return String(t||'').replace('{n}',n);}
-function rk(f){var m=/^clock-(1d|[a-z0-9]+)(?:-[a-z]+)?\.png$/.exec(f||'');return m?m[1]:null;}
+function rk(f){var m=/^clock-(1d|[a-z0-9]+)(?:-(?:ot|os|sd))?(?:-auto)?(-[ap]m)?\.png$/.exec(f||'');return m?m[1]+(m[2]||''):null;}
 function setup(img){var fig=img.parentNode,w=el('div','ctwrap');fig.insertBefore(w,img);w.appendChild(img);
 var layer=el('div','ctlayer'),tip=el('div','cttip');tip.id='cttip'+(++uid);tip.setAttribute('role','tooltip');tip.hidden=true;layer.setAttribute('role','group');
 w.appendChild(layer);w.appendChild(tip);var st={spots:[],btns:[],cur:[],pin:false,pt:'mouse',f:null},me={w:w,hide:hide,st:st};all.push(me);
@@ -1987,17 +2095,18 @@ def clocktip_css(card, tx, dim):
             " .cttip .cti+.cti{border-top:1px solid var(--bd);margin-top:4px;padding-top:4px} .cttip .cth{display:flex;align-items:center;gap:6px}"
             f" .cttip .ctk,.cttip .ctt,.cttip .ctc,.cttip .ctmore{{color:{dim}}} .cttip .ctk{{margin-left:auto;padding-left:10px;white-space:nowrap}}"
             " .cttip .ctt>span{white-space:nowrap} .cttip .ctnote{white-space:pre-wrap;overflow-wrap:anywhere} .cttip .ctmore{margin-top:4px;font-weight:700}")
-PALETTE_JS = r"""(function(){var $=function(i){return document.getElementById(i);},P=JSON.parse($('paldata').textContent),KEY='usage.palette',PKEY='usage.patterns',pchk=$('patchk'),CK={r:'usage.clockRange',l:'usage.clockLayout',f:'usage.clockFill'},D={r:'wk',l:'ov',f:'t'},
-served=/^https?:$/.test(location.protocol),btn=$('palbtn'),msg=$('palmsg'),V=P.light?'light':'dark',cur=P.base,pat=!!P.pat,CR={r:'wk',l:'ov',f:'t'},seq=0,
-TKN=(document.querySelector('meta[name="usage-token"]')||{}).content||'',clk=$('clkimg'),
+PALETTE_JS = r"""(function(){var $=function(i){return document.getElementById(i);},P=JSON.parse($('paldata').textContent),KEY='usage.palette',PKEY='usage.patterns',pchk=$('patchk'),CK={r:'usage.clockRange',l:'usage.clockLayout',f:'usage.clockFill',d:'usage.clockDial'},D={r:'wk',l:'ov',f:'t',d:'24'},
+served=/^https?:$/.test(location.protocol),btn=$('palbtn'),msg=$('palmsg'),V=P.light?'light':'dark',cur=P.base,pat=!!P.pat,CR={r:'wk',l:'ov',f:'t',d:'24'},seq=0,
+TKN=(document.querySelector('meta[name="usage-token"]')||{}).content||'',clk=$('clkimg'),clk1=$('clk1img'),
 imgs=[].slice.call(document.querySelectorAll('img[data-f]'));imgs.forEach(function(i){i.dataset.orig=i.getAttribute('src');i.dataset.f0=i.dataset.f;});
 function rgb(h){h=String(h).replace('#','');if(h.length==3)h=h.replace(/./g,'$&$&');return [0,2,4].map(function(i){return parseInt(h.substr(i,2),16)||0;});}
 function mix(a,b,t){var x=rgb(a),y=rgb(b);return '#'+x.map(function(v,i){return ('0'+Math.round(v+(y[i]-v)*t).toString(16)).slice(-2);}).join('');}
 function lum(h){var c=rgb(h).map(function(v){v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4);});return 0.2126*c[0]+0.7152*c[1]+0.0722*c[2];}
 function vars(n){var c=P.table[n][V],o={};['over','under','baseline','notice'].forEach(function(k){if(!P.fixed[k])o['--'+k]=c[k];});
 var a=P.fixed.accent?P.accent:(P.fixed.under?P.under:c.under);o['--accent']=a;o['--bd']=mix(P.bg,a,0.25);o['--on-accent']=lum(a)>0.4?'#0B0F14':'#FFFFFF';o['--acc-hl']=lum(a)>0.4?'#FFFFFF':a;o['--m-eye']=o['--m-mouth']=(lum(a)+0.05)/(lum('#1B1F24')+0.05)>=3?'#1B1F24':'#050506';return o;}
-function mode(c){return c.l==='sd'?'sd':'o'+c.f;}function same(a,b){return a.r===b.r&&a.l===b.l&&a.f===b.f;}
-function fileOf(i,c){return i===clk?'clock-'+c.r+'-'+mode(c)+'.png':i.dataset.f0;}
+function mode(c){return c.l==='sd'?'sd':'o'+c.f;}function same(a,b){return a.r===b.r&&a.l===b.l&&a.f===b.f&&a.d===b.d;}
+function half(c){var d=c.x||c.d;return d==='auto'?(new Date().getHours()<12?'am':'pm'):d;}function dsfx(c,left){var d=half(c);return d==='am'||d==='pm'?(left&&c.d==='auto'?'-auto-':'-')+d:'';}
+function fileOf(i,c){return i===clk?'clock-'+c.r+'-'+mode(c)+dsfx(c)+'.png':(i===clk1?'clock-1d'+dsfx(c,1)+'.png':i.dataset.f0);}
 function key(n,p){return (p?n+'-pat':n)+P.osfx;}
 // custom colours: the key carries the pair (custom-<under><over>); remembered in localStorage 'usage.customColors'
 var CCK='usage.customColors',CC=P.cc,cpk=$('cpick'),ccu=$('ccu'),cco=$('cco'),cch=$('cchint');
@@ -2036,23 +2145,32 @@ mark:function(v){opts.forEach(function(o){o.setAttribute('aria-selected',o.datas
 var PL=listbox(btn,$('pallist'),$('palcur'),function(){return lv(cur);},function(v){go(v==='custom'?ckey():v,CR,true,pat);}),
 CL=listbox($('clkbtn'),$('clklist'),$('clkcur'),function(){return CR.r;},function(v){go(cur,with_('r',v),true,pat);}),
 LL=listbox($('clobtn'),$('clolist'),$('clocur'),function(){return CR.l;},function(v){go(cur,with_('l',v),true,pat);}),
-FL=listbox($('clfbtn'),$('clflist'),$('clfcur'),function(){return CR.f;},function(v){go(cur,with_('f',v),true,pat);});
-function with_(k,v){var c={r:CR.r,l:CR.l,f:CR.f};c[k]=v;return c;}
-function marks(c){CL.mark(c.r);LL.mark(c.l);FL.mark(c.f);if($('clfsel'))$('clfsel').hidden=c.l==='sd';}
+FL=listbox($('clfbtn'),$('clflist'),$('clfcur'),function(){return CR.f;},function(v){go(cur,with_('f',v),true,pat);}),
+DL=listbox($('cldbtn'),$('cldlist'),$('cldcur'),function(){return CR.d;},function(v){go(cur,with_('d',v),true,pat);});
+function with_(k,v){var c={r:CR.r,l:CR.l,f:CR.f,d:CR.d};c[k]=v;return c;}
+function marks(c){CL.mark(c.r);LL.mark(c.l);FL.mark(c.f);DL.mark(c.d);if($('clfsel'))$('clfsel').hidden=c.l==='sd';}
 // images are fetched and decoded first, then colours and images change in the same task (no half-switched page)
 function commit(n,r,us,p){var st=document.documentElement.style,o=vars(n);Object.keys(o).forEach(function(k){st.setProperty(k,o[k]);});
 imgs.forEach(function(i,j){i.dataset.f=fileOf(i,r);i.src=us[j];});cur=n;pat=p;CR=r;cshow(n);PL.mark(lv(n));marks(r);if(pchk)pchk.checked=p;document.documentElement.dataset.palette=n;document.documentElement.dataset.patterns=p?'1':'';
-document.documentElement.dataset.clock=r.r+'-'+mode(r);}
-function go(n,r,save,p){if(!P.table[n]&&!isC(n))n=P.base;p=!!(p||P.pf);var k=key(n,p);r={r:r.r,l:r.l,f:r.f};if(!clk||!CL.has(r.r))r.r=D.r;if(!LL.has(r.l))r.l=D.l;if(!FL.has(r.f))r.f=D.f;
+document.documentElement.dataset.clock=r.r+'-'+mode(r)+dsfx(r);sub(r);}
+// A page loaded before the server restarted still holds the old per-start token: the server answers 403 and the menu would
+// snap back. Keep the pick, then reload once (a second 403 within a minute is a real failure and is reported as usual).
+function revive(n,p,r){try{var t=+sessionStorage.getItem('usage.stale')||0;if(Date.now()-t<60000)return false;sessionStorage.setItem('usage.stale',String(Date.now()));
+if(isC(n))localStorage.setItem(CCK,JSON.stringify(CC));localStorage.setItem(KEY,n);localStorage.setItem(PKEY,p?'1':'0');Object.keys(CK).forEach(function(k){localStorage.setItem(CK[k],r[k]);});
+say('');location.reload();return true;}catch(e){return false;}}
+// the line under the toolbar names what the left dial shows: one text per Hours state (24 / am / pm / auto-am / auto-pm)
+var SUB=$('clksub'),SUBS={};try{SUBS=JSON.parse((SUB||{dataset:{}}).dataset.s||'{}');}catch(e){}
+function sub(c){var d=half(c),t=SUBS[d==='am'||d==='pm'?(c.d==='auto'?'auto-':'')+d:'24'];if(SUB&&t!=null)SUB.textContent=t;}
+function go(n,r,save,p){if(!P.table[n]&&!isC(n))n=P.base;p=!!(p||P.pf);var k=key(n,p);r={r:r.r,l:r.l,f:r.f,d:r.d};if(!clk||!CL.has(r.r))r.r=D.r;if(!LL.has(r.l))r.l=D.l;if(!FL.has(r.f))r.f=D.f;if(!DL.has(r.d))r.d=D.d;
 var my=++seq,need=k!==P.default||!same(r,D);btn.setAttribute('aria-busy','true');if(need)say(P.s.busy,true);
 var prep=(!need||!served)?Promise.resolve({ok:true,v:''}):fetch('/api/palette/render',{method:'POST',headers:{'X-Usage-Token':TKN,'Content-Type':'application/json'},
-body:JSON.stringify({name:n,patterns:p,clock:r.r,mode:mode(r)})}).then(function(x){return x.json();});
-prep.then(function(j){if(my!==seq)return;if(!j||!j.ok)throw 0;if(j.colors)P.table[n]=j.colors;if(!P.table[n])throw 0;var us=imgs.map(function(i){return src(i,k,r,j.v);});
+body:JSON.stringify({name:n,patterns:p,clock:r.r,mode:mode(r),dial:r.d})}).then(function(x){return x.json().then(function(j){if(x.status===403)j.stale=1;return j;},function(){return {ok:false,stale:x.status===403};});});
+prep.then(function(j){if(my!==seq)return;if(j&&j.stale&&revive(n,p,r))return;if(!j||!j.ok)throw 0;r.x=j.dial||'';if(j.colors)P.table[n]=j.colors;if(!P.table[n])throw 0;var us=imgs.map(function(i){return src(i,k,r,j.v);});
 return Promise.all(us.map(pre)).then(function(ok){if(my!==seq)return;if(ok.indexOf(false)>=0)throw 0;commit(n,r,us,p);say('');btn.removeAttribute('aria-busy');
 if(save){try{if(isC(n))localStorage.setItem(CCK,JSON.stringify(CC));localStorage.setItem(KEY,n);localStorage.setItem(PKEY,p?'1':'0');Object.keys(CK).forEach(function(k){localStorage.setItem(CK[k],r[k]);});}catch(e){}}});}).catch(function(){if(my!==seq)return;btn.removeAttribute('aria-busy');PL.mark(lv(cur));marks(CR);cshow(cur);if(pchk)pchk.checked=pat;
 say(served?P.s.fail:P.s.file);});}
 // saved choices: palette name (P.alias maps names saved by older pages) and the "Add patterns" switch
-var n=P.base,p=pat,r={r:D.r,l:D.l,f:D.f};try{n=localStorage.getItem(KEY)||P.base;var sp=localStorage.getItem(PKEY);if(sp==='1'||sp==='0')p=sp==='1';
+var n=P.base,p=pat,r={r:D.r,l:D.l,f:D.f,d:D.d};try{n=localStorage.getItem(KEY)||P.base;var sp=localStorage.getItem(PKEY);if(sp==='1'||sp==='0')p=sp==='1';
 Object.keys(CK).forEach(function(k){r[k]=localStorage.getItem(CK[k])||D[k];});}catch(e){}
 n=P.alias[n]||n;if(n==='custom')n=ckey();if(!P.table[n]&&!(isC(n)&&served))n=P.base;p=!!(p||P.pf);document.documentElement.dataset.palette=P.base;document.documentElement.dataset.clock='wk-ot';
 if(pchk){pchk.checked=pat;pchk.disabled=!!P.pf;pchk.onchange=function(){var on=pchk.checked;go(cur,CR,true,on);
@@ -2062,7 +2180,7 @@ cshow(cur);function cpick(){if(!hx(ccu.value)||!hx(cco.value))return;CC={under:c
 try{localStorage.setItem(CCK,JSON.stringify(CC));}catch(e){}cshow(ckey());go(ckey(),CR,true,pat);}
 if(ccu&&cco){ccu.onchange=cco.onchange=cpick;ccu.oninput=cco.oninput=function(){if(cch)cch.hidden=!similar(ccu.value,cco.value);};if(!served)ccu.disabled=cco.disabled=true;}
 window.usagePalette=function(v,save){go(v,CR,save,pat);};window.usagePatterns=function(on,save){go(cur,CR,save,on);};window.usageClockRange=function(v,save){go(cur,with_('r',v),save,pat);};
-window.usageClockLayout=function(v,save){go(cur,with_('l',v),save,pat);};window.usageClockFill=function(v,save){go(cur,with_('f',v),save,pat);};})();"""
+window.usageClockLayout=function(v,save){go(cur,with_('l',v),save,pat);};window.usageClockFill=function(v,save){go(cur,with_('f',v),save,pat);};window.usageClockDial=function(v,save){go(cur,with_('d',v),save,pat);};})();"""
 
 
 # "Check for updates": asks the local server (POST /api/update/check); when GitHub has a newer version
@@ -2204,6 +2322,57 @@ def clock_tips_json(ctx):
     return json.dumps({"s": CLOCKTIP_STR[lk], "max": CLOCK_TIP_MAX, "spots": spots}, ensure_ascii=False).replace("<", "\\u003c")
 
 
+# 本週總覽 / 每日增量 (per day / per hour): the tabs are drawn in the PNGs (chart_hud); the page lays real buttons over
+# them. The last main tab is remembered per browser ('usage.wkTab'; first visit = 本週總覽), and so is the per-day /
+# per-hour choice ('usage.incUnit'), else per hour only when this week has enough hourly readings (heavy use).
+WKVIEW_CSS = ("[data-wv] .hot{position:absolute;background:transparent;border:0;padding:0;margin:0;border-radius:9px;cursor:pointer}"
+              " [data-wv] .hot[aria-pressed=true]{cursor:default} [data-wv] .hot:hover:not([aria-pressed=true]){background:rgba(127,127,127,.12)}"
+              " [data-wv] .hot:focus-visible{outline:2px solid var(--accent);outline-offset:1px}")
+WKVIEW_JS = r"""(function(){var sec=document.getElementById('p-wk');if(!sec)return;var W=[].slice.call(sec.querySelectorAll('[data-wv]'));if(W.length<2)return;
+var D={};try{D=JSON.parse(sec.getAttribute('data-inc')||'{}')||{};}catch(e){}var UK='usage.incUnit',TK='usage.wkTab';
+function has(v){return W.some(function(w){return w.getAttribute('data-wv')===v;});}
+function unit(){var u=null;try{u=localStorage.getItem(UK);}catch(e){}return (u==='daily'||u==='hourly')&&has(u)?u:(D.rich&&has('hourly')?'hourly':'daily');}
+function show(v,focus){if(!has(v))v='week';W.forEach(function(w){w.hidden=w.getAttribute('data-wv')!==v;});
+try{localStorage.setItem(TK,v==='week'?'week':'inc');if(v!=='week')localStorage.setItem(UK,v);}catch(e){}
+if(focus){var w=sec.querySelector("[data-wv='"+v+"']"),b=w&&w.querySelector("button.hot[aria-pressed='true'][data-go='"+focus+"']");if(b)b.focus();}}
+sec.addEventListener('click',function(e){var b=e.target.closest?e.target.closest('button.hot'):null;if(!b||b.getAttribute('aria-pressed')==='true')return;
+var g=b.getAttribute('data-go');show(g==='inc'?unit():g,g);});
+var t=null;try{t=localStorage.getItem(TK);}catch(e){}if(t==='inc')show(unit());})();"""
+
+
+def week_views_html(ctx, gmeta, b64):
+    """The 本週總覽 pane: the overview image (embedded) plus the 每日增量 images when rendered (loaded from beside the
+    page on first use), each with buttons over the tabs drawn in it. Labels follow the page language (numeric in privacy)."""
+    import chart_hud
+    lk = "numeric" if ctx.privacy else ctx.lang
+    HL = dict(chart_hud.BASE_STRINGS, **chart_hud.TRANSLATIONS.get(lk, {}))
+    H = chart_hud.hotspots()
+    inc = (gmeta or {}).get("inc") or {}
+
+    def btn(go, rect, label, on):
+        l, t, w, h = rect
+        return (f"<button type='button' class='hot' data-go='{go}' aria-pressed='{'true' if on else 'false'}' aria-label='{html.escape(str(label))}'"
+                f" title='{html.escape(str(label))}' style='left:{l}%;top:{t}%;width:{w}%;height:{h}%'></button>")
+
+    def tabs(on):
+        return btn("week", H["tabs"]["week"], HL["tab_week"], on == "week") + btn("inc", H["tabs"]["daily"], HL["tab_daily"], on != "week")
+
+    def units(on):
+        return (btn("daily", H["units"]["day"], HL["unit_day"], on == "daily")
+                + btn("hourly", H["units"]["hour"], HL["unit_hour"], on == "hourly"))
+    wk = ctx.hist_dir / "week-current.png"
+    have = all((ctx.hist_dir / f).exists() for f in WEEK_VIEW_FILES[1:])
+    parts = [f"<div class='gwrap' data-wv='week'><img alt='' data-f='week-current.png' src='data:image/png;base64,{b64(wk)}'>"
+             + (tabs("week") if have else "") + "</div>"]
+    if have:
+        for v, fn in zip(("daily", "hourly"), WEEK_VIEW_FILES[1:]):
+            ver = int((ctx.hist_dir / fn).stat().st_mtime)
+            parts.append(f"<div class='gwrap' data-wv='{v}' hidden><img alt='' loading='lazy' data-f='{fn}' src='{fn}?v={ver}'>"
+                         + tabs(v) + units(v) + "</div>")
+    dinc = html.escape(json.dumps({"rich": bool(inc.get("rich")), "hours": inc.get("hours")}), quote=True)
+    return f"<section id='p-wk' class='on' data-inc=\"{dinc}\">" + "".join(parts) + "</section>"
+
+
 def write_html(ctx, sums, now, nowa, zl, gen=""):
     L, T = ctx.L, ctx.theme
     latin = ctx.lang if ctx.lang in LATIN_LANGS else "en"  # es / pt / fr / de / id, else English (ja / ko too)
@@ -2228,8 +2397,7 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
     tabs, panes = [], []
     wk = ctx.hist_dir / "week-current.png"
     tabs.append(f"<button data-k='wk' class='on'>{html.escape(L['rwk'])}</button>")
-    panes.append(f"<section id='p-wk' class='on'>" + (f"<div class='gwrap'><img alt='' data-f='week-current.png' src='data:image/png;base64,{b64(wk)}'></div>"
-                 if wk.exists() else f"<div class='warn'>{html.escape(L['week_empty'])}</div>") + "</section>")
+    panes.append(week_views_html(ctx, gmeta, b64) if wk.exists() else f"<section id='p-wk' class='on'><div class='warn'>{html.escape(L['week_empty'])}</div></section>")
     for i, S in enumerate(sums):
         rows = "".join(f"<tr><td>{w['start']:%Y-%m-%d}</td><td>{w['last']}/{ctx.period_days}</td><td class='{'over' if w['over'] else 'under'}'>"
                        f"{usage_palette.UP if w['over'] else usage_palette.DOWN} {w['peak']:.0f}%</td><td>{w['pace_ref']:.0f}%</td><td>{L['yes'] if w['hit100'] else '—'}</td></tr>" for w in reversed(S["weeks"])) \
@@ -2241,7 +2409,7 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
                      f"<div class='tables'><table><caption>{html.escape(L['weekly_detail'])}</caption><tr><th>{L['week']}</th><th>{L['days']}</th><th>{L['peak']}</th>"
                      f"<th>{L['pace']}</th><th>{L['at100']}</th></tr>{rows}</table><table><caption>{html.escape(L['spend_title'])}</caption>"
                      f"<tr><th>{L['month']}</th><th>{L['amount']}</th></tr>{sp}</table></div></section>")
-    imgs = ""
+    imgs = clkbar = ""
     if (ctx.hist_dir / "clock-1d.png").exists() and (ctx.hist_dir / clock_file("wk")).exists():
         def menu(mid, label, opts, cur):
             rows = "".join(f"<li role='option' id='{mid}-{k}' data-v='{k}' aria-selected='{'true' if k == cur else 'false'}'><span>{html.escape(v)}</span></li>"
@@ -2250,15 +2418,17 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
                     f"<button type='button' class='pbtn' id='{mid}btn' aria-haspopup='listbox' aria-expanded='false' aria-labelledby='{mid}l {mid}cur'>"
                     f"<span id='{mid}cur'><span>{html.escape(dict(opts)[cur])}</span></span></button>"
                     f"<ul class='plist' id='{mid}list' role='listbox' tabindex='-1' aria-labelledby='{mid}l' hidden>{rows}</ul></span>")
-        bar = (menu("clk", L["clock_rl"], [(k, L["clock_ro"][k]) for k in CLOCK_RANGES], "wk")
+        bar = (menu("cld", L["clock_dl"], [(k, L["clock_do"][k]) for k in CLOCK_DIALS], "24")
+               + menu("clk", L["clock_rl"], [(k, L["clock_ro"][k]) for k in CLOCK_RANGES], "wk")
                + menu("clo", L["clock_ll"], [(k, L["clock_lo"][k]) for k in ("ov", "sd")], "ov")
                + menu("clf", L["clock_fl"], [(k, L["clock_fo"][k]) for k in ("t", "s")], "t"))
-        imgs = (f"<figure><div class='clkbar'></div><img alt='' data-f='clock-1d.png' src='data:image/png;base64,{b64(ctx.hist_dir / 'clock-1d.png')}'></figure>"
-                f"<figure><div class='clkbar'>{bar}</div>"
-                f"<img alt='' id='clkimg' data-f='{clock_file('wk')}' src='data:image/png;base64,{b64(ctx.hist_dir / clock_file('wk'))}'></figure>")
+        clkbar = f"<div class='clkbar'>{bar}</div>"  # one full-width toolbar above both cards: wrapping never moves a card
+        imgs = (f"<figure><img alt='' id='clk1img' data-f='clock-1d.png' src='data:image/png;base64,{b64(ctx.hist_dir / 'clock-1d.png')}'></figure>"
+                f"<figure><img alt='' id='clkimg' data-f='{clock_file('wk')}' src='data:image/png;base64,{b64(ctx.hist_dir / clock_file('wk'))}'></figure>")
     tabs.append(f"<button data-k='clock'>{html.escape(L['clock_tab'])}</button>")
-    panes.append(f"<section id='p-clock'><div class='sub'>{html.escape(L['clock_sub'].format(z=zl))}</div>"
-                 f"<div class='clocks'>{imgs or '<div class=warn>' + html.escape(L['no_clock']) + '</div>'}</div></section>")
+    subs = clock_sub_texts(L, zl)
+    panes.append(f"<section id='p-clock'><div class='sub' id='clksub' data-s=\"{html.escape(json.dumps(subs, ensure_ascii=False), quote=True)}\">{html.escape(subs['24'])}</div>"
+                 f"{clkbar}<div class='clocks'>{imgs or '<div class=warn>' + html.escape(L['no_clock']) + '</div>'}</div></section>")
     ctjson = clock_tips_json(ctx)
     ckdata = usage_checkins_ui.to_script_json(checkin_page_data(ctx, sums))
     rjs = json.dumps({k: L[k] for k in ("loading", "refresh", "conn_err", "refreshing", "ph_read", "ph_draw")}, ensure_ascii=False).replace("<", "\\u003c")
@@ -2363,7 +2533,7 @@ a{{color:var(--accent)}} :focus-visible{{outline:2px solid var(--accent);outline
 nav>button:hover{{color:{tx};border-color:var(--bd)}} .btn:hover,#ckbtn:hover,#ckr button:hover{{border-color:var(--accent)}}
 .warn{{border:1px solid var(--notice);color:var(--notice);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-weight:700}}
 .tables{{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-top:12px}} .clocks{{display:grid;grid-template-columns:1fr 1fr;gap:12px}} figure{{margin:0}}
-.clkbar{{display:flex;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:12px;min-height:36px;margin-bottom:6px}} .clkbar .plist{{min-width:8em}} .psel[hidden]{{display:none}}
+.clkbar{{display:flex;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:8px}} .clocks{{align-items:start}} .clkbar .plist{{min-width:8em}} .psel[hidden]{{display:none}}
 table{{border-collapse:collapse;width:100%;background:{card};border:1px solid var(--bd);font-size:13px}} caption{{text-align:left;font-weight:700;padding:6px 0}}
 th,td{{padding:5px 10px;border-bottom:1px solid var(--bd);text-align:left}} th{{color:{dim}}} .over{{color:var(--over);font-weight:700}} .under{{color:var(--under);font-weight:700}}
 .sub{{color:{dim};font-size:13px;margin:6px 0}} .ckform{{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}}
@@ -2395,7 +2565,7 @@ html[data-patterns="1"] .badge:not(.note)::before{{content:"▲ "}} .pal{{color:
 .plist li.pnote{{cursor:default;color:{dim};font-size:12px;line-height:1.45;border-top:1px solid var(--bd);border-radius:0;margin-top:4px;padding:7px 8px 4px;white-space:normal}}
 .ptog{{display:inline-flex;align-items:center;gap:5px;cursor:pointer}} .ptog input{{margin:0}} .offsel{{padding:3px 6px}} .otag{{color:{dim};font-size:.85em;font-weight:400}}
 {usage_checkins_ui.CSS}
-{GAUGE_CSS} {clocktip_css(card, tx, dim)}{gh_css(_on_colour(bg) == "#FFFFFF")} {mascot_css()}
+{GAUGE_CSS} {WKVIEW_CSS} {clocktip_css(card, tx, dim)}{gh_css(_on_colour(bg) == "#FFFFFF")} {mascot_css()}
 </style></head><body><div class="wrap"><div class="top">{html.escape(L['eyebrow'])}{f' <span class="ver" id="appver">v{APP_VERSION}</span>' if APP_VERSION else ''}</div><div class="hrow" id="hrow"><h1>{html.escape(title)}</h1>{mascot_html(ctx, ctx.lang if ctx.lang in MASCOT_STR else plang)}</div>
 <div class="bar"><nav>{''.join(tabs)}</nav><div class="upd"><div class="trow tset" id="tset"><span id="last" title="{html.escape(L['last'].format(t=f'{now:%H:%M}', z=zl))}">{html.escape(L.get('last_short', L['last']).format(t=f'{now:%H:%M}', z=zl))}</span>
 <span class="pal psel" id="psel"><span id="pall">{html.escape(pal_label)}</span><button type="button" class="pbtn" id="palbtn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="pall palcur"><span id="palcur">{palcur}</span></button>
@@ -2412,7 +2582,7 @@ html[data-patterns="1"] .badge:not(.note)::before{{content:"▲ "}} .pal{{color:
 <div id="ledger"></div>{''.join(panes)}</div>
 <script type="application/json" id="ckdata">{ckdata}</script><script>{usage_checkins_ui.JS}</script>
 <script type="application/json" id="ledgerdata">{ledjson}</script><script type="application/json" id="ledgerstr">{lsjson}</script><script>{LEDGER_JS}</script>
-<script type="application/json" id="gaugedata">{gjson}</script><script>{GAUGE_JS}</script>
+<script type="application/json" id="gaugedata">{gjson}</script><script>{GAUGE_JS}</script><script>{WKVIEW_JS}</script>
 <script type="application/json" id="paldata">{paldata}</script><script>{PALETTE_JS}</script>
 <script type="application/json" id="clocktips">{ctjson}</script><script>{CLOCKTIP_JS}</script>
 <script type="application/json" id="updstr">{usjson}</script><script>{UPDATE_JS}</script>
@@ -2741,9 +2911,12 @@ def serve(ctx, allow_remote=False):
             return 400, {"ok": False, "error": "unknown clock range"}
         if mode is not None and mode not in CLOCK_MODES:
             return 400, {"ok": False, "error": "unknown clock layout"}
+        dial = d.get("dial")
+        if dial is not None and dial not in CLOCK_DIALS:
+            return 400, {"ok": False, "error": "unknown clock dial"}
         with draw_lock:
             try:
-                out = render_palette(ctx, name, clock, mode, pat)
+                out = render_palette(ctx, name, clock, mode, pat, dial)
                 if out.get("ok") and usage_palette.is_custom(name):  # the page sets its CSS colours from these
                     out["colors"] = {v: usage_palette.get(name, v == "light") for v in ("dark", "light")}
                 return 200, out

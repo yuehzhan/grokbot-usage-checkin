@@ -111,9 +111,23 @@ BASE_STRINGS = {
     "default_title": "Grok Bot Usage & Check-in",
     "title_custom": "{title} Weekly Usage",
     "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    "tab_cum": "Cumulative",
     "tab_daily": "Daily",
     "tab_week": "Week",
+    "unit_day": "Per day",
+    "unit_hour": "Per hour",
+    "inc_title": "Daily Increments",
+    "hourly_title": "Hourly Increments",
+    "ylabel_hour": "Increase (%)",
+    "hourly_base_line": "Hourly baseline {v:.2f}%",
+    "hourly_note": "Change between real readings ({n} readings) · nothing interpolated",
+    "hourly_sparse": "Readings ~{h} h apart: each bar covers its real time span",
+    "hourly_span": "over {h} h",
+    "hourly_gap_leg": "Spans a reading gap",
+    "hourly_empty": "Not enough hourly readings this week.\nHourly bars need readings at most 1 h apart (Read interval 60 min or less); use Per day meanwhile.",
+    "hourly_log_title": "Hourly Log",
+    "hourly_col_time": "TIME",
+    "hourly_col_inc": "CHANGE",
+    "hourly_reset": "reset",
     "hero_title": "WEEKLY USAGE",
     "day_of_7": "Day {d} / 7",
     "gauge_base": "Baseline {base:.0f}%",
@@ -193,9 +207,23 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "default_title": "用量儀表板",
         "title_custom": "{title} 本週用量監控",
         "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"],
-        "tab_cum": "累計趨勢",
         "tab_daily": "每日增量",
         "tab_week": "本週總覽",
+        "unit_day": "每日",
+        "unit_hour": "每小時",
+        "inc_title": "每日增量",
+        "hourly_title": "每小時增量",
+        "ylabel_hour": "增量 (%)",
+        "hourly_base_line": "每小時基準 {v:.2f}%",
+        "hourly_note": "依實際讀數相減（{n} 筆讀數）· 不補插值",
+        "hourly_sparse": "讀數約每 {h} 小時一筆：每根長條涵蓋實際時段",
+        "hourly_span": "跨 {h} 小時",
+        "hourly_gap_leg": "跨越讀取空檔",
+        "hourly_empty": "本週的每小時讀數不足。\n每小時長條需要讀數間隔不超過 1 小時（讀取間隔 60 分鐘以內）；目前請使用「每日」。",
+        "hourly_log_title": "每小時紀錄",
+        "hourly_col_time": "時段",
+        "hourly_col_inc": "增量",
+        "hourly_reset": "重置",
         "hero_title": "本週累計用量",
         "day_of_7": "第 {d} / 7 天",
         "gauge_base": "基準線 {base:.0f}%",
@@ -273,9 +301,23 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "default_title": "用量仪表板",
         "title_custom": "{title} 本周用量监控",
         "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
-        "tab_cum": "累计趋势",
         "tab_daily": "每日用量",
         "tab_week": "本周总览",
+        "unit_day": "每日",
+        "unit_hour": "每小时",
+        "inc_title": "每日增量",
+        "hourly_title": "每小时增量",
+        "ylabel_hour": "增量 (%)",
+        "hourly_base_line": "每小时基准 {v:.2f}%",
+        "hourly_note": "按实际读数相减（{n} 条读数）· 不插值",
+        "hourly_sparse": "读数约每 {h} 小时一条：每根柱子覆盖实际时段",
+        "hourly_span": "跨 {h} 小时",
+        "hourly_gap_leg": "跨越读取空档",
+        "hourly_empty": "本周的每小时读数不足。\n每小时柱状图需要读数间隔不超过 1 小时（读取间隔 60 分钟以内）；目前请使用“每日”。",
+        "hourly_log_title": "每小时记录",
+        "hourly_col_time": "时段",
+        "hourly_col_inc": "增量",
+        "hourly_reset": "重置",
         "hero_title": "本周累计用量",
         "day_of_7": "第 {d} / 7 天",
         "gauge_base": "基准线 {base:.0f}%",
@@ -353,9 +395,23 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "default_title": "使用量ダッシュボード",
         "title_custom": "{title} 週間使用量モニター",
         "weekdays": ["月", "火", "水", "木", "金", "土", "日"],
-        "tab_cum": "累計推移",
         "tab_daily": "日別使用量",
         "tab_week": "週間概要",
+        "unit_day": "日別",
+        "unit_hour": "時間別",
+        "inc_title": "日ごとの増加",
+        "hourly_title": "時間ごとの増加",
+        "ylabel_hour": "増加 (%)",
+        "hourly_base_line": "1時間の基準 {v:.2f}%",
+        "hourly_note": "実際の読み取り値の差（{n} 件）· 補間なし",
+        "hourly_sparse": "読み取りは約 {h} 時間おき：各バーは実際の期間を表示",
+        "hourly_span": "{h} 時間分",
+        "hourly_gap_leg": "読み取りの空白を含む",
+        "hourly_empty": "今週は時間別の読み取りが足りません。\n時間別バーには 1 時間以内の間隔の読み取りが必要です（読み取り間隔 60 分以下）。それまでは「日別」をご利用ください。",
+        "hourly_log_title": "時間別ログ",
+        "hourly_col_time": "時間帯",
+        "hourly_col_inc": "増加",
+        "hourly_reset": "リセット",
         "hero_title": "週間累計使用量",
         "day_of_7": "{d} / 7 日目",
         "gauge_base": "基準線 {base:.0f}%",
@@ -433,9 +489,23 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "default_title": "사용량 대시보드",
         "title_custom": "{title} 주간 사용량 모니터",
         "weekdays": ["월", "화", "수", "목", "금", "토", "일"],
-        "tab_cum": "누적 추이",
         "tab_daily": "일별 사용량",
         "tab_week": "주간 요약",
+        "unit_day": "일별",
+        "unit_hour": "시간별",
+        "inc_title": "일별 증가량",
+        "hourly_title": "시간별 증가량",
+        "ylabel_hour": "증가 (%)",
+        "hourly_base_line": "시간당 기준 {v:.2f}%",
+        "hourly_note": "실제 읽은 값의 차이 ({n}회) · 보간 없음",
+        "hourly_sparse": "약 {h}시간마다 읽음: 막대는 실제 구간을 나타냄",
+        "hourly_span": "{h}시간 합계",
+        "hourly_gap_leg": "읽기 공백 포함",
+        "hourly_empty": "이번 주 시간별 읽기 값이 부족합니다.\n시간별 막대는 1시간 이내 간격의 읽기가 필요합니다(읽기 간격 60분 이하). 그동안은 '일별'을 사용하세요.",
+        "hourly_log_title": "시간별 기록",
+        "hourly_col_time": "시간대",
+        "hourly_col_inc": "증가",
+        "hourly_reset": "초기화",
         "hero_title": "주간 누적 사용량",
         "day_of_7": "{d} / 7 일차",
         "gauge_base": "기준선 {base:.0f}%",
@@ -514,9 +584,23 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "default_title": "Panel de uso",
         "title_custom": "{title}: uso semanal",
         "weekdays": ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"],
-        "tab_cum": "Acumulado",
         "tab_daily": "Diario",
         "tab_week": "Semana",
+        "unit_day": "Por día",
+        "unit_hour": "Por hora",
+        "inc_title": "Aumento diario",
+        "hourly_title": "Aumento por hora",
+        "ylabel_hour": "Aumento (%)",
+        "hourly_base_line": "Referencia por hora {v:.2f}%",
+        "hourly_note": "Diferencia entre lecturas reales ({n} lecturas) · sin interpolar",
+        "hourly_sparse": "Lecturas cada ~{h} h: cada barra cubre su intervalo real",
+        "hourly_span": "en {h} h",
+        "hourly_gap_leg": "Abarca un hueco sin lecturas",
+        "hourly_empty": "No hay suficientes lecturas por hora esta semana.\nLas barras por hora necesitan lecturas como máximo cada 1 h (intervalo de lectura de 60 min o menos); mientras tanto, usa «Por día».",
+        "hourly_log_title": "Registro por hora",
+        "hourly_col_time": "HORA",
+        "hourly_col_inc": "CAMBIO",
+        "hourly_reset": "reinicio",
         "hero_title": "USO SEMANAL",
         "day_of_7": "Día {d} / 7",
         "gauge_base": "Referencia {base:.0f}%",
@@ -595,9 +679,23 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "default_title": "Painel de uso",
         "title_custom": "{title}: uso semanal",
         "weekdays": ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"],
-        "tab_cum": "Acumulado",
         "tab_daily": "Diário",
         "tab_week": "Semana",
+        "unit_day": "Por dia",
+        "unit_hour": "Por hora",
+        "inc_title": "Aumento diário",
+        "hourly_title": "Aumento por hora",
+        "ylabel_hour": "Aumento (%)",
+        "hourly_base_line": "Referência por hora {v:.2f}%",
+        "hourly_note": "Diferença entre leituras reais ({n} leituras) · sem interpolação",
+        "hourly_sparse": "Leituras a cada ~{h} h: cada barra cobre o intervalo real",
+        "hourly_span": "em {h} h",
+        "hourly_gap_leg": "Abrange uma lacuna de leituras",
+        "hourly_empty": "Leituras por hora insuficientes nesta semana.\nAs barras por hora exigem leituras no máximo a cada 1 h (intervalo de leitura de 60 min ou menos); por enquanto, use «Por dia».",
+        "hourly_log_title": "Registro por hora",
+        "hourly_col_time": "HORA",
+        "hourly_col_inc": "VARIAÇÃO",
+        "hourly_reset": "reinício",
         "hero_title": "USO SEMANAL",
         "day_of_7": "Dia {d} / 7",
         "gauge_base": "Referência {base:.0f}%",
@@ -676,9 +774,23 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "default_title": "Tableau d’utilisation",
         "title_custom": "{title} : utilisation hebdo",
         "weekdays": ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"],
-        "tab_cum": "Cumul",
         "tab_daily": "Par jour",
         "tab_week": "Semaine",
+        "unit_day": "Par jour",
+        "unit_hour": "Par heure",
+        "inc_title": "Hausse par jour",
+        "hourly_title": "Hausse par heure",
+        "ylabel_hour": "Hausse (%)",
+        "hourly_base_line": "Référence horaire {v:.2f} %",
+        "hourly_note": "Écart entre relevés réels ({n} relevés) · sans interpolation",
+        "hourly_sparse": "Relevés toutes les ~{h} h : chaque barre couvre sa durée réelle",
+        "hourly_span": "sur {h} h",
+        "hourly_gap_leg": "Couvre un trou sans relevé",
+        "hourly_empty": "Pas assez de relevés horaires cette semaine.\nLes barres horaires exigent des relevés espacés d’au plus 1 h (intervalle de lecture de 60 min ou moins) ; en attendant, utilisez « Par jour ».",
+        "hourly_log_title": "Journal horaire",
+        "hourly_col_time": "HEURE",
+        "hourly_col_inc": "VARIATION",
+        "hourly_reset": "remise à zéro",
         "hero_title": "USAGE HEBDO",
         "day_of_7": "Jour {d} / 7",
         "gauge_base": "Référence {base:.0f} %",
@@ -757,9 +869,23 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "default_title": "Nutzungs-Dashboard",
         "title_custom": "{title}: Wochennutzung",
         "weekdays": ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"],
-        "tab_cum": "Kumuliert",
         "tab_daily": "Täglich",
         "tab_week": "Woche",
+        "unit_day": "Pro Tag",
+        "unit_hour": "Pro Stunde",
+        "inc_title": "Anstieg pro Tag",
+        "hourly_title": "Anstieg pro Stunde",
+        "ylabel_hour": "Anstieg (%)",
+        "hourly_base_line": "Richtwert pro Stunde {v:.2f} %",
+        "hourly_note": "Differenz echter Messwerte ({n} Messwerte) · nichts interpoliert",
+        "hourly_sparse": "Messwerte etwa alle {h} Std.: jeder Balken zeigt den echten Zeitraum",
+        "hourly_span": "über {h} Std.",
+        "hourly_gap_leg": "Über eine Messlücke",
+        "hourly_empty": "Diese Woche gibt es zu wenige stündliche Messwerte.\nStundenbalken brauchen Messwerte höchstens 1 Std. auseinander (Leseintervall 60 Min. oder weniger); nutze solange „Pro Tag“.",
+        "hourly_log_title": "Stundenprotokoll",
+        "hourly_col_time": "ZEIT",
+        "hourly_col_inc": "ÄNDERUNG",
+        "hourly_reset": "Reset",
         "hero_title": "WOCHENNUTZUNG",
         "day_of_7": "Tag {d} / 7",
         "gauge_base": "Richtwert {base:.0f} %",
@@ -838,9 +964,23 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "default_title": "Dasbor Pemakaian",
         "title_custom": "{title}: Pemakaian Mingguan",
         "weekdays": ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"],
-        "tab_cum": "Kumulatif",
         "tab_daily": "Harian",
         "tab_week": "Minggu",
+        "unit_day": "Per hari",
+        "unit_hour": "Per jam",
+        "inc_title": "Kenaikan harian",
+        "hourly_title": "Kenaikan per jam",
+        "ylabel_hour": "Kenaikan (%)",
+        "hourly_base_line": "Patokan per jam {v:.2f}%",
+        "hourly_note": "Selisih pembacaan nyata ({n} pembacaan) · tanpa interpolasi",
+        "hourly_sparse": "Pembacaan sekitar tiap {h} jam: tiap batang mencakup rentang aslinya",
+        "hourly_span": "selama {h} jam",
+        "hourly_gap_leg": "Melewati jeda pembacaan",
+        "hourly_empty": "Pembacaan per jam minggu ini belum cukup.\nBatang per jam memerlukan pembacaan paling lama tiap 1 jam (interval baca 60 menit atau kurang); sementara itu gunakan \"Per hari\".",
+        "hourly_log_title": "Log per jam",
+        "hourly_col_time": "WAKTU",
+        "hourly_col_inc": "PERUBAHAN",
+        "hourly_reset": "reset",
         "hero_title": "PEMAKAIAN MINGGUAN",
         "day_of_7": "Hari {d} / 7",
         "gauge_base": "Patokan {base:.0f}%",
@@ -920,9 +1060,23 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "default_title": "",
         "title_custom": "",
         "weekdays": ["", "", "", "", "", "", ""],
-        "tab_cum": "∑",
         "tab_daily": "Δ",
         "tab_week": "7/7",
+        "unit_day": "Δ/d",
+        "unit_hour": "Δ/h",
+        "inc_title": "Δ %/d",
+        "hourly_title": "Δ %/h",
+        "ylabel_hour": "Δ%",
+        "hourly_base_line": "{v:.2f}%",
+        "hourly_note": "n = {n}",
+        "hourly_sparse": "≈{h}h",
+        "hourly_span": "/{h}h",
+        "hourly_gap_leg": "",
+        "hourly_empty": "Δt > 1h",
+        "hourly_log_title": "Δ/h",
+        "hourly_col_time": "t",
+        "hourly_col_inc": "Δ%",
+        "hourly_reset": "↺",
         "hero_title": "∑ %",
         "day_of_7": "{d}/7",
         "gauge_base": "{base:.0f}%",
@@ -1506,7 +1660,40 @@ def draw_card(ax_hud, x0, y0, w, h, pal, accent=None, radius=14.0, brackets=Fals
             ax_hud.plot(sx, sy, color=accent or pal["accent"], lw=1.8, alpha=0.85, zorder=4)
 
 
-def draw_header(ax_hud, cfg, L, pal, t_info):
+# Header view tabs and the increments card's unit switch, as figure fractions (x0, y0 from the bottom, w, h).
+# The served page puts real buttons over these rectangles (see hotspots()); the PNG alone stays a static export.
+TAB_RECT = (0.765, 0.924, 0.210, 0.044)
+UNIT_RECT = (0.470, 0.646, 0.190, 0.030)
+VIEWS = ("week", "daily", "hourly")
+
+
+def draw_segments(ax_hud, rect, items, active, pal, fontsize=11.0):
+    """A rounded segmented control: one label per (key, label); the active key gets the accent pill."""
+    x0, y0, w, h = rect
+    draw_card(ax_hud, x0, y0, w, h, pal, radius=10.0 if h > 0.035 else 8.0)
+    seg_w = w / max(1, len(items))
+    for idx, (key, lbl) in enumerate(items):
+        sx = x0 + idx * seg_w
+        on = key == active
+        if on:
+            ax_hud.add_patch(FancyBboxPatch(
+                ((sx + 0.003) * FIG_W, (y0 + 0.004) * FIG_H), (seg_w - 0.006) * FIG_W, (h - 0.008) * FIG_H,
+                boxstyle="round,pad=0,rounding_size=8", facecolor=blend_color(pal["card_fill"], pal["accent"], 0.22),
+                edgecolor=pal["accent"], lw=1.2, zorder=3))
+        ax_hud.text((sx + seg_w * 0.5) * FIG_W, (y0 + h * 0.5) * FIG_H, lbl, color=pal["text"] if on else pal["text_dim"],
+                    fontsize=fontsize, fontweight="bold", ha="center", va="center", zorder=4)
+
+
+def hotspots():
+    """Clickable areas of the header tabs and the unit switch, in % of the image (left, top, width, height; y down)."""
+    def pct(rect, i, n):
+        x0, y0, w, h = rect
+        return [round((x0 + i * w / n) * 100, 3), round((1 - y0 - h) * 100, 3), round(w / n * 100, 3), round(h * 100, 3)]
+    return {"tabs": {"week": pct(TAB_RECT, 0, 2), "daily": pct(TAB_RECT, 1, 2)},
+            "units": {"day": pct(UNIT_RECT, 0, 2), "hour": pct(UNIT_RECT, 1, 2)}}
+
+
+def draw_header(ax_hud, cfg, L, pal, t_info, view="week"):
     is_num = bool(cfg.get("privacy")) or (cfg.get("_eff_lang") == "numeric")
     raw_title = cfg.get("title")
     if is_num:
@@ -1523,24 +1710,9 @@ def draw_header(ax_hud, cfg, L, pal, t_info):
     ax_hud.text(0.025 * FIG_W, 0.948 * FIG_H, main_title, color=pal["text"], fontsize=20, va="center", fontweight="bold")
     ax_hud.text(0.025 * FIG_W, 0.919 * FIG_H, t_info["range_str"], color=pal["text_dim"], fontsize=11.5, va="center", fontweight="bold")
 
-    tx0, ty0, tw, th = 0.685, 0.924, 0.290, 0.044
-    draw_card(ax_hud, tx0, ty0, tw, th, pal, radius=10.0)
-    tabs = [str(L["tab_cum"]), str(L["tab_daily"]), str(L["tab_week"])]
-    seg_w = tw / 3.0
-    for idx, t_lbl in enumerate(tabs):
-        sx = tx0 + idx * seg_w
-        if idx == 2:
-            pill = FancyBboxPatch(
-                ((sx + 0.003) * FIG_W, (ty0 + 0.004) * FIG_H),
-                (seg_w - 0.006) * FIG_W, (th - 0.008) * FIG_H,
-                boxstyle="round,pad=0,rounding_size=8",
-                facecolor=blend_color(pal["card_fill"], pal["accent"], 0.22),
-                edgecolor=pal["accent"], lw=1.2, zorder=3,
-            )
-            ax_hud.add_patch(pill)
-            ax_hud.text((sx + seg_w * 0.5) * FIG_W, (ty0 + th * 0.5) * FIG_H, t_lbl, color=pal["text"], fontsize=11, fontweight="bold", ha="center", va="center", zorder=4)
-        else:
-            ax_hud.text((sx + seg_w * 0.5) * FIG_W, (ty0 + th * 0.5) * FIG_H, t_lbl, color=pal["text_dim"], fontsize=11, fontweight="bold", ha="center", va="center", zorder=4)
+    # two views: week overview (default) and increments (per day / per hour); the served page lays buttons over these
+    tabs = [("week", str(L["tab_week"])), ("daily", str(L["tab_daily"]))]
+    draw_segments(ax_hud, TAB_RECT, tabs, "daily" if view in ("daily", "hourly") else "week", pal, fontsize=11)
 
     ax_hud.plot([0.025 * FIG_W, 0.975 * FIG_W], [0.903 * FIG_H, 0.903 * FIG_H], color=pal["card_border"], lw=1.1)
     ax_hud.plot([0.025 * FIG_W, 0.220 * FIG_W], [0.903 * FIG_H, 0.903 * FIG_H], color=pal["accent"], lw=2.4)
@@ -1960,18 +2132,19 @@ def draw_cumulative_panel(fig, ax_hud, data, cfg, L, pal):
         spine.set_visible(False)
 
 
-def draw_daily_bars_panel(fig, ax_hud, data, cfg, L, pal):
+def draw_daily_bars_panel(fig, ax_hud, data, cfg, L, pal, card=None, axes=None, title=None):
+    """Per-day increase bars. `card`/`axes` (figure fractions) and `title` let the increments view draw it full height."""
     is_num = bool(cfg.get("privacy")) or (cfg.get("_eff_lang") == "numeric")
     pace = cfg["pace"]
     base7 = 7 * pace
     inc_map = data["inc_map"]
     latest_day = data["latest_day"]
 
-    cx, cy, cw, ch = 0.025, 0.048, 0.650, 0.272
+    cx, cy, cw, ch = card or (0.025, 0.048, 0.650, 0.272)
     draw_card(ax_hud, cx, cy, cw, ch, pal, accent=pal["accent"], radius=14.0)
-    ax_hud.text((cx + 0.018) * FIG_W, (cy + ch - 0.020) * FIG_H, str(L["bar_title"]), color=pal["text"], fontsize=13, fontweight="bold", va="center")
+    ax_hud.text((cx + 0.018) * FIG_W, (cy + ch - 0.020) * FIG_H, str(title or L["bar_title"]), color=pal["text"], fontsize=13, fontweight="bold", va="center")
 
-    ax = fig.add_axes([0.078, 0.080, 0.580, 0.190], facecolor=pal["card_fill"], zorder=3)
+    ax = fig.add_axes(list(axes or (0.078, 0.080, 0.580, 0.190)), facecolor=pal["card_fill"], zorder=3)
     ax.set_xlim(0, 7)
 
     max_inc = max([v["raw_inc"] for v in inc_map.values()] + [pace * 2.0, 28.0])
@@ -2161,6 +2334,255 @@ def draw_daily_log_panel(ax_hud, data, cfg, L, pal, t_info):
             ax_hud.plot([(lx + 0.015) * FIG_W, (lx + lw - 0.015) * FIG_W], [ry_bot, ry_bot], color=pal["card_border"], alpha=0.65, lw=0.8, zorder=3)
 
 
+# ------------------------------------------------------------------ increments view (每日增量: per day / per hour)
+HOUR_MERGE_MAX_MIN = 65.0  # readings at most this far apart are grouped into their clock hour; longer spans stay one bar
+RICH_MIN_HOURS = 12        # this many hour groups in the period -> the increments view opens on "per hour"
+
+
+def hourly_increments(samples, start, end, tz=None, offset=0):
+    """Changes between consecutive REAL readings in [start, end], grouped by the clock hour the change starts in.
+    Nothing is interpolated: each row covers the actual first/last reading times it was computed from.
+    A span longer than HOUR_MERGE_MAX_MIN (missed reads, 2 h interval) stays a single row with gap=True.
+    A drop (weekly / mid-week reset) counts the new value as the increase since the reset (reset=True).
+    -> {"rows": [{t0, t1, inc, pct, span_h, gap, reset, n}], "readings": n, "step_min": median minutes, "rich": bool}"""
+    off_mod = _offset_mod()
+    pts = []
+    for t, v in samples or []:
+        if v is None or t is None:
+            continue
+        try:
+            t = t.astimezone(tz) if tz is not None else t
+            if (start is not None and t < start) or (end is not None and t > end):
+                continue
+        except TypeError:
+            continue
+        pts.append((t, off_mod.apply(float(v), offset)))
+    pts.sort(key=lambda x: x[0])
+    rows, steps = [], []
+    for (t1, p1), (t2, p2) in zip(pts, pts[1:]):
+        mins = (t2 - t1).total_seconds() / 60.0
+        if mins <= 0:
+            continue
+        steps.append(mins)
+        reset = p2 < p1 - 0.5
+        inc = p2 if reset else max(0.0, p2 - p1)
+        gap = mins > HOUR_MERGE_MAX_MIN
+        last = rows[-1] if rows else None
+        hour = t1.replace(minute=0, second=0, microsecond=0)
+        if not gap and last is not None and not last["gap"] and last["hour"] == hour and last["t1"] == t1:
+            last.update(t1=t2, inc=last["inc"] + inc, pct=p2, reset=last["reset"] or reset, n=last["n"] + 1)
+        else:
+            rows.append({"hour": hour, "t0": t1, "t1": t2, "inc": inc, "pct": p2, "gap": gap, "reset": reset, "n": 1})
+    for r in rows:
+        r["span_h"] = (r["t1"] - r["t0"]).total_seconds() / 3600.0
+    steps.sort()
+    step = steps[len(steps) // 2] if steps else None
+    return {"rows": rows, "readings": len(pts), "step_min": step,
+            "rich": sum(1 for r in rows if not r["gap"]) >= RICH_MIN_HOURS}
+
+
+def _wrap_lines(text, latin=72, cjk=36):
+    """Wrap each line of a message for a card (CJK glyphs are about twice as wide)."""
+    import textwrap
+    out = []
+    for ln in text.split("\n"):
+        wide = any(ord(ch) >= 0x2E80 for ch in ln)
+        if not wide:
+            out += textwrap.wrap(ln, latin) or [""]
+        else:
+            out += [ln[i:i + cjk] for i in range(0, len(ln), cjk)] or [""]
+    return "\n".join(out)
+
+
+def _span_label(h):
+    return f"{h:.0f}" if abs(h - round(h)) < 0.05 else f"{h:.1f}"
+
+
+def _hm_range(r, start):
+    """'MM-DD HH:MM → HH:MM' (end date added when the span crosses midnight)."""
+    a, b = r["t0"], r["t1"]
+    if a.date() == b.date():
+        tail = b.strftime("%H:%M")
+    elif b.strftime("%H:%M") == "00:00" and (b - a) <= timedelta(days=1):
+        tail = "24:00"  # an hour ending exactly at midnight
+    else:
+        tail = b.strftime("%m-%d %H:%M")
+    return f"{a.strftime('%m-%d %H:%M')} → {tail}"
+
+
+def draw_hourly_panel(fig, ax_hud, data, cfg, L, pal, t_info, card, axes):
+    is_num = bool(cfg.get("privacy")) or (cfg.get("_eff_lang") == "numeric")
+    pace = float(cfg["pace"])
+    hb = data["hourly"]
+    rows = hb["rows"]
+    start = t_info.get("start_dt")
+    cx, cy, cw, ch = card
+    draw_card(ax_hud, cx, cy, cw, ch, pal, accent=pal["accent"], radius=14.0)
+    ax_hud.text((cx + 0.018) * FIG_W, (cy + ch - 0.020) * FIG_H, str(L["hourly_title"]), color=pal["text"], fontsize=13, fontweight="bold", va="center")
+    note = sfmt(L["hourly_note"], n=hb["readings"])
+    has_hours = start is not None and any(not r["gap"] for r in rows)
+    if has_hours and hb["step_min"] and hb["step_min"] > HOUR_MERGE_MAX_MIN:
+        note += "  ·  " + sfmt(L["hourly_sparse"], h=_span_label(hb["step_min"] / 60.0))
+    ax_hud.text((cx + 0.018) * FIG_W, (cy + ch - 0.050) * FIG_H, note, color=pal["text_dim"], fontsize=9.2, fontweight="bold", va="center")
+
+    if not has_hours:  # light use: say so instead of drawing day-long "hourly" bars
+        ax_hud.text((cx + cw * 0.5) * FIG_W, (cy + ch * 0.45) * FIG_H, _wrap_lines(str(L["hourly_empty"])), color=pal["text_dim"],
+                    fontsize=12.5, fontweight="bold", ha="center", va="center", linespacing=1.7)
+        return
+
+    span_total = 7 * 24.0
+    ax = fig.add_axes(list(axes), facecolor=pal["card_fill"], zorder=3)
+    ax.set_xlim(0, span_total)
+    xh = lambda t: (t - start).total_seconds() / 3600.0
+    per_h = pace / 24.0
+    top = max([r["inc"] for r in rows] + [per_h * 3.0, 2.0])
+    ymax = top * 1.30
+    ax.set_ylim(0, ymax)
+
+    # calendar days: alternating cells + midnight dividers, labelled with the real date
+    d0 = start.replace(hour=0, minute=0, second=0, microsecond=0)
+    wd = L.get("weekdays") if isinstance(L.get("weekdays"), list) else BASE_STRINGS["weekdays"]
+    for i in range(0, 9):
+        m = d0 + timedelta(days=i)
+        a, b = max(0.0, xh(m)), min(span_total, xh(m + timedelta(days=1)))
+        if b <= a:
+            continue
+        ax.add_patch(Rectangle((a, 0), b - a, ymax, facecolor=pal["cell_odd"] if i % 2 else pal["cell_even"], edgecolor="none", zorder=0))
+        if 0 < xh(m) < span_total:
+            ax.axvline(xh(m), color=pal["grid"], alpha=0.45 if pal["is_light"] else 0.32, lw=1.0, zorder=2)
+        if b - a >= 7:
+            lbl = m.strftime("%m-%d") + ("" if is_num or not wd[m.weekday()] else f" {wd[m.weekday()]}")
+            ax.text((a + b) / 2, -0.10, lbl, transform=ax.get_xaxis_transform(), color=pal["text"], fontsize=10, fontweight="bold", ha="center", va="top")
+    minor = [xh(d0 + timedelta(hours=h)) for h in range(0, 9 * 24, 6)]
+    minor = [x for x in minor if 0 <= x <= span_total]
+    ax.set_xticks(minor)
+    ax.set_xticklabels([(start + timedelta(hours=x)).strftime("%H") for x in minor], fontsize=8.5, color=pal["text_dim"])
+    ax.tick_params(axis="x", length=3, pad=2, colors=pal["text_dim"])
+
+    ax.axhline(per_h, color=pal["orange"], alpha=0.9, lw=1.6, ls="--", zorder=4)
+    ax.add_patch(Rectangle((0, 0), span_total, ymax, fill=False, edgecolor=pal["accent"], alpha=0.55, lw=1.4, zorder=5, clip_on=False))
+
+    for r in rows:
+        a, b = xh(r["t0"]), xh(r["t1"])
+        w = max(0.35, (b - a) * 0.86)
+        mid = (a + b) / 2
+        over = r["inc"] / max(r["span_h"], 1e-6) > per_h
+        col = pal["purple"] if over else pal["green"]
+        h = min(r["inc"], ymax * 0.92)
+        if r["gap"]:
+            ax.add_patch(Rectangle((mid - w / 2, 0), w, h, facecolor=blend_color(pal["card_fill"], col, 0.18), edgecolor=col,
+                                   hatch="..", lw=0.9, ls=(0, (3, 2)), alpha=0.9, zorder=3))
+        else:
+            ax.add_patch(Rectangle((mid - w / 2, 0), w, h, facecolor=blend_color(pal["card_fill"], col, 0.72 if pal["is_light"] else 0.62),
+                                   edgecolor=col, lw=0.8, zorder=3))
+            if pal["patterns"] and over:
+                ax.add_patch(Rectangle((mid - w / 2, 0), w, h, facecolor="none", edgecolor=col, hatch=HATCH, lw=0, zorder=3.5))
+        if r["reset"]:
+            ax.text(mid, h, "↺", color=pal["text"], fontsize=10, ha="center", va="bottom", zorder=6)
+
+    # label the largest changes with their real time (greedy, at least 10 h apart so labels never collide)
+    picked = []
+    for r in sorted(rows, key=lambda r: -r["inc"]):
+        if r["inc"] <= max(per_h, top * 0.35) or len(picked) >= 6:
+            break
+        m = (xh(r["t0"]) + xh(r["t1"])) / 2
+        if all(abs(m - q) >= 10 for q in picked):
+            picked.append(m)
+            txt = f"{r['t0'].strftime('%H:%M')} {r['inc']:+.1f}%"
+            if r["gap"]:
+                txt += f" ({sfmt(L['hourly_span'], h=_span_label(r['span_h']))})"
+            over = r["inc"] / max(r["span_h"], 1e-6) > per_h
+            ax.annotate(txt, xy=(m, min(r["inc"], ymax * 0.92)), textcoords="offset points", xytext=(0, 4), color=pal["purple"] if over else pal["green"],
+                        fontsize=8.6, fontweight="bold", ha="center", va="bottom", zorder=7,
+                        bbox=dict(boxstyle="round,pad=0.12", facecolor=pal["card_fill"], edgecolor="none", alpha=0.85))
+
+    if is_num:
+        handles = [Line2D([0], [0], color=pal["green"], lw=6, label=""), Line2D([0], [0], color=pal["purple"], lw=6, label=""),
+                   Line2D([0], [0], color=pal["orange"], lw=2.2, ls="--", label=sfmt(L["hourly_base_line"], v=per_h))]
+    else:
+        handles = [Line2D([0], [0], color=pal["green"], lw=6, label=("▼ " + str(L["under_short"])).strip()),
+                   Line2D([0], [0], color=pal["purple"], lw=6, label=("▲ " + str(L["over_short"])).strip()),
+                   Patch(facecolor="none", edgecolor=pal["text_dim"], hatch="..", ls=(0, (3, 2)), label=str(L["hourly_gap_leg"])),
+                   Line2D([0], [0], color=pal["orange"], lw=2.2, ls="--", label=sfmt(L["hourly_base_line"], v=per_h))]
+    ax.legend(handles=handles, loc="lower right", bbox_to_anchor=(1.0, 1.015), ncol=len(handles), frameon=False, fontsize=8.6,
+              labelcolor=pal["text"], handlelength=1.4, columnspacing=0.9, borderaxespad=0.0)
+    from matplotlib.ticker import MaxNLocator
+    yt = [v for v in MaxNLocator(nbins=6).tick_values(0, ymax) if 0 <= v < ymax]
+    for yv in yt:
+        if yv > 0:
+            ax.axhline(yv, color=pal["grid"], alpha=0.25 if pal["is_light"] else 0.16, lw=0.8, ls=":")
+    ax.set_yticks(yt)
+    ax.set_yticklabels([f"{v:g}%" for v in yt], fontsize=10, color=pal["text"])
+    ax.set_ylim(0, ymax)
+    ax.tick_params(axis="y", colors=pal["text"], length=3)
+    ax.set_ylabel(str(L["ylabel_hour"]), fontsize=11.5, color=pal["text"], fontweight="bold", labelpad=6)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+
+
+def draw_hourly_log_panel(ax_hud, data, cfg, L, pal, t_info, max_rows=14):
+    """Right column of the per-hour view: the latest hour groups, newest first, each with its real reading times."""
+    pace = float(cfg["pace"])
+    per_h = pace / 24.0
+    rows = list(reversed(data["hourly"]["rows"]))[:max_rows]
+    lx, ly, lw, lh = 0.690, 0.048, 0.285, 0.632
+    draw_card(ax_hud, lx, ly, lw, lh, pal, accent=pal["accent"], radius=14.0)
+    ax_hud.text((lx + 0.018) * FIG_W, (ly + lh - 0.025) * FIG_H, str(L["hourly_log_title"]), color=pal["text"], fontsize=13, fontweight="bold", va="center")
+    hy = (ly + lh - 0.058) * FIG_H
+    x_t = (lx + 0.018) * FIG_W
+    x_cum = (lx + lw - 0.088) * FIG_W
+    x_inc = (lx + lw - 0.018) * FIG_W
+    ax_hud.text(x_t, hy, str(L["hourly_col_time"]), color=pal["text_dim"], fontsize=9.5, fontweight="bold", va="center")
+    ax_hud.text(x_cum, hy, str(L["log_col_cum"]), color=pal["text_dim"], fontsize=9.5, fontweight="bold", ha="right", va="center")
+    ax_hud.text(x_inc, hy, str(L["hourly_col_inc"]), color=pal["text_dim"], fontsize=9.5, fontweight="bold", ha="right", va="center")
+    ax_hud.plot([(lx + 0.015) * FIG_W, (lx + lw - 0.015) * FIG_W], [hy - 14.0, hy - 14.0], color=pal["card_border"], lw=1.0)
+    if not rows:
+        ax_hud.text(x_t, (ly + lh - 0.10) * FIG_H, "--", color=pal["text_dim"], fontsize=12, fontweight="bold", va="center")
+        return
+    top_y = ly + lh - 0.080
+    row_h = (lh - 0.095) / float(max_rows)
+    for i, r in enumerate(rows):
+        ry_mid = (top_y - (i + 0.5) * row_h) * FIG_H
+        over = r["inc"] / max(r["span_h"], 1e-6) > per_h
+        col = pal["purple"] if over else pal["green"]
+        sub = []
+        main = _hm_range(r, t_info.get("start_dt"))
+        if len(main) > 20:  # spans past the next midnight: "MM-DD HH:MM →" + far end on the second line
+            main, far = main.split(" → ", 1)
+            main += " →"
+            sub.append(far)
+        if r["gap"]:
+            sub.append(sfmt(L["hourly_span"], h=_span_label(r["span_h"])))
+        if r["reset"]:
+            sub.append(str(L["hourly_reset"]))
+        ax_hud.text(x_t, ry_mid + (8.0 if sub else 0.0), main, color=pal["text"] if not r["gap"] else pal["text_dim"],
+                    fontsize=10, fontweight="bold", va="center", zorder=4)
+        if sub:
+            ax_hud.text(x_t, ry_mid - 10.0, " · ".join(sub), color=pal["text_dim"], fontsize=8.5, fontweight="bold", va="center", zorder=4)
+        ax_hud.text(x_cum, ry_mid, f"{r['pct']:.0f}%", color=pal["text"], fontsize=10.5, fontweight="bold", ha="right", va="center", zorder=4)
+        inc_txt = (("▲" if over else "▼") if pal.get("patterns") else "") + f"{r['inc']:+.1f}%"
+        ax_hud.text(x_inc, ry_mid, inc_txt, color=col, fontsize=10.5, fontweight="bold", ha="right", va="center", zorder=4)
+        if i < len(rows) - 1:
+            yb = (top_y - (i + 1) * row_h) * FIG_H
+            ax_hud.plot([(lx + 0.015) * FIG_W, (lx + lw - 0.015) * FIG_W], [yb, yb], color=pal["card_border"], lw=0.6, alpha=0.6)
+
+
+INC_CARD = (0.025, 0.048, 0.650, 0.632)
+INC_AXES = (0.078, 0.122, 0.580, 0.468)
+
+
+def draw_increments_view(fig, ax_hud, data, cfg, L, pal, t_info, view):
+    """每日增量 view: one full-height card (per day or per hour) with its unit switch, and the matching log."""
+    unit = "hour" if view == "hourly" else "day"
+    if unit == "day":
+        draw_daily_bars_panel(fig, ax_hud, data, cfg, L, pal, card=INC_CARD, axes=INC_AXES, title=L["inc_title"])
+        draw_daily_log_panel(ax_hud, data, cfg, L, pal, t_info)
+    else:
+        draw_hourly_panel(fig, ax_hud, data, cfg, L, pal, t_info, INC_CARD, INC_AXES)
+        draw_hourly_log_panel(ax_hud, data, cfg, L, pal, t_info)
+    draw_segments(ax_hud, UNIT_RECT, [("day", str(L["unit_day"])), ("hour", str(L["unit_hour"]))], unit, pal, fontsize=10)
+
+
 def draw_footer(ax_hud, cfg, L, pal, t_info):
     is_num = bool(cfg.get("privacy")) or (cfg.get("_eff_lang") == "numeric")
     if is_num:
@@ -2221,6 +2643,9 @@ def configure_fonts_and_locale(lang: str) -> str:
 def render(rows, out_png, week_start, cfg=None):
     """Render the weekly usage HUD dashboard from `rows` (list of dicts with day,date,pct,note)."""
     samples = (cfg or {}).get("samples")  # finer readings for a mid-week reset's time (not a theme/config key)
+    view = (cfg or {}).get("view") or "week"  # "week" overview (default) | "daily" / "hourly" increments
+    if view not in VIEWS:
+        view = "week"
     cfg = normalize_cfg(cfg)
     cfg["samples"] = samples
     eff_lang = configure_fonts_and_locale(cfg["lang"])
@@ -2375,7 +2800,11 @@ def render(rows, out_png, week_start, cfg=None):
         "reset_date": reset_date,
         "tz_label": tz_label,
         "tz_label_reset": tz_label_reset,
+        "start_dt": start_dt,
     }
+    # per-hour increments from the real readings (samples.csv) of this period; never interpolated
+    p_end = shown_reset if (shown_reset is not None and getattr(shown_reset, "tzinfo", None) is not None) else reset_dt
+    data["hourly"] = hourly_increments(samples, start_dt, min(p_end, now_dt) if p_end else now_dt, tz, off)
 
     fig = plt.figure(figsize=(12, 10.0), dpi=150, facecolor=bg)
     ax_hud = fig.add_axes([0, 0, 1, 1], facecolor="none", zorder=1)
@@ -2386,11 +2815,14 @@ def render(rows, out_png, week_start, cfg=None):
     for y_scan in np.linspace(10, FIG_H - 10, 165):
         ax_hud.axhline(y_scan, color=accent_col, alpha=0.016 if is_light else 0.012, lw=0.6, zorder=1)
 
-    draw_header(ax_hud, cfg, L, pal, t_info)
+    draw_header(ax_hud, cfg, L, pal, t_info, view)
     draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info)
-    draw_cumulative_panel(fig, ax_hud, data, cfg, L, pal)
-    draw_daily_bars_panel(fig, ax_hud, data, cfg, L, pal)
-    draw_daily_log_panel(ax_hud, data, cfg, L, pal, t_info)
+    if view == "week":
+        draw_cumulative_panel(fig, ax_hud, data, cfg, L, pal)
+        draw_daily_bars_panel(fig, ax_hud, data, cfg, L, pal)
+        draw_daily_log_panel(ax_hud, data, cfg, L, pal, t_info)
+    else:
+        draw_increments_view(fig, ax_hud, data, cfg, L, pal, t_info, view)
     draw_footer(ax_hud, cfg, L, pal, t_info)
 
     out_path = Path(out_png).resolve()
@@ -2399,6 +2831,10 @@ def render(rows, out_png, week_start, cfg=None):
     plt.close(fig)
     meta = t_info.get("meta", {})
     meta.update(data.get("chart_meta", {}))
+    hb = data["hourly"]
+    meta["view"] = view
+    meta["inc"] = {"readings": hb["readings"], "hours": sum(1 for r in hb["rows"] if not r["gap"]), "rich": bool(hb["rich"]),
+                   "step_min": round(hb["step_min"], 1) if hb["step_min"] else None}
     return meta
 
 

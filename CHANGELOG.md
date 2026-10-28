@@ -6,6 +6,30 @@ MAJOR for changes that need you to do something, MINOR for new features, PATCH f
 The current version is in the `VERSION` file and shown small at the top of the page.
 The changelog is kept in English only; [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md) is no longer updated.
 
+## [1.6.0] - 2026-10-28
+
+### Added
+- **Daily** tab (每日增量) can switch between **per day** and **per hour**. Per hour draws only real readings (never
+  interpolated), marks gaps with hatching, and shows a "not enough readings" note for light users. Per hour opens by
+  default once the week has 12 or more hourly readings.
+- Usage clock **Hours** menu (left of Range, applies to both dials): **Last 24 h** (default, drawn exactly as in
+  1.5.1), **Last 12 h** (AM before 12:00 local time, PM from 12:00, decided again on every refresh), **AM 12 h**
+  and **PM 12 h** (a 12-hour clock face with 12 at the top). The other half is left out; peak, average, interval
+  count and check-in dots cover only the shown half. An AM / PM label sits in a small hub at the dial centre.
+- The 12-hour views have their own titles, a subtitle that gives the real span (for example
+  `10/27 02:37–12:00 + 10/28 00:00–02:37`) and an explanatory line under the toolbar, in all interface languages.
+- The page remembers the last main tab and the per-day / per-hour choice in the browser (`localStorage`).
+
+### Changed
+- Header tabs are now **Week** (本週總覽, the default) and **Daily** (每日增量); the Cumulative tab is removed.
+- Clock tab: the toolbar sits above both cards so they top-align.
+
+### Fixed
+- A page that was loaded before a server restart (stale per-start token, `403` from `/api/palette/render`) now keeps
+  the menu choice and reloads once instead of snapping back to the default.
+
+Language batch 2 (Italian, Polish, Turkish, Vietnamese, Malay) is not part of this release; it moves to a later version.
+
 ## [1.5.1] - 2026-10-27
 
 ### Changed
