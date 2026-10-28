@@ -6,6 +6,15 @@ MAJOR for changes that need you to do something, MINOR for new features, PATCH f
 The current version is in the `VERSION` file and shown small at the top of the page.
 The changelog is kept in English only; [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md) is no longer updated.
 
+## [1.7.1] - 2026-10-29
+
+### Fixed
+- **Daily** tab, per-hour view: the hourly list (*Hourly Log*) is no longer limited to the newest day. It lists every hour row
+  of the 7-day chart (newest first) in a scrollable list with an always-visible, draggable scrollbar on its right edge. The
+  selection still works for any hour in both directions: clicking a bar selects and scrolls to its row, clicking a row moves the
+  light mask on the chart, and the mask stays at least a few pixels wide (also for the first and last hour of the week). The newest
+  hour is still selected when the page opens, and reading-gap rows / bands are unchanged. (Before, the list was cut after 14 rows.)
+
 ## [1.7.0] - 2026-10-28
 
 ### Added

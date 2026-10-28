@@ -2504,7 +2504,8 @@ def draw_hourly_panel(fig, ax_hud, data, cfg, L, pal, t_info, card, axes):
             x0, x1 = max(0.0, x0), min(span_total, x1)
             c = (x0 + x1) / 2
             w0 = max(x1 - x0, min_w)
-            bands.append((c - w0 / 2, c + w0 / 2))
+            lo = min(max(c - w0 / 2, 0.0), span_total - w0)  # centred on the column; at the axis ends slid inside, never cut thinner
+            bands.append((lo, lo + w0))
             rect = lambda u0, u1: [round((ax_l + max(0.0, u0) / span_total * ax_w) * 100, 3), round((1 - ax_b - ax_h) * 100, 3),
                                    round((min(span_total, u1) - max(0.0, u0)) / span_total * ax_w * 100, 3), round((ax_h + 0.045) * 100, 3)]
             cols.append(rect(x0, x1))      # what a click on the chart hits (the columns tile the axis)
@@ -2580,35 +2581,83 @@ def draw_hourly_panel(fig, ax_hud, data, cfg, L, pal, t_info, card, axes):
         spine.set_visible(False)
 
 
-def draw_hourly_log_panel(ax_hud, data, cfg, L, pal, t_info, max_rows=14):
-    """Right column of the per-hour view: the latest hour groups, newest first, each with its real reading times."""
+HOURLY_LOG_VISIBLE = 14  # rows the list card shows at once (the page scrolls the rest; the static PNG lists only these)
+HOURLY_LOG_SB = 0.016  # figure width kept free on the right of the list card for the page's scrollbar (page mode)
+
+
+def _hourly_log_cols(lw, sb):
+    """x of the three columns, in figure fractions from the list card's left edge (time, 累計 right edge, 增量 right edge)."""
+    return 0.018, lw - 0.088, lw - 0.014 - sb
+
+
+def _draw_hourly_row(ax, r, x_t, x_cum, x_inc, ry_mid, per_h, L, pal):
+    """One list row (time range, cumulative %, increase) centred on ry_mid; returns (label, colour)."""
+    over = r["inc"] / max(r["span_h"], 1e-6) > per_h
+    col = pal["text_dim"] if r["gap"] else (pal["purple"] if over else pal["green"])  # a reading gap is neutral
+    sub = []
+    main = _hm_range(r, None)
+    label = main
+    if len(main) > 20:  # spans past the next midnight: "MM-DD HH:MM →" + far end on the second line
+        main, far = main.split(" → ", 1)
+        main += " →"
+        sub.append(far)
+    if r["gap"]:
+        sub.append(sfmt(L["hourly_span"], h=_span_label(r["span_h"])))
+    if r["reset"]:
+        sub.append(str(L["hourly_reset"]))
+    ax.text(x_t, ry_mid + (8.0 if sub else 0.0), main, color=pal["text"] if not r["gap"] else pal["text_dim"],
+            fontsize=10, fontweight="bold", va="center", zorder=4)
+    if sub:
+        ax.text(x_t, ry_mid - 10.0, " · ".join(sub), color=pal["text_dim"], fontsize=8.5, fontweight="bold", va="center", zorder=4)
+    ax.text(x_cum, ry_mid, f"{r['pct']:.0f}%", color=pal["text"], fontsize=10.5, fontweight="bold", ha="right", va="center", zorder=4)
+    inc_txt = (("▲" if over else "▼") if pal.get("patterns") and not r["gap"] else "") + f"{r['inc']:+.1f}%"
+    ax.text(x_inc, ry_mid, inc_txt, color=col, fontsize=10.5, fontweight="bold", ha="right", va="center", zorder=4)
+    return label, col
+
+
+def hourly_list_layout():
+    """Where the hourly list's scrolling viewport sits on the picture and how tall one row is (figure fractions)."""
+    lx, ly, lw, lh = DAY_LOG_CARD
+    row_h = (lh - 0.095) / float(HOURLY_LOG_VISIBLE)
+    top_y = ly + lh - 0.080
+    return {"left": lx + 0.010, "width": lw - 0.020 - HOURLY_LOG_SB, "top_y": top_y, "row_h": row_h}
+
+
+def draw_hourly_log_panel(ax_hud, data, cfg, L, pal, t_info, max_rows=HOURLY_LOG_VISIBLE):
+    """Right column of the per-hour view: hour groups, newest first, each with its real reading times. Page mode
+    (sel_sprites): the card holds the title and column heads only and the rows are a separate tall picture
+    (write_hourly_strip) that the page scrolls, so every hour of the 7-day chart is listed; otherwise (a plain PNG
+    export) the newest `max_rows` rows are drawn into the card."""
     pace = float(cfg["pace"])
     per_h = pace / 24.0
-    rows = list(reversed(data["hourly"]["rows"]))[:max_rows]
-    n_all = len(data["hourly"]["rows"])
     sel = data.get("sel")
+    strip = sel is not None and bool(cfg.get("sel_sprites"))
+    rows = list(reversed(data["hourly"]["rows"]))
+    if not strip:
+        rows = rows[:max_rows]
+    n_all = len(data["hourly"]["rows"])
     lx, ly, lw, lh = DAY_LOG_CARD
+    sb = HOURLY_LOG_SB if strip else 0.0
     draw_card(ax_hud, lx, ly, lw, lh, pal, accent=pal["accent"], radius=14.0)
     ax_hud.text((lx + 0.018) * FIG_W, (ly + lh - 0.025) * FIG_H, str(L["hourly_log_title"]), color=pal["text"], fontsize=13, fontweight="bold", va="center")
     hy = (ly + lh - 0.058) * FIG_H
-    x_t = (lx + 0.018) * FIG_W
-    x_cum = (lx + lw - 0.088) * FIG_W
-    x_inc = (lx + lw - 0.018) * FIG_W
+    c_t, c_cum, c_inc = _hourly_log_cols(lw, sb)
+    x_t, x_cum, x_inc = (lx + c_t) * FIG_W, (lx + c_cum) * FIG_W, (lx + c_inc) * FIG_W
     ax_hud.text(x_t, hy, str(L["hourly_col_time"]), color=pal["text_dim"], fontsize=9.5, fontweight="bold", va="center")
     ax_hud.text(x_cum, hy, str(L["log_col_cum"]), color=pal["text_dim"], fontsize=9.5, fontweight="bold", ha="right", va="center")
     ax_hud.text(x_inc, hy, str(L["hourly_col_inc"]), color=pal["text_dim"], fontsize=9.5, fontweight="bold", ha="right", va="center")
-    ax_hud.plot([(lx + 0.015) * FIG_W, (lx + lw - 0.015) * FIG_W], [hy - 14.0, hy - 14.0], color=pal["card_border"], lw=1.0)
+    ax_hud.plot([(lx + 0.015) * FIG_W, (lx + lw - 0.015 - sb) * FIG_W], [hy - 14.0, hy - 14.0], color=pal["card_border"], lw=1.0)
     if not rows:
         ax_hud.text(x_t, (ly + lh - 0.10) * FIG_H, "--", color=pal["text_dim"], fontsize=12, fontweight="bold", va="center")
+        return
+    if strip:
+        _stash_strip(data, rows, per_h, L, pal)
         return
     top_y = ly + lh - 0.080
     row_h = (lh - 0.095) / float(max_rows)
     for i, r in enumerate(rows):
         ry_mid = (top_y - (i + 0.5) * row_h) * FIG_H
-        over = r["inc"] / max(r["span_h"], 1e-6) > per_h
-        col = pal["text_dim"] if r["gap"] else (pal["purple"] if over else pal["green"])  # a reading gap is neutral
-        sub = []
-        main = _hm_range(r, t_info.get("start_dt"))
+        label, col = _draw_hourly_row(ax_hud, r, x_t, x_cum, x_inc, ry_mid, per_h, L, pal)
         if sel is not None and sel.get("meta"):  # the newest row is the default selection; each shown row can be selected
             k = n_all - 1 - i
             rb = (top_y - (i + 1) * row_h) * FIG_H
@@ -2619,25 +2668,55 @@ def draw_hourly_log_panel(ax_hud, data, cfg, L, pal, t_info, max_rows=14):
             sel_add(sel, hl, cur=(k == sel["id"]), every=True)
             sel["meta"]["rows"][k] = [round((lx + 0.010) * 100, 3), round((1 - (top_y - i * row_h)) * 100, 3),
                                       round((lw - 0.020) * 100, 3), round(row_h * 100, 3)]
-            sel["meta"]["labels"][k] = main
-        if len(main) > 20:  # spans past the next midnight: "MM-DD HH:MM →" + far end on the second line
-            main, far = main.split(" → ", 1)
-            main += " →"
-            sub.append(far)
-        if r["gap"]:
-            sub.append(sfmt(L["hourly_span"], h=_span_label(r["span_h"])))
-        if r["reset"]:
-            sub.append(str(L["hourly_reset"]))
-        ax_hud.text(x_t, ry_mid + (8.0 if sub else 0.0), main, color=pal["text"] if not r["gap"] else pal["text_dim"],
-                    fontsize=10, fontweight="bold", va="center", zorder=4)
-        if sub:
-            ax_hud.text(x_t, ry_mid - 10.0, " · ".join(sub), color=pal["text_dim"], fontsize=8.5, fontweight="bold", va="center", zorder=4)
-        ax_hud.text(x_cum, ry_mid, f"{r['pct']:.0f}%", color=pal["text"], fontsize=10.5, fontweight="bold", ha="right", va="center", zorder=4)
-        inc_txt = (("▲" if over else "▼") if pal.get("patterns") and not r["gap"] else "") + f"{r['inc']:+.1f}%"
-        ax_hud.text(x_inc, ry_mid, inc_txt, color=col, fontsize=10.5, fontweight="bold", ha="right", va="center", zorder=4)
+            sel["meta"]["labels"][k] = label
         if i < len(rows) - 1:
             yb = (top_y - (i + 1) * row_h) * FIG_H
             ax_hud.plot([(lx + 0.015) * FIG_W, (lx + lw - 0.015) * FIG_W], [yb, yb], color=pal["card_border"], lw=0.6, alpha=0.6)
+
+
+def _stash_strip(data, rows, per_h, L, pal):
+    """Remember what the page-mode list needs (rows newest first); render() draws the strip after the card is saved."""
+    data["hourly_strip"] = {"rows": rows, "per_h": per_h, "L": L, "pal": pal}
+
+
+def write_hourly_strip(data, out_png):
+    """<chart>-rows.png: ALL hour rows of the 7-day chart as one tall transparent picture (newest first, drawn exactly like the
+    card's own rows), laid by the page inside a scrollable viewport over the card. Fills the selection meta (row boxes in %
+    of this picture, their colours and the viewport on the chart) the page needs. Returns the path."""
+    st = data["hourly_strip"]
+    rows, per_h, L, pal = st["rows"], st["per_h"], st["L"], st["pal"]
+    sel = data["sel"]
+    lay = hourly_list_layout()
+    lx, ly, lw, lh = DAY_LOG_CARD
+    c_t, c_cum, c_inc = _hourly_log_cols(lw, HOURLY_LOG_SB)
+    left = lx + 0.010
+    w_px, row_px = lay["width"] * FIG_W, lay["row_h"] * FIG_H
+    h_px = row_px * len(rows)
+    n_all = len(rows)
+    fig = plt.figure(figsize=(w_px / 150.0, h_px / 150.0), dpi=150)
+    fig.patch.set_alpha(0.0)
+    ax = fig.add_axes([0, 0, 1, 1], facecolor="none")
+    ax.set_xlim(0, w_px)
+    ax.set_ylim(0, h_px)
+    ax.axis("off")
+    meta = sel["meta"]
+    meta["strip"] = {"box": [round(left * 100, 3), round((1 - lay["top_y"]) * 100, 3), round(lay["width"] * 100, 3),
+                             round(HOURLY_LOG_VISIBLE * lay["row_h"] * 100, 3)],
+                     "px": [round(w_px, 1), round(h_px, 1)], "colors": [None] * n_all}
+    for i, r in enumerate(rows):
+        k = n_all - 1 - i
+        ry_mid = h_px - (i + 0.5) * row_px
+        label, col = _draw_hourly_row(ax, r, (c_t - 0.010) * FIG_W, (c_cum - 0.010) * FIG_W, (c_inc - 0.010) * FIG_W, ry_mid, per_h, L, pal)
+        meta["rows"][k] = [0.0, round(i * row_px / h_px * 100, 4), 100.0, round(row_px / h_px * 100, 4)]
+        meta["labels"][k] = label
+        meta["strip"]["colors"][k] = to_hex(to_rgb(col))
+        if i < n_all - 1:
+            yb = h_px - (i + 1) * row_px
+            ax.plot([0.005 * FIG_W, w_px - 0.005 * FIG_W], [yb, yb], color=pal["card_border"], lw=0.6, alpha=0.6)
+    path = sel_sprite_name(out_png, "rows")
+    fig.savefig(str(path), dpi=150, transparent=True)
+    plt.close(fig)
+    return path
 
 
 SEL_MASK_ALPHA = 0.12  # the linked selection's band behind a bar column: white at 12% on dark themes ...
@@ -2990,6 +3069,8 @@ def render(rows, out_png, week_start, cfg=None):
     if sel is not None and cfg.get("sel_sprites"):
         write_sel_sprites(fig, sel, out_path)
     plt.close(fig)
+    if sel is not None and cfg.get("sel_sprites") and view == "hourly" and data.get("hourly_strip"):
+        write_hourly_strip(data, out_path)  # the scrollable list: every hour row of the chart
     meta = t_info.get("meta", {})
     if sel is not None:
         meta["sel"] = sel["meta"]

@@ -1604,6 +1604,7 @@ def render_clock_range(ctx, name, key, mode="ot", dial="24"):
 
 WEEK_VIEW_FILES = ("week-current.png", "week-daily.png", "week-hourly.png")  # 本週總覽 / 每日增量 per day / per hour
 SEL_SPRITES = tuple(f"week-{v}-{k}.png" for v in ("daily", "hourly") for k in ("off", "on"))  # linked selection (chart_hud.write_sel_sprites)
+HOURLY_ROWS_FILE = "week-hourly-rows.png"  # every hour row of the per-hour list as one tall picture the page scrolls (chart_hud.write_hourly_strip)
 
 
 def render_current_week(ctx, nowa, names=None):
@@ -1616,7 +1617,7 @@ def render_current_week(ctx, nowa, names=None):
         rows = [r for r in csv.DictReader(f.open(encoding="utf-8"))] if f.exists() else []
         if not rows:
             for d in ([ctx.hist_dir] if publish else []) + [dd for _, dd in _palette_dirs(ctx, names)]:
-                for fn in WEEK_VIEW_FILES + SEL_SPRITES + ("week-current.json",):
+                for fn in WEEK_VIEW_FILES + SEL_SPRITES + (HOURLY_ROWS_FILE, "week-current.json"):
                     if (d / fn).exists():
                         (d / fn).unlink()
             return False
@@ -1641,13 +1642,15 @@ def render_current_week(ctx, nowa, names=None):
                 else:  # no selection this time (e.g. too few hourly readings): drop sprites left by an earlier render
                     for k in ("off", "on"):
                         (d / f"week-{view}-{k}.png").unlink(missing_ok=True)
+                    if view == "hourly":
+                        (d / HOURLY_ROWS_FILE).unlink(missing_ok=True)
             meta = chart_hud.render(rows, str(d / "week-current.png"), f"{ws.astimezone(ctx.tz):%Y-%m-%d}", dict(hcfg, view="week"))
             if sels:  # where the 每日增量 days / hours are on each picture, and which one is selected when the page opens
                 meta["sel"] = sels
             # gauge geometry/colours for the page's animated overlay (the PNG stays the static export)
             _write_text(d / "week-current.json", json.dumps(meta or {}, ensure_ascii=False))
         if publish:
-            _publish_default(ctx, list(WEEK_VIEW_FILES) + list(SEL_SPRITES) + ["week-current.json"])
+            _publish_default(ctx, list(WEEK_VIEW_FILES) + list(SEL_SPRITES) + [HOURLY_ROWS_FILE, "week-current.json"])
         return True
     except Exception as exc:
         print(f"Warning: current week chart failed: {exc}", file=sys.stderr)
@@ -2355,7 +2358,24 @@ var t=null;try{t=localStorage.getItem(TK);}catch(e){}if(t==='inc')show(unit());}
 # changes colour. Nothing is stored: a reload selects today (per day) / the newest hour (per hour) again.
 SEL_CSS = ("[data-wv] .dsel{position:absolute;display:block;box-sizing:border-box;background:transparent;border:0;padding:0;margin:0;border-radius:9px;cursor:pointer}"
            " [data-wv] .dsel:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}"
-           " [data-wv] img.ssprite{position:absolute;left:1px;top:1px;width:100%;height:auto;border:0;border-radius:0;pointer-events:none}")
+           " [data-wv] img.ssprite{position:absolute;left:1px;top:1px;width:100%;height:auto;border:0;border-radius:0;pointer-events:none}"
+           # the per-hour list: a scrollable viewport over the card holding every hour row (one tall picture + a button per row);
+           # its scrollbar is always shown (not an overlay), a 16 px track on the card's right edge with a wide accent-coloured thumb
+           " [data-wv] .hscroll{position:absolute;box-sizing:content-box;overflow-x:hidden;overflow-y:scroll;overscroll-behavior:contain;scrollbar-gutter:stable}"
+           # (scrollbar-color would switch Chromium's own scrollbar styling off, so it is only for browsers without ::-webkit-scrollbar)
+           " @supports not selector(::-webkit-scrollbar){[data-wv] .hscroll{scrollbar-width:auto;scrollbar-color:var(--accent) rgba(127,127,127,.28)}}"
+           " [data-wv] .hscroll::-webkit-scrollbar{width:16px;background:rgba(127,127,127,.22)}"
+           " [data-wv] .hscroll::-webkit-scrollbar-button{display:none}"
+           " [data-wv] .hscroll::-webkit-scrollbar-track{background:rgba(127,127,127,.22);border-radius:8px;box-shadow:inset 0 0 0 1px rgba(127,127,127,.30)}"
+           " [data-wv] .hscroll::-webkit-scrollbar-thumb{background:var(--accent);border:3px solid transparent;background-clip:padding-box;border-radius:8px;min-height:44px}"
+           " [data-wv] .hscroll::-webkit-scrollbar-thumb:hover{background:var(--acc-hl);background-clip:padding-box}"
+           " [data-wv] .hscroll::-webkit-scrollbar-thumb:active{background:var(--acc-hl);background-clip:padding-box;border-width:2px}"
+           " [data-wv] .hstrip{position:relative}"
+           " [data-wv] img.hrows{display:block;width:100%;height:auto;border:0;border-radius:0}"
+           " [data-wv] .hrow{left:0;width:100%;border-radius:7px}"
+           " [data-wv] .hrow::before{content:'';position:absolute;inset:1px 0;border:1px solid transparent;border-radius:7px;pointer-events:none}"
+           " [data-wv] .hrow[aria-pressed=true]::before{border-color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent)}"
+           " [data-wv] .hrow:hover:not([aria-pressed=true])::before{background:rgba(127,127,127,.12)}")
 SEL_JS = r"""(function(){var sec=document.getElementById('p-wk');if(!sec)return;
 function init(w){var img=w.querySelector('img[data-f]'),S=[].slice.call(w.querySelectorAll('img.ssprite')),off=S[0],onc=S[1],onr=S[2],I=[].slice.call(w.querySelectorAll('[data-i]'));
 if(!img||S.length<3||!I.length)return;var d0=+off.getAttribute('data-sel'),cur=d0,ready=false,seq=0;
@@ -2364,7 +2384,9 @@ function find(c,i){for(var j=0;j<I.length;j++)if(I[j].classList.contains(c)&&+I[
 function box(e){var c=e.getAttribute('data-clip');return c?c.split(',').map(parseFloat):[parseFloat(e.style.left),parseFloat(e.style.top),parseFloat(e.style.width),parseFloat(e.style.height)];}
 function clip(im,e){if(!e){im.hidden=true;return;}var r=box(e);im.style.clipPath='inset('+r[1]+'% '+(100-r[0]-r[2])+'% '+(100-r[1]-r[3])+'% '+r[0]+'%)';im.hidden=false;}
 function mark(){I.forEach(function(e){if(e.getAttribute('aria-pressed')!==null)e.setAttribute('aria-pressed',+e.getAttribute('data-i')===cur?'true':'false');});}
-function render(){mark();if(!ready||cur===d0){S.forEach(function(im){im.hidden=true;});return;}off.hidden=false;clip(onc,find('dcol',cur));clip(onr,find('dcard',cur));}
+function reveal(e){var c=e&&e.closest?e.closest('.hscroll'):null;if(!c)return;var a=e.getBoundingClientRect(),b=c.getBoundingClientRect();
+if(a.top<b.top)c.scrollTop-=b.top-a.top;else if(a.bottom>b.bottom)c.scrollTop+=a.bottom-b.bottom;}
+function render(){mark();reveal(find('hrow',cur));if(!ready||cur===d0){S.forEach(function(im){im.hidden=true;});return;}off.hidden=false;clip(onc,find('dcol',cur));clip(onr,find('dcard',cur));}
 function load(){ready=false;S.forEach(function(im){im.hidden=true;});var a=url('off'),b=url('on'),my=++seq,n=0;if(!a||w.hidden)return;
 [a,b].forEach(function(u){var im=new Image();im.onload=function(){if(my!==seq)return;if(++n===2){off.src=a;onc.src=b;onr.src=b;ready=true;render();}};im.src=u;});}
 w.addEventListener('click',function(e){var t=e.target&&e.target.closest?e.target.closest('[data-i]'):null;if(!t)return;cur=+t.getAttribute('data-i');render();});
@@ -2374,9 +2396,11 @@ mark();load();}
 ['daily','hourly'].forEach(function(v){var w=sec.querySelector("[data-wv='"+v+"']");if(w)init(w);});})();"""
 
 
-def select_html(sel, label_of):
+def select_html(sel, label_of, strip_src=None):
     """The click areas of one 每日增量 view (the page's own buttons / areas over the picture; no new text: a card's
-    accessible name is its day label or its time range). (html, selected index), or (None, None) without selection data."""
+    accessible name is its day label or its time range). (html, selected index), or (None, None) without selection data.
+    With sel["strip"] (the per-hour list) and strip_src, the rows are not cards on the chart picture but buttons over a tall
+    picture (strip_src) inside a scrollable viewport on the card: every hour row of the chart is listed."""
     try:
         cols, rows, i0 = sel["cols"], sel["rows"], int(sel["i"])
         clips = sel.get("clips") or [None] * len(cols)
@@ -2389,7 +2413,19 @@ def select_html(sel, label_of):
     for k, r in enumerate(cols):
         clip = f" data-clip='{','.join(str(v) for v in clips[k])}'" if clips[k] and clips[k] != r else ""
         out.append(f"<div class='dsel dcol' data-i='{k}' aria-hidden='true' style='{box(r)}'{clip}></div>")
-    for k, r in enumerate(rows):
+    strip = sel.get("strip")
+    if strip and strip_src:
+        x, y, w, h = strip["box"]
+        # the viewport is the list's width plus its 16 px scrollbar (the scrollbar takes its room from the content box)
+        out.append(f"<div class='hscroll' style='left:{x}%;top:{y}%;width:calc({w}% + 16px);height:{h}%'><div class='hstrip'>"
+                   f"<img class='hrows' alt='' loading='lazy' data-f='{html.escape(strip_src[0])}' src='{html.escape(strip_src[1])}'>")
+        for k, r in enumerate(rows):
+            if r:
+                out.append(f"<button type='button' class='dsel hrow' data-i='{k}' aria-pressed='{'true' if k == i0 else 'false'}'"
+                           f" aria-label='{html.escape(str(label_of(k)))}' style='{box(r)};--c:{strip['colors'][k]}'></button>")
+        out.append("</div></div>")
+        return "".join(out), i0
+    for k, r in enumerate(rows if not strip else []):  # (strip row boxes are in the tall picture's coordinates, not the chart's)
         if r:
             out.append(f"<button type='button' class='dsel dcard' data-i='{k}' aria-pressed='{'true' if k == i0 else 'false'}'"
                        f" aria-label='{html.escape(str(label_of(k)))}' style='{box(r)}'></button>")
@@ -2426,7 +2462,10 @@ def week_views_html(ctx, gmeta, b64):
             sel = ((gmeta or {}).get("sel") or {}).get(v)
             day_label = lambda k: chart_hud.sfmt(HL["day_fmt"], d=k + 1, day=k + 1)
             hour_label = lambda k: (sel.get("labels") or [])[k] or ""
-            dsel, i0 = select_html(sel, day_label if v == "daily" else hour_label) if sel else (None, None)
+            rows_fn = HOURLY_ROWS_FILE
+            rver = int((ctx.hist_dir / rows_fn).stat().st_mtime) if (ctx.hist_dir / rows_fn).exists() else None
+            strip_src = (rows_fn, f"{rows_fn}?v={rver}") if v == "hourly" and rver is not None else None
+            dsel, i0 = select_html(sel, day_label if v == "daily" else hour_label, strip_src) if sel else (None, None)
             parts.append(f"<div class='gwrap' data-wv='{v}' hidden><img alt='' loading='lazy' data-f='{fn}' src='{fn}?v={ver}'>"
                          + (dsel or "") + tabs(v) + units(v) + "</div>")
     dinc = html.escape(json.dumps({"rich": bool(inc.get("rich")), "hours": inc.get("hours")}), quote=True)
