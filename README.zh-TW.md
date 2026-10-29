@@ -1,10 +1,81 @@
 # Grok Bot Usage & Check-in（用量・打卡・搜尋）
 
+在自己電腦上記錄 Grok 每週用量 %、誰在做什麼（打卡），並能搜尋「哪幾天做了哪些事、花了多少用量」。資料只存在本機。
+
+![儀表板截圖（繁體中文）](docs/media/screenshot-zh-TW.png)
+
+*截圖使用虛構的範例資料。*
+
+## 一鍵安裝（Windows、Mac、Linux）
+
+1. 下載這個專案：在 GitHub 按 **Code → Download ZIP**，再整個解壓縮（Windows：對 ZIP 按右鍵選 **全部解壓縮**，不能在 ZIP 預覽視窗裡直接執行）（或用 `git clone`；只有 `git clone` 裝的版本能在網頁上自動更新）。
+2. 依你的電腦，雙擊對應的檔案：
+   - **Windows：**`Install-Windows.cmd`（如果出現「Windows 已保護您的電腦」，按 **其他資訊 → 仍要執行**）
+   - **Mac（測試版，還沒在真正的 Mac 上測過；用得如何請到 GitHub issue 回報）：**`Install-Mac.command`（第一次請按右鍵選 **打開**，再按一次 **打開**）
+     - 如果雙擊被拒絕（出現「權限」或「無法執行」）：打開 **終端機**，輸入 `bash `（後面要有一個空格），把 `Install-Mac.command` 拖進視窗，再按 Enter。
+   - **Linux：**`install.sh`（選「在終端機執行」），或在終端機輸入 `bash install.sh`
+3. 它會列出要安裝的東西，然後直接一次做完，不會問任何問題（Windows 用 winget 裝 Python、Grok Build、`tmux`、Python 套件）。Windows 可能會跳出系統自己的許可視窗，Linux／macOS 裝 `tmux` 時可能要輸入電腦密碼，那是系統要求的。
+4. 看到 **Done** 時，儀表板會在瀏覽器打開，畫面上也會顯示網址。它還會在桌面放一個 **Grok Usage Dashboard** 捷徑（Windows 是 `.lnk`、Mac 是 `.command`、Linux 只有在有 `~/Desktop` 資料夾時才會放 `.desktop`），並印出放在哪裡；之後雙擊就能再次啟動儀表板。捷徑建立失敗不會讓安裝失敗。
+5. 如果這次才剛裝好 Grok Build，請登入一次：開一個**新的**終端機／PowerShell 視窗，輸入 `grok`，在瀏覽器確認是你的帳號，按 **Allow**，再按 **Ctrl+Q** 離開。安裝程式只有在找不到 Grok Build 的登入檔時才會顯示這個提醒（只檢查檔案是否存在，不會打開它）。
+
+<details>
+<summary><b>安裝程式做了什麼，以及選項</b></summary>
+
+它會做的事：只安裝缺少的東西（用 xAI 官方安裝程式裝 Grok Build、Linux／macOS 的 `tmux`、Python 套件；Linux／macOS 若系統不讓你用 `pip` 裝到全系統，就改裝在專案資料夾裡的私人 `.venv`），把
+`usage_config.json` 的讀取方式設成 `auto`，並把 Grok Build 的預設權限模式存成 **auto**（在 `~/.grok/config.toml`
+寫入 `[ui] permission_mode = "auto"`，那裡只改這一行；登入資料完全不會打開），最後在 `127.0.0.1` 啟動儀表板。
+auto 模式下，Grok Build 會讓安全檢查自動放行一般操作，不必每次問你；有風險的操作仍會先問你。如果 Grok Build
+原本就設成「全部自動核准」（always-approve），會保持原樣。
+
+隨時可以再執行一次：做完的步驟會跳過；如果 auto 被關掉了，會自動改回來。選項：`--dry-run`
+（只列出計畫）、`--manual`（自己輸入每週 %，不安裝也不更動 Grok Build）、`--no-grok-auto`（不動 Grok Build 的模式）、
+`--no-start`、`--no-shortcut`（不要在桌面放捷徑）、`--ask`（安裝前先問「Continue? [y/N]」，預設關閉；舊的 `--yes` 仍可用，但沒有作用）。Windows 的 `one-click-install.ps1` 用 `-DryRun`、`-Ask`、`-Manual`、`-NoGrokAuto`、`-NoStart`、`-NoShortcut`。
+
+</details>
+
+## 解除安裝
+
+沒有一鍵解除安裝的腳本，只要三個小步驟：
+
+1. **先停止背景的儀表板**（不然資料夾還在使用中，儀表板也會繼續跑）。在專案資料夾裡執行：
+   - Windows：`.venv\Scripts\python.exe service.py stop`
+   - Mac / Linux：`.venv/bin/python service.py stop`
+
+   如果你曾經執行過 `register-task.ps1`（登入時自動啟動），也要執行
+   `powershell -ExecutionPolicy Bypass -File .\register-task.ps1 -Uninstall`。
+2. **刪除桌面上的「Grok Usage Dashboard」捷徑**（如果有；一鍵安裝程式會做一個，Windows 的那個指向 `start.ps1`）。
+3. **刪除整個專案資料夾。** 儀表板、`.venv` 和已存的讀數都會一起消失。
+
+Grok Build 是 xAI 官方的程式（Grok Bot 也在用），所以**不會**被移除。安裝程式寫進 `~/.grok/config.toml` 的那一行
+（`permission_mode = "auto"`）很小也無害，可以留著。
+
+## 手動安裝（Linux，給工程師：三步驟）
+
+1. **下載**
+   ```bash
+   git clone https://github.com/yuehzhan/grokbot-usage-checkin.git
+   cd grokbot-usage-checkin
+   ```
+2. **安裝**
+   ```bash
+   python3 -m pip install -r requirements.txt
+   sudo apt install -y tmux        # Linux 自動讀取 /usage 需要 tmux
+   ```
+3. **啟動**（接著開啟它印出的網址；停止：`python3 service.py stop`）
+   ```bash
+   python3 service.py start --open
+   ```
+
+那台電腦需要先安裝 Grok Build 並登入過一次（見英文 README 的 *Recommended Setup*）。更多內容（Windows 細節、手機、設定等）都在下方可展開的區塊裡。完整說明（英文）：[README.md](./README.md)
+
+
+<details>
+<summary><b>專案簡介：用途、範圍與隱私</b></summary>
+
 <p align="center">
   <img src="docs/media/gauge-rev.gif" alt="儀表動畫" width="360">
 </p>
 
-![儀表板截圖（繁體中文）](docs/media/screenshot-zh-TW.png)
 
 *動畫和截圖都是虛構的範例資料。*
 
@@ -18,7 +89,10 @@
 
 **刻意不做進度欄位。** 打卡只是一句「做了什麼」的筆記，沒有任務進度、百分比、截止日或工時統計。目的只是大略看出哪個時段用了多少用量、那時在做什麼，不是用來監工的。加進度或生產力追蹤的需求不在本專案範圍內。
 
-## 建議：安裝在 Grok Bot 的電腦上（Linux 版）
+</details>
+
+<details>
+<summary><b>建議：安裝在 Grok Bot 的電腦上（Linux 版）</b></summary>
 
 建議使用 **Linux 版，安裝在你的 Grok Bot 自己的電腦上**。這是平常實際在用的版本：Grok Bot 每小時在自己的電腦上用
 Grok Build 讀 `/usage`，不會呼叫模型，也不扣用量。可以直接請你的 Grok Bot 幫你安裝：
@@ -37,13 +111,19 @@ python3 service.py start        # 背景啟動網頁與每小時取樣；停止�
 
 > **macOS**：GitHub 上的自動測試會在 macOS 跑一遍（每次推送到 `main`），但每小時自動讀取 `/usage` 還沒在真正的 Mac 上試過。
 
-## Linux 版和 Windows 版差在哪
+</details>
+
+<details>
+<summary><b>Linux 版和 Windows 版差在哪</b></summary>
 
 - **功能一樣**，差別在系統和測試程度：Linux 版的自動讀取已實測，Windows 版還沒充分測試。Linux 版可以裝在 Grok Bot 的電腦上（建議），也可以裝在你自己的 Linux 電腦上。
 - **打卡是選用的**：只想看用量就不用打卡，不管哪個版本都一樣。打卡主要是給助手記錄做了什麼、花多少時間、用掉多少用量。
 - **匯入助手的打卡紀錄**：請你的 Grok Bot 把它電腦上的 `usage-data/checkins.csv` 複製到你儀表板的 `usage-data` 資料夾。你那邊如果已經有這個檔案，請它合併（以 `id` 欄去掉重複），不要整個蓋掉。複製前先停止儀表板，複製完再啟動，打開「打卡」分頁就能看和搜尋。
 
-## Windows 快速開始（尚未充分測試）
+</details>
+
+<details>
+<summary><b>Windows 快速開始（尚未充分測試）</b></summary>
 
 需要 Windows 10（1809 以上）或 11，以及 [Python 3.10 以上](https://www.python.org/downloads/windows/)
 （安裝時勾選「Add python.exe to PATH」）。不需要系統管理員權限。
@@ -108,7 +188,10 @@ python3 service.py start        # 背景啟動網頁與每小時取樣；停止�
    `python3 service.py stop && git reset --keep <commit> && python3 -m pip install -r requirements.txt && python3 service.py start`。
    `git reset --keep` 遇到被改過的檔案會直接報錯停止，不會覆蓋；之後要再更新，按「更新」或執行 `git pull` 即可。
 
-## Windows 常見問題（實際安裝時遇到的）
+</details>
+
+<details>
+<summary><b>Windows 常見問題（實際安裝時遇到的）</b></summary>
 
 - **右鍵選單沒有「在這裡開啟 PowerShell 視窗」：**要按住 **Shift** 再在資料夾空白處按右鍵。也可以按 Windows 鍵，輸入 `powershell` 再按 Enter。
 - **Grok Build 的資料夾是空的：**正常。`irm https://x.ai/cli/install.ps1 | iex` 會裝到 `C:\Users\<你的帳號>\.grok\bin`（不是你執行指令的那個資料夾），並自動加進路徑。
@@ -116,10 +199,13 @@ python3 service.py start        # 背景啟動網頁與每小時取樣；停止�
 - **Grok Build 要先登入一次：**在新視窗輸入 `grok`，瀏覽器會要你輸入一組代碼，要和視窗裡顯示的一樣。確認上方登入的帳號就是你要追蹤用量的那個，再按 **Allow**。用 **Ctrl+Q** 離開 Grok Build。
 - **從手填改成自動讀取：**install.ps1 找不到 `grok` 時會把設定改成 `"pct_source": "manual"`，之後不會自己改回來。`grok` 能用後，輸入 `notepad usage_config.json`，把 `manual` 改成 `auto`，存檔，再停止並重新啟動儀表板。
 - **在 PowerShell 打 `cd /d` 會報錯：**`/d` 只有 cmd 認得，PowerShell 請用 `cd E:\資料夾路徑`。說明裡其他指令在 cmd 和 PowerShell 都能用。
-- **桌面捷徑：**可以直接請你的 Grok Bot「在桌面幫我做儀表板的捷徑」。捷徑的目標是 `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File "<資料夾>\start.ps1"`，開始位置設成那個資料夾。想自己做的話：桌面按右鍵 → 新增 → 捷徑，貼上這個目標，再到捷徑的「內容」把「開始位置」改成那個資料夾。之後雙擊捷徑就會啟動並打開頁面。
+- **桌面捷徑（只有手動安裝才需要；一鍵安裝已經會做）：**可以直接請你的 Grok Bot「在桌面幫我做儀表板的捷徑」。捷徑的目標是 `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File "<資料夾>\start.ps1"`，開始位置設成那個資料夾。想自己做的話：桌面按右鍵 → 新增 → 捷徑，貼上這個目標，再到捷徑的「內容」把「開始位置」改成那個資料夾。之後雙擊捷徑就會啟動並打開頁面。
 - **更新後頁面還是舊的：**`adda5da` 起已修正（每次啟動都會重建頁面）。更舊的版本先輸入一次用量就會重建。
 
-## 配色與時鐘圖
+</details>
+
+<details>
+<summary><b>配色與時鐘圖</b></summary>
 
 **配色**（網頁上的「配色」選單，或設定 `palette`）：橘色系 ▲ = 超過基準、冷色 ▼ = 低於基準、灰色 = 基準線本身、紫色等 = 提醒。
 「超過」一律是暖色，不用紅色、棕色、灰色、黑色或水藍色。每格是「深色背景 / 淺色背景」，基準線都是 `#9AA4AE` / `#6B7480`。
@@ -254,7 +340,10 @@ python3 service.py start        # 背景啟動網頁與每小時取樣；停止�
 不重算、不往後推、不「修正」，就算看起來已經過了或怪怪的也一樣（只有它自帶時區時才換成當地時區）；
 只有 `/usage` 沒給時才用備援（`--reset-anchor`、設定的 `reset_anchor` 或 `state.json`），ledger 這時顯示「重置時間未知」。
 
-## 打卡類別與「放風（break）」
+</details>
+
+<details>
+<summary><b>打卡類別與「放風（break）」</b></summary>
 
 **放風（break）**是 Grok Bot 不接任務、自己決定要做什麼的時段，例如逛網頁、讀有興趣的東西、整理自己的筆記，或做一點自己想做的小創作。時間由你事先約好（例如每週固定幾十分鐘），開始和結束都打卡，所以用了多久、用掉多少用量都看得到。
 
@@ -281,7 +370,10 @@ python3 service.py start        # 背景啟動網頁與每小時取樣；停止�
 
 一段工作最多可以選 3 個類別。
 
-## 「內建」分頁：Grok Bot 自己的用量報告（`usage-data/breakdown/`）
+</details>
+
+<details>
+<summary><b>「內建」分頁：Grok Bot 自己的用量報告（<code>usage-data/breakdown/</code>）</b></summary>
 
 **內建**分頁（在「打卡」分頁的右邊）顯示 Grok Bot *內建*用量報告裡的內容，這些是儀表板自己讀不到的：你的方案、每週上限已用多少、其中 Grok Bot 用了多少、上限是否和其他應用程式共用、何時重置，以及 Grok Bot 依「機器人」和依「活動」的用量（對話、每個排程的占比和每週大約執行幾次、機器人之間、群組聊天）。儀表板不會去抓畫面：由你的 Grok Bot 讀自己的報告，存成一個小小的 JSON 檔，儀表板只顯示 `usage-data/breakdown/` 裡的檔案。
 
@@ -313,7 +405,10 @@ Every day at 09:00, look at my usage report for this week (the plan, the weekly 
 - `by_day` 先存起來給之後的趨勢用，目前不顯示；報告若沒有逐日拆分就省略。
 - 報告裡沒有「各模型用量」、「其他應用程式的用量」和「上週百分比」，所以不會顯示，也不會編造。
 
-## Windows 上哪些可用
+</details>
+
+<details>
+<summary><b>Windows 上哪些可用</b></summary>
 
 | 功能 | Windows |
 | :--- | :--- |
@@ -321,7 +416,7 @@ Every day at 09:00, look at my usage report for this week (the plan, the weekly 
 | 自己輸入每週 %（網頁的「手動輸入」按鈕，或 `usage_history.py sample --pct 42 --reset "Sat 09:00"`） | 可用，這是最可靠的方式。 |
 | 每小時自動讀取 `/usage` 畫面 | **實驗性，尚未在真正的 Windows 電腦上測過。** 需要先安裝 Grok Build、登入過一次，且 `grok` 在 `PATH` 上（或設定 `GROK_BIN`）。程式會在看不見的虛擬主控台（ConPTY／`pywinpty`）開 `grok`、輸入 `/usage`、讀畫面後關閉。遇到更新提示、登入提示或畫面改版時，會記成「無法讀取」（絕不記成 0），可改用手動輸入。 |
 | 桌面通知 | 用 PowerShell 顯示 Windows 通知，不需另外安裝。 |
-| 讀取 Grok Build 的設定、登入資料、cookie 或 token | **絕不會。** 程式裡沒有這種功能；用量只來自 `/usage` 畫面上顯示的內容，或你自己輸入的數字。 |
+| 讀取 Grok Build 的設定、登入資料、cookie 或 token | **儀表板絕不會。** 用量只來自 `/usage` 畫面上顯示的內容，或你自己輸入的數字。唯一的例外是一鍵安裝程式：它只讀取並設定 Grok Build `config.toml` 裡的 `permission_mode`，登入資料完全不會打開。 |
 
 Grok Build 沒有「不開畫面就印出用量」的指令；`grok -p "/usage"` 會被當成問題送給模型（會扣用量，也不會顯示面板），所以本工具不使用。
 
@@ -330,8 +425,10 @@ Grok Build 沒有「不開畫面就印出用量」的指令；`grok -p "/usage"`
 
 記錄檔：`usage-data\service.log`、`usage-data\server.log`、`usage-data\sampler.log`。回報問題時附上這些檔案即可（裡面不含帳號資料）。
 
+</details>
 
-## 用手機看（Tailscale，尚未在手機實測）
+<details>
+<summary><b>用手機看（Tailscale，尚未在手機實測）</b></summary>
 
 [Tailscale](https://tailscale.com/download) 會把電腦和手機接進同一個私人網路，手機就能打開儀表板，不必把它開放到網際網路上。
 
@@ -341,9 +438,13 @@ Grok Build 沒有「不開畫面就印出用量」的指令；`grok -p "/usage"`
 
 頁面內含寫入用的 token，所以同一個 tailnet 裡的裝置都能重新整理和打卡；tailnet 只放自己的裝置就好。
 
+</details>
+
+
 ## 致謝
 
 本工具主要由 Grok Bot（琥珀）操刀，Gemini 3.8 與 Gemini 4 輔助完成；原作者僅負責協調與激發靈感。後續維護與更新，將視未來情況調整。
+
 
 ## 第三方聲明
 

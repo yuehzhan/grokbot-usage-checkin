@@ -2801,12 +2801,40 @@ def upsert_week_row(ctx, ts, pct, reset_at=None):
     os.replace(tmp, path)
 
 
-def take_sample(ctx, pct=None, source="sampler", fail_reason=None, reset_at=None, phase=None, draw_lock=None):
+class ReadUnavailable(RuntimeError):
+    """The Grok Build screen could not be read. `transient` = trying again in a minute may help (False for
+    problems a retry cannot fix: sign-in requested, Grok Build / tmux / pywinpty missing)."""
+
+    def __init__(self, msg, transient=True):
+        super().__init__(msg)
+        self.transient = transient
+
+
+# Reasons (grok_usage_reader.ScreenReadError.reason) that a short wait cannot fix.
+_PERMANENT_READ_REASONS = ("login_required", "no_tmux", "no_winpty", "not_found")
+# Sampler: pauses before the 2nd and 3rd try of a failed read, before waiting for the next interval.
+SAMPLE_RETRY_DELAYS = (20, 60)
+
+
+def _recursion_where(exc):
+    """'file.py:123 func <- ...' for the innermost frames of a RecursionError (code locations only, no data)."""
+    import traceback
+    try:
+        fr = traceback.extract_tb(exc.__traceback__)[-3:]
+        return " <- ".join(f"{os.path.basename(f.filename)}:{f.lineno} {f.name}" for f in reversed(fr))
+    except Exception:
+        return "?"
+
+
+def take_sample(ctx, pct=None, source="sampler", fail_reason=None, reset_at=None, phase=None, draw_lock=None,
+                record_failure=True):
     """One reading -> samples.csv + shared ledger (usage_ledger.py).
     `pct` given = a manual reading (no Grok Build launch); `reset_at` (aware datetime) optionally
     goes with it and is cached to state.json.
     Shares <data_dir>/.read.lock with the sampler loop and manual refresh.
     A failed read is recorded as 'unavailable' (never 0%, never a guessed reset) and raises RuntimeError.
+    `record_failure=False` (sampler retries): a failed read that a retry may fix is not written anywhere and
+    raises ReadUnavailable at once, so only the last try of a series leaves an 'unavailable' row.
     `phase(name)` is called with "read" and "draw" (the page shows it during a refresh); the result has
     `timings` = seconds spent reading and drawing (also printed to the log)."""
     say = phase or (lambda _p: None)
@@ -2816,6 +2844,7 @@ def take_sample(ctx, pct=None, source="sampler", fail_reason=None, reset_at=None
     if not lk.acquire(timeout=600):
         raise RuntimeError("read lock timeout")
     err = None
+    transient = True
     manual_reset = reset_at if pct is not None else None
     try:
         reset_at = None
@@ -2838,8 +2867,19 @@ def take_sample(ctx, pct=None, source="sampler", fail_reason=None, reset_at=None
                 reset_at = manual_reset
                 if manual_reset is not None:
                     save_manual_reset(ctx, manual_reset)
+        except RecursionError as exc:
+            # Seen once on a first launch right after installing Grok Build on Windows; a manual read a moment
+            # later worked. Treated as an ordinary 'unavailable' read (never a crash, never 0%).
+            print(f"Warning: RecursionError while reading Grok Build at {_recursion_where(exc)}", file=sys.stderr)
+            pct, reset_at = None, None
+            err = ("the Grok Build reader hit Python's recursion limit (usually temporary right after "
+                   "installing or updating Grok Build; it is tried again)")
+            transient = True
         except Exception as exc:
             pct, reset_at, err = None, None, str(exc) or type(exc).__name__
+            transient = getattr(exc, "reason", None) not in _PERMANENT_READ_REASONS
+        if pct is None and not record_failure and transient:   # a permanent failure is recorded at once
+            raise ReadUnavailable("source read failed" if ctx.privacy else f"unavailable: {err}", transient)
         ts = datetime.now(ctx.tz)
         p = ctx.data_dir / "samples.csv"; ctx.data_dir.mkdir(parents=True, exist_ok=True)
         led = None
@@ -2874,7 +2914,7 @@ def take_sample(ctx, pct=None, source="sampler", fail_reason=None, reset_at=None
     timings = {"read": round(t_read - t_start, 2), "draw": round(time.monotonic() - t_read, 2)}
     print(f"sample ({source}): read {timings['read']:.1f} s, draw {timings['draw']:.1f} s", file=sys.stderr)
     if pct is None:
-        raise RuntimeError("source read failed" if ctx.privacy else f"unavailable: {err}")
+        raise ReadUnavailable("source read failed" if ctx.privacy else f"unavailable: {err}", transient)
     return {"ok": True, "timestamp": ts.isoformat(timespec="seconds"), "pct": float(pct),
             "reset_at": reset_at.isoformat(timespec="minutes") if reset_at else None,
             "new_alerts": (led or {}).get("_newAlerts", []), "timings": timings}
@@ -2890,6 +2930,25 @@ def next_boundary(after_ts, iv_min, tz):
     mid = d.replace(hour=0, minute=0, second=0, microsecond=0)
     k = int((d - mid).total_seconds() // s) + 1
     return (mid + timedelta(seconds=k * s)).timestamp()
+
+
+def sample_with_retry(ctx, logw, sleep=time.sleep, delays=None):
+    """One scheduled read. When the screen read is 'unavailable' for a reason that may pass (Grok Build's first
+    launch, pywinpty busy), try again after each pause in `delays` (default 20 s, 60 s), logging every retry,
+    before the sampler waits for the next interval. Only the last try is recorded as 'unavailable'."""
+    delays = SAMPLE_RETRY_DELAYS if delays is None else delays
+    for attempt in range(len(delays) + 1):
+        last = attempt == len(delays)
+        try:
+            logw(json.dumps(take_sample(ctx, record_failure=last), ensure_ascii=False))
+            return True
+        except Exception as exc:
+            logw(f"sample failed: {exc}")
+            if last or not getattr(exc, "transient", False):   # permanent problems were recorded at once
+                return False
+            logw(f"retry {attempt + 1}/{len(delays)} in {delays[attempt]} s (the read was unavailable; may be temporary)")
+            sleep(delays[attempt])
+    return False
 
 
 def run_sampler(ctx, skip_first=False):
@@ -2916,10 +2975,7 @@ def run_sampler(ctx, skip_first=False):
             if manual_mode(ctx):  # nothing to read; values are entered by hand
                 logw("pct_source is manual: no automatic read (enter values on the page or with 'sample --pct N')")
                 return
-            try:
-                logw(json.dumps(take_sample(ctx), ensure_ascii=False))
-            except Exception as exc:
-                logw(f"sample failed: {exc}")
+            sample_with_retry(ctx, logw)
         if not skip_first:
             once()
         while True:

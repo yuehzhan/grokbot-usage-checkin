@@ -6,6 +6,37 @@ MAJOR for changes that need you to do something, MINOR for new features, PATCH f
 The current version is in the `VERSION` file and shown small at the top of the page.
 The changelog is kept in English only; [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md) is no longer updated.
 
+## [1.9.0] - 2026-10-30
+
+### Added
+- **One-click install for Windows, Mac and Linux** (double-click `Install-Windows.cmd`, `Install-Mac.command` or `install.sh`).
+  It asks nothing: it installs what is missing (Python via winget on Windows, Grok Build with xAI's official installer, `tmux`,
+  the Python packages; a private `.venv` when the system Python refuses `pip`), sets reading to `auto`, starts the dashboard and
+  prints its address. Safe to run again. Options: `--dry-run`, `--manual`, `--no-grok-auto`, `--no-start`, `--no-shortcut`,
+  and `--ask` if you want a "Continue? [y/N]" first (Windows: `-DryRun`, `-Manual`, `-NoGrokAuto`, `-NoStart`, `-NoShortcut`, `-Ask`).
+- **AUTO by default**: the installer sets `pct_source` to `auto` and makes `auto` Grok Build's saved default permission mode
+  (`[ui] permission_mode = "auto"` in `~/.grok/config.toml`, the only line it changes; sign-in data is never opened). Running it
+  again puts both back to auto. `--no-grok-auto` leaves Grok Build's mode alone; always-approve is not lowered.
+- On Windows the installer switches off console QuickEdit for its own window only, so a stray click cannot freeze the install
+  (nothing is written to the registry).
+- A **Grok Usage Dashboard** shortcut on the Desktop (Windows `.lnk` running `start.ps1`, Mac `.command`, Linux `.desktop` when
+  `~/Desktop` exists; new `start-dashboard.sh`). Made again on every run; a failure is only a warning.
+- README: an **Uninstall** section (stop the dashboard, delete the shortcut, delete the folder; Grok Build is not removed).
+- **Mac support is beta**: the Mac installer has not been tested on a real Mac yet; please report how it goes via a GitHub issue.
+
+### Changed
+- README: the one-click install and Uninstall sections come first and stay visible; the long sections are collapsed behind
+  `<details>` blocks (the old Linux "Quick install" is now "Manual install").
+- The installer's closing sign-in reminder appears only when no Grok Build sign-in file is found (it only checks that the file
+  exists and never opens it).
+
+### Fixed
+- The background sampler no longer gives up after one failed read. A first read that was "unavailable" (seen once on Windows
+  right after installing Grok Build: `maximum recursion depth exceeded`) is now tried again after 20 s and 60 s before the sampler
+  waits for the next interval; each retry is logged, and only the last failed try is recorded as `unavailable`. A sign-in request
+  or a missing Grok Build / tmux / pywinpty is not retried. A `RecursionError` from the reader is now an ordinary
+  `unavailable` read with a clearer message.
+
 ## [1.8.0] - 2026-10-29
 
 ### Added

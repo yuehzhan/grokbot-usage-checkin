@@ -1,10 +1,91 @@
 # Grok Bot Usage & Check-in
 
+Track your Grok Bot's weekly usage quota, log what was done, and search which days cost how much. Everything stays on your own computer.
+
+![Dashboard screenshot (English)](docs/media/screenshot-en.png)
+
+*The screenshot uses made-up sample data.*
+
+## One-click install (Windows, Mac, Linux)
+
+1. Download this project: **Code → Download ZIP** on GitHub, then unzip the whole thing (on Windows: right-click the ZIP, **Extract All**; the launchers do not work from
+   inside the ZIP viewer). Or `git clone` it; only a `git clone` install can update itself from the page.
+2. Double-click the file for your computer:
+   - **Windows:** `Install-Windows.cmd` (if Windows says "Windows protected your PC", click **More info → Run anyway**)
+   - **Mac (beta, not yet tested on a real Mac; please report how it goes via a GitHub issue):** `Install-Mac.command` (the first time: right-click it, choose **Open**, then **Open** again)
+     - If double-clicking is refused ("permission" or "cannot be executed"): open **Terminal**, type `bash ` (with a space after it), drag `Install-Mac.command` into the window, then press Enter.
+   - **Linux:** `install.sh` (choose "Run in Terminal"), or in a terminal: `bash install.sh`
+3. It lists what it will install and then just does it, start to finish, without asking anything (Python on
+   Windows via winget, Grok Build, `tmux`, the Python packages). Windows may show its own permission box for Python,
+   and Linux/macOS may ask for your computer password when `tmux` is installed; those come from the system.
+4. When it says **Done**, your dashboard opens in the browser and its address is shown. It also puts a **Grok Usage Dashboard**
+   shortcut on your Desktop (Windows `.lnk`, Mac `.command`, Linux `.desktop` only if you have a `~/Desktop` folder) and prints where it is;
+   double-click it any time to start the dashboard again. A failed shortcut never fails the install.
+5. If Grok Build was just installed, sign in once: open a **new** terminal / PowerShell window and run `grok`, check
+   the account in the browser, press **Allow**, then quit with **Ctrl+Q**. The installer prints this reminder only when it finds no Grok Build
+   sign-in file (it only checks that the file exists; it never opens it).
+
+<details>
+<summary><b>What the installer does, and its options</b></summary>
+
+What it does: installs only what is missing (Grok Build with xAI's official installer, `tmux` on Linux/macOS, the
+Python packages; on Linux/macOS systems that refuse system-wide `pip`, it uses a private `.venv` in the project
+folder instead), sets reading to `auto` in `usage_config.json`, makes **auto** Grok Build's saved default
+permission mode (`[ui] permission_mode = "auto"` in `~/.grok/config.toml`, the only line it changes there; sign-in
+data is never opened), then starts the dashboard on `127.0.0.1`. In auto mode Grok Build lets a safety check approve
+routine actions without asking you; it still asks before risky ones. If Grok Build is already set to always-approve,
+that is left as it is.
+
+Run it again any time: finished steps are skipped, and if auto was switched off it is put back. Options:
+`--dry-run` (only show the plan), `--ask` (ask "Continue? [y/N]" before installing; off by default; the old `--yes` is still accepted and does nothing), `--manual` (type the weekly % yourself; Grok Build is not
+installed or changed), `--no-grok-auto` (leave Grok Build's mode alone), `--no-start`, `--no-shortcut` (no Desktop shortcut). On Windows use `-DryRun`,
+`-Ask`, `-Manual`, `-NoGrokAuto`, `-NoStart`, `-NoShortcut` with `one-click-install.ps1`.
+
+</details>
+
+## Uninstall
+
+There is no uninstaller script; it takes three short steps.
+
+1. **Stop the background dashboard first** (otherwise the folder stays in use and keeps running). In the project folder:
+   - Windows: `.venv\Scripts\python.exe service.py stop`
+   - Mac / Linux: `.venv/bin/python service.py stop`
+
+   If you ever ran `register-task.ps1` (start at sign-in), also run
+   `powershell -ExecutionPolicy Bypass -File .\register-task.ps1 -Uninstall`.
+2. **Delete the desktop shortcut** "Grok Usage Dashboard" if there is one (the one-click installer made it; on Windows it points at `start.ps1`).
+3. **Delete the project folder.** That removes the dashboard, its `.venv` and its saved readings.
+
+Grok Build is xAI's own app (Grok Bot uses it too), so it is **not** removed. The one line the installer added to
+`~/.grok/config.toml` (`permission_mode = "auto"`) is tiny and harmless; you can leave it.
+
+## Manual install (Linux, for engineers: 3 steps)
+
+1. **Get it**
+   ```bash
+   git clone https://github.com/yuehzhan/grokbot-usage-checkin.git
+   cd grokbot-usage-checkin
+   ```
+2. **Install**
+   ```bash
+   python3 -m pip install -r requirements.txt
+   sudo apt install -y tmux        # needed for automatic /usage reads on Linux
+   ```
+3. **Start** (then open the page it prints; stop with `python3 service.py stop`)
+   ```bash
+   python3 service.py start --open
+   ```
+
+Grok Build must be installed and signed in once on that computer (see *Recommended Setup* below). More (Windows details, phone access, settings and everything else) is in the collapsed sections below. 中文說明：[README.zh-TW.md](./README.zh-TW.md)
+
+
+<details>
+<summary><b>About this project: what it is, scope and privacy at a glance</b></summary>
+
 <p align="center">
   <img src="docs/media/gauge-rev-en.gif" alt="Gauge rev-up animation" width="360">
 </p>
 
-![Dashboard screenshot (English)](docs/media/screenshot-en.png)
 
 *Animation and screenshot use made-up sample data.*
 
@@ -20,7 +101,10 @@ A cross-platform, multi-panel sci-fi HUD dashboard renderer (`chart_hud.py`), bo
 percentages, deadlines or work-hour totals. The goal is to roughly see which time periods used how much quota and what
 was going on then, not to supervise anyone. Requests to add progress or productivity tracking are out of scope.
 
-## Recommended: install it on your Grok Bot's computer (Linux)
+</details>
+
+<details>
+<summary><b>Recommended: install it on your Grok Bot's computer (Linux)</b></summary>
 
 The recommended setup is the **Linux version, installed on your Grok Bot's own computer**. This is the version that
 has been used day to day: the bot reads `/usage` from Grok Build on its own machine every hour, with no model call and
@@ -39,13 +123,19 @@ Grok Build must be installed and signed in once on that computer (see *Recommend
 > **The Windows version has not been fully tested yet.** The steps below are provided for people who want to try it;
 > manual entry of the weekly % is the reliable path there, and automatic reading is experimental.
 
-## Linux vs Windows
+</details>
+
+<details>
+<summary><b>Linux vs Windows</b></summary>
 
 - **Same features.** The difference is the platform and how well it's tested: automatic reading is tested on Linux, Windows is not yet fully tested. The Linux version can go on your Grok Bot's computer (recommended) or on your own Linux PC.
 - **Check-ins are optional** on either version. If you only want to watch usage, you never need to check in. Check-ins are mainly for assistants to log what they did, for how long, and how much usage it took.
 - **Importing an assistant's check-ins:** ask your Grok Bot to copy `usage-data/checkins.csv` from its computer into your dashboard's `usage-data` folder. If you already have that file, ask it to merge (dropping duplicate `id` rows) instead of overwriting. Stop the dashboard before copying and start it again afterwards; the Check-ins tab then shows and searches them.
 
-## Windows quick start (not yet fully tested)
+</details>
+
+<details>
+<summary><b>Windows quick start (not yet fully tested)</b></summary>
 
 Needs Windows 10 (1809+) or 11 and [Python 3.10+](https://www.python.org/downloads/windows/) (tick "Add python.exe
 to PATH"). No administrator rights. Everything stays on your PC; the page listens on `127.0.0.1` only.
@@ -124,7 +214,7 @@ to PATH"). No administrator rights. Everything stays on your PC; the page listen
 | Entering the weekly % yourself (page button **Enter manually**, or `usage_history.py sample --pct 42 --reset "Sat 09:00"`) | Works. This is the reliable way. |
 | Automatic hourly reading of the `/usage` screen | **Experimental, not yet tested on a real Windows PC.** Needs Grok Build installed, signed in once and on `PATH` (or `GROK_BIN` set). It opens `grok` invisibly in a pseudo console (ConPTY, `pywinpty`), types `/usage`, reads the screen and closes it. If Grok Build shows an update or sign-in prompt, or its screen changes, the reading is recorded as *unavailable* (never as 0) and you can enter it manually. |
 | Desktop alerts | Windows toast via PowerShell (no extra install). |
-| Reading Grok Build's settings, sign-in data, cookies or tokens | **Never.** No such code exists; usage is only read from what the `/usage` screen shows, or what you type. |
+| Reading Grok Build's settings, sign-in data, cookies or tokens | **Never** by the dashboard; usage is only read from what the `/usage` screen shows, or what you type. The one exception is the one-click installer, which reads and sets only `permission_mode` in Grok Build's `config.toml`; sign-in data is never opened. |
 
 There is no Grok Build command that prints usage without opening its screen, and `grok -p "/usage"` would be sent to
 the model (it costs quota and does not show the panel), so the tool does not use it.
@@ -146,10 +236,13 @@ If the automatic read keeps failing, set `"pct_source": "manual"` in `usage_conf
 - **Sign Grok Build in once:** in a new window run `grok`. A browser page asks for a code: it must match the code in the terminal. Check that the account shown is the one whose usage you want to track, then press **Allow**. Quit Grok Build with **Ctrl+Q**.
 - **Switching from manual to automatic:** install.ps1 sets `"pct_source": "manual"` when it can't find `grok`, and it doesn't switch back by itself. After `grok` works, run `notepad usage_config.json`, change `manual` to `auto`, save, then stop and start the dashboard.
 - **`cd /d` fails in PowerShell:** `/d` is a cmd option. In PowerShell use `cd E:\path\to\folder`. Every other command in this README works in both cmd and PowerShell.
-- **Desktop shortcut:** ask your Grok Bot: "make a desktop shortcut for the dashboard". It creates one whose target is `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File "<folder>\start.ps1"` with *Start in* set to the folder. To make it yourself: right-click the desktop, New, Shortcut, paste that target, then set *Start in* in the shortcut's Properties.
+- **Desktop shortcut (only for a manual install; the one-click installer already makes one):** ask your Grok Bot: "make a desktop shortcut for the dashboard". It creates one whose target is `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File "<folder>\start.ps1"` with *Start in* set to the folder. To make it yourself: right-click the desktop, New, Shortcut, paste that target, then set *Start in* in the shortcut's Properties.
 - **After updating, the page still looks old:** fixed in `adda5da` (the page is rebuilt on every start). On older versions, enter a reading once to rebuild it.
 
-## Recommended Setup
+</details>
+
+<details>
+<summary><b>Recommended Setup</b></summary>
 
 1. **Install Grok Build & Sign In Once**:
    - **Windows (PowerShell)**:
@@ -176,9 +269,10 @@ If the automatic read keeps failing, set `"pct_source": "manual"` in `usage_conf
      python3 service.py start --open      # page + sampler in the background; stop with: python3 service.py stop
      ```
 
----
+</details>
 
-## Dashboard Panels & Colour Rule
+<details>
+<summary><b>Dashboard Panels &amp; Colour Rule</b></summary>
 
 ### Panels
 1. **Header Bar**: `WEEKLY USAGE // TELEMETRY` eyebrow, localized dashboard title (`Usage Dashboard` by default, customizable via `--title`), full weekly cycle window (`YYYY-MM-DD Sat 09:00 -> YYYY-MM-DD Sat 09:00`), and the clickable header tabs (`Week | Daily`; the old Cumulative tab is gone). **Week** (the default) shows rows 2–3 below; **Daily** shows the increments as one full-height card with a Day / Hour switch (per hour uses only real readings, a reading gap is a low neutral grey band at its average per hour, and a light user sees a "not enough readings" note) plus the matching log; the chart columns and the log share one selection (see below).
@@ -355,9 +449,10 @@ mode (the menu is hidden then too). Choosing Off or Auto rebuilds and reloads th
   the palette. The cool accent is used only for frames and tabs, never for a state.
 - Check-in name colours are chosen to stay clear of the state colours.
 
----
+</details>
 
-## Switchable Sources & Reset Time Auto-Detection
+<details>
+<summary><b>Switchable Sources &amp; Reset Time Auto-Detection</b></summary>
 
 ### 1. Switchable Sources (`pct_source` & `reset_source`)
 Both the weekly usage percentage (`pct_source`) and the weekly reset timestamp (`reset_source`) default to `"auto"` and can be switched independently to `"manual"` via `usage_config.json` or CLI flags (`--pct-source auto|manual`, `--reset-source auto|manual`; `--source grok` is kept as a backward-compatible alias for `--pct-source auto`).
@@ -385,9 +480,10 @@ Each account's weekly reset time differs, so the reset anchor is never hard-code
   - Priority in `"auto"` mode: **`grok`** → **`cli`** (`--reset-anchor`) → **`config`** (`"reset_anchor"`) → **`cache`** (`<data_dir>/state.json`) → **exit `3`**.
   - Priority in `"manual"` mode: **`cli`** (`--reset-anchor`) → **`config`** (`"reset_anchor"`) → **exit `3`**.
 
----
+</details>
 
-## Privacy Mode (`--privacy`)
+<details>
+<summary><b>Privacy Mode (<code>--privacy</code>)</b></summary>
 
 Privacy mode produces a discreet, completely unbranded chart and JSON summary so nobody can tell which service, dashboard, or location is being used.
 
@@ -406,9 +502,10 @@ Privacy mode produces a discreet, completely unbranded chart and JSON summary so
    {"ok":true,"start":"2026-10-17","end":"2026-10-24","day":5,"days":7,"value":73.0,"step":14.0,"target":70.0,"delta":3.0,"trend":"up","projected":102.2,"left":27.0,"avg":14.6,"next":"2026-10-24T09:00+02:00","next_in_h":69.7,"pct_source":"a","reset_source":"a","updated_at":"2026-10-21T04:00+02:00","file":"usage-data/chart-20261021.png","csv":"usage-data/week-2026-10-17.csv","text":"D5/7 73 (70, +3) proj 102 next 2d 21h"}
    ```
 
----
+</details>
 
-## Refresh & Local Web Viewer (`usage_view.py`)
+<details>
+<summary><b>Refresh &amp; Local Web Viewer (<code>usage_view.py</code>)</b></summary>
 
 `usage_view.py` is a lightweight local web viewer built with the Python standard library only (`http.server` + `threading`). Static PNG generation via cron/Task Scheduler (`usage_record.py`) continues to work unchanged.
 
@@ -434,9 +531,10 @@ python3 usage_record.py serve --privacy --theme themes/muted.json
   - `GET /api/latest` & `GET /api/status`: Current `latest.json` + `next_refresh_at` / status fields.
   - `POST /api/refresh`: Runs one `usage_record.py --no-open` cycle as a subprocess and returns its JSON output. Needs the write token (see **Local Server Security**). `GET /api/refresh` returns `405`. A `pct` override is accepted only when the viewer runs with `--debug-pct-override` (or `"debug_pct_override": true`), otherwise `400`.
 
----
+</details>
 
-## Bot Contract (`usage_record.py`, `grok_usage_reader.py`, & `latest.json`)
+<details>
+<summary><b>Bot Contract (<code>usage_record.py</code>, <code>grok_usage_reader.py</code>, &amp; <code>latest.json</code>)</b></summary>
 
 > **Tip for AI Agents / Bots**: Read `<data_dir>/latest.json` (or run `usage_record.py ... --format text`) instead of passing the rendered PNG to a vision model—this saves token/quota usage while giving you exact numbers and a pre-formatted summary string.
 
@@ -467,9 +565,10 @@ python3 grok_usage_reader.py --parse-test "Weekly limit 84% Resets: October 24, 
 | `4` | Render error (exception during Matplotlib PNG generation) |
 | `5` | Source read error (failed to read weekly usage `%` from Grok Build when `pct_source="auto"` and `--pct` was not provided) |
 
----
+</details>
 
-## Scheduling (`--print-schedule`)
+<details>
+<summary><b>Scheduling (<code>--print-schedule</code>)</b></summary>
 
 Print a ready-to-run daily schedule command for your OS without modifying system tasks automatically (we recommend passing `--config` with an absolute path; `--print-schedule` automatically includes `--config <abs_path>` when a config file is passed or found):
 ```bash
@@ -484,9 +583,10 @@ python3 usage_record.py --print-schedule --at 13:15 --config usage_config.json
   15 13 * * * cd /path/to/usage-hud && /usr/bin/python3 usage_record.py --pct-source auto --config /path/to/usage-hud/usage_config.json --no-open >> /path/to/usage-data/cron.log 2>&1
   ```
 
----
+</details>
 
-## Languages, Fonts, & Standalone Renderer (`chart_hud.py`)
+<details>
+<summary><b>Languages, Fonts, &amp; Standalone Renderer (<code>chart_hud.py</code>)</b></summary>
 
 ```bash
 # Positional CLI (drop-in compatible with chart.py):
@@ -500,9 +600,10 @@ python3 chart_hud.py --pct 73 --day 5 [--lang auto|en|zh-TW|zh-CN|ja|ko|es|pt|fr
 - **Custom Locale Overlays**: Place a JSON file at `locales/<lang>.json` next to `chart_hud.py` to add or override any locale (missing keys fall back to `BASE_STRINGS` in English).
 - **Cross-Platform Fonts & Cross-CJK Fallback**: Tries language-specific fonts first (`Noto Sans CJK TC/SC/JP/KR`, `Microsoft JhengHei`, `Microsoft YaHei`, `PingFang TC/SC`, `Heiti TC/SC`, `Yu Gothic`, `Meiryo`, `Hiragino Sans`, `Malgun Gothic`, `Apple SD Gothic Neo`) with cross-CJK fallback (`TC <-> SC <-> JP`) before falling back to English (`DejaVu Sans`, `Segoe UI`, `Arial`) with a `stderr` warning. Spanish, Portuguese, French, German and Indonesian use the English list (`DejaVu Sans` first), which has every accented letter they need (é ñ ç ü ã ß …).
 
----
+</details>
 
-## Long-Range History, Sampler, Clock & Check-ins (`usage_history.py`)
+<details>
+<summary><b>Long-Range History, Sampler, Clock &amp; Check-ins (<code>usage_history.py</code>)</b></summary>
 
 `usage_history.py` adds long-range views on top of the existing `week-*.csv` files. It only **reads** files written by `usage_record.py` and writes its own files under `<data_dir>`, so existing behavior is unchanged. It uses the same `usage_config.json`, CLI-over-config precedence, `lang`, `privacy`, `tz` and `theme` conventions.
 
@@ -524,7 +625,10 @@ python3 usage_history.py ledger             # ledger freshness check (exit 0 fre
 
 All commands accept `--config`, `--data-dir`, `--tz`, `--lang`, `--theme`, `--palette`, `--pace` and `--privacy`, and print one line of JSON (except `search` without `--json`, which prints a readable day-by-day list).
 
-### History Ranges
+</details>
+
+<details>
+<summary><b>Long-range history — History Ranges</b></summary>
 
 - Tabs for **1 month / 3 months / 6 months / 1 year** (`1m`, `3m`, `6m`, `1y`), one PNG each.
 - Weekly peak bars: **orange ▲** = over pace, **cool colour ▼** = within pace, **grey dashed** = pace baseline, white line = daily cumulative usage.
@@ -533,9 +637,12 @@ All commands accept `--config`, `--data-dir`, `--tz`, `--lang`, `--theme`, `--pa
 - `* ` marks the current week (not complete yet).
 - **This week** has two tabs drawn in its header: **Week** (the overview, shown on a first visit) and **Daily** (increments, per day or per hour from the real readings; per hour opens by default once the week has 12+ hourly readings). The page remembers the last tab and the per-day / per-hour choice in the browser (`usage.wkTab`, `usage.incUnit`), so a heavy user who left on per hour lands straight on it. In both views the chart columns and the log cards / rows share **one selection**: it starts on today (or the latest hour), clicking either side moves a light mask on the chart column and the highlight on the list, days not yet recorded can be selected too, and it is not remembered across a reload. In the per-hour view the list on the right holds **every hour row of the 7-day chart** (newest first) and scrolls (always-visible scrollbar on its right edge); a click on a bar scrolls to and highlights its row.
 
-### Interval Sampler (`sample_interval_minutes`)
+</details>
 
-- `sampler` takes one sample right away (skip with `--skip-first`), then sleeps until the next boundary. Intervals that divide a day (15, 30, 60, 90, 120 ...) are aligned to local midnight, others repeat every N minutes.
+<details>
+<summary><b>Long-range history — Interval Sampler (<code>sample_interval_minutes</code>)</b></summary>
+
+- `sampler` takes one sample right away (skip with `--skip-first`), then sleeps until the next boundary. If that read is "unavailable" for a reason that may pass (for example Grok Build's very first launch right after installing it), it tries again after 20 s and after 60 s (each retry is logged in `sampler.log`) before waiting for the next boundary; only the last failed try is written as an `unavailable` row. A sign-in request or a missing Grok Build / tmux / pywinpty is not retried. Intervals that divide a day (15, 30, 60, 90, 120 ...) are aligned to local midnight, others repeat every N minutes.
 - The config is re-read every cycle, so you can change the interval without restarting, also from the page's **Read interval** menu.
 - One instance only: `<data_dir>/.sampler.lock` + `<data_dir>/sampler.pid`; log in `<data_dir>/sampler.log`.
 - Grok Build reads share `<data_dir>/.read.lock` with the manual refresh, so they never overlap. Each read uses its own unique `tmux` session (via `grok_usage_reader.py`), which is cleaned up afterwards.
@@ -546,7 +653,10 @@ All commands accept `--config`, `--data-dir`, `--tz`, `--lang`, `--theme`, `--pa
   `<data_dir>/service.log`, `server.log`, `sampler.log`. `stop` also removes stale pid/token files.
 - With `"pct_source": "manual"` the sampler never starts Grok Build; it only logs that values are entered by hand.
 
-### Clock Chart
+</details>
+
+<details>
+<summary><b>Long-range history — Clock Chart</b></summary>
 
 - 24-hour polar charts of the % increase per hour of day; 0:00 is at the top and hours run clockwise.
 - **Left: the last 24 hours**, one bar per hour. This is a magnitude scale, not an over/under state: colours run from the palette's cool colour (low) to orange (high), with a colour bar underneath.
@@ -563,14 +673,20 @@ All commands accept `--config`, `--data-dir`, `--tz`, `--lang`, `--theme`, `--pa
 - Check-ins (one-off check-ins and session starts) are drawn as dots outside the rim, one colour per name (name colours avoid the state colours).
 - **Hover a check-in dot** (tap on a phone; Tab to the dial, then arrow keys and Enter on a keyboard) for a tooltip with the name, local time with its UTC offset (`10-26 13:22 (UTC+8)`), categories, note, and whether it was a one-off check-in or a session start. Dots that overlap (e.g. the same person at the same time on several days) share one tooltip that lists every check-in, newest first (up to 8, then "+N more"). Tap again or tap outside to close. Privacy mode shows `#1`, `#2` … and no notes. The PNG is unchanged; the dot positions are written next to it (`clock-*.json`) and embedded in the page, so it also works when `index.html` is opened as a file (ranges other than the default week need the served page).
 
-### Timezone (`tz`)
+</details>
+
+<details>
+<summary><b>Long-range history — Timezone (<code>tz</code>)</b></summary>
 
 - `"local"` (default) uses the machine's timezone. An IANA name (e.g. `"Europe/Berlin"`) overrides it and is validated with `zoneinfo` (exit with an error if invalid).
 - Every stored timestamp is ISO 8601 with offset (`2026-10-24T03:20:00+02:00`), so changing `tz` later only changes the display.
 - Labels show the real offset, e.g. `Last update: 03:20 (UTC+2)` or `(Europe/Berlin UTC+2)`.
 - The week boundary comes from the reset detected by Grok Build (`state.json` `reset_at`), then `reset_anchor`.
 
-### Manual Refresh Server
+</details>
+
+<details>
+<summary><b>Long-range history — Manual Refresh Server</b></summary>
 
 ```bash
 python3 usage_history.py serve                 # 127.0.0.1, random free port
@@ -603,7 +719,10 @@ cat usage-data/history_server.json             # {"url": "http://127.0.0.1:PORT/
 - When served, the page also shows **Check for updates**, the **Auto-check for updates** switch, and a light-blue **Update** button when a newer version exists (see step 5 of the Windows quick start). After an update the server comes back on the same port, so the open page can reload itself.
 - `history/index.html` is self-contained (PNGs embedded), so it can be copied or opened offline.
 
-### Check-ins: sessions, categories and search
+</details>
+
+<details>
+<summary><b>Long-range history — Check-ins: sessions, categories and search</b></summary>
 
 Check-ins live in `<data_dir>/checkins.csv` with the columns `timestamp,name,note,category,id,phase,status`.
 No sample data is shipped; an empty file shows "no check-ins yet".
@@ -677,7 +796,10 @@ summary. The last name used is remembered in `localStorage`.
 
 *Check-in search demo with made-up sample data.*
 
-### Check-in categories and "break" (放風)
+</details>
+
+<details>
+<summary><b>Long-range history — Check-in categories and "break" (放風)</b></summary>
 
 A **break** (放風) is a stretch of time when your Grok Bot takes no tasks and decides for itself what to do, such as browsing, reading something it's curious about, tidying its own notes, or a small creative project. You agree on the time in advance (for example a few tens of minutes a week), and it checks in at the start and end, so you can see how long it took and how much usage it used.
 
@@ -704,7 +826,10 @@ Other categories:
 
 A session can have up to 3 categories.
 
-### Built-in tab: Grok Bot's own usage report (`usage-data/breakdown/`)
+</details>
+
+<details>
+<summary><b>Long-range history — Built-in tab: Grok Bot's own usage report (<code>usage-data/breakdown/</code>)</b></summary>
 
 The **Built-in** tab (right after **Check-ins**) shows what Grok Bot's *built-in* usage report says, which the dashboard
 cannot read by itself: your plan, how much of the weekly limit is used, how much of that is Grok Bot's, whether the limit is
@@ -777,7 +902,10 @@ ignored, a bad value drops only that field, files over 256 KB are skipped, and a
 - `by_day` is stored for later trends and not displayed yet. The report may not offer a per-day split; leave it out then.
 - The report has no per-model usage, no other apps' usage and no last-week percentage, so none is shown or invented.
 
-### Local Server Security
+</details>
+
+<details>
+<summary><b>Long-range history — Local Server Security</b></summary>
 
 Both `usage_history.py serve` and `usage_view.py`:
 
@@ -792,7 +920,10 @@ Both `usage_history.py serve` and `usage_view.py`:
 
 All writers (weekly CSVs, samples, check-ins, `state.json`, ledger) share one lock file, `<data_dir>/.write.lock`.
 
-### Viewing on Your Phone (Tailscale, not yet tested on a phone)
+</details>
+
+<details>
+<summary><b>Long-range history — Viewing on Your Phone (Tailscale, not yet tested on a phone)</b></summary>
 
 [Tailscale](https://tailscale.com/download) puts your PC and phone on a private network, so you can open the dashboard from your phone without exposing it to the internet.
 
@@ -802,7 +933,10 @@ All writers (weekly CSVs, samples, check-ins, `state.json`, ledger) share one lo
 
 The served page embeds the write token, so any device on your tailnet can refresh and check in. Keep the tailnet to your own devices.
 
-### Reading the Grok Build screen
+</details>
+
+<details>
+<summary><b>Long-range history — Reading the Grok Build screen</b></summary>
 
 - **Linux / macOS**: each read starts its own fixed-size `tmux` session, captures only the on-screen text
   (`tmux capture-pane`), has a timeout, always kills the session afterwards, and cleans up stale sessions left by
@@ -817,15 +951,19 @@ The served page embeds the write token, so any device on your tailnet can refres
 `.gitignore` excludes the data folders (`usage-data/`, `data/`), logs, pid/port/token files, `history_server.json`,
 `service.json`, `.venv/`, backups, `__pycache__/` and `usage_config.json`.
 
-### Privacy Behavior
+</details>
+
+<details>
+<summary><b>Long-range history — Privacy Behavior</b></summary>
 
 With `privacy: true` / `--privacy` (or `lang: "numeric"`), the history and clock PNGs use word-free numeric labels and symbols, omit timezone names and the header kicker, and show check-in names as `#1`, `#2` ... in the PNG legend, on the page and in the check-in/search API responses
 (notes are hidden, category labels become numbers). The CSV files keep the real names locally.
 The **Built-in** tab shows bot and routine names as `#1`, `#2` ... and hides the plan, notes and setup prompt (see above).
 
----
+</details>
 
-## Usage Ledger, Unavailable State & Alerts (`usage_ledger.py`, `desktop_notify.py`)
+<details>
+<summary><b>Usage Ledger, Unavailable State &amp; Alerts (<code>usage_ledger.py</code>, <code>desktop_notify.py</code>)</b></summary>
 
 Every live reading — `usage_history.py sample` / `sampler`, the viewer's **Refresh** button and `usage_record.py`
 (not `--date`/`--time` backfills) — atomically rewrites one small JSON file, the **ledger**
@@ -923,7 +1061,10 @@ ConPTY-style output, manual entry parsing, process helpers, the Windows lock bra
 behind, local changes, diverged, not a repository, no git, fetch failed). Tests use temporary folders only and no
 network.
 
-## Configuration Keys (`usage_config.json`)
+</details>
+
+<details>
+<summary><b>Configuration Keys (<code>usage_config.json</code>)</b></summary>
 
 | Key | Default | Description |
 | :--- | :--- | :--- |
@@ -969,9 +1110,10 @@ network.
 | `debug_pct_override` | `false` | Allow a `pct` override on refresh requests (testing only). |
 | `history_allowed_hosts`, `view_allowed_hosts` | `[]` | Extra `Host` names accepted when bound to a non-loopback address. |
 
----
+</details>
 
-## Cross-Platform Verification Status
+<details>
+<summary><b>Cross-Platform Verification Status</b></summary>
 
 - **Tested on Linux** (automated tests + manual runs): everything below except the Windows/macOS-only parts.
 - **Windows: written, not yet run on a Windows PC.** The PowerShell scripts were syntax-checked with PowerShell 7's
@@ -1003,10 +1145,13 @@ network.
   - The page's **Update** button on Windows (`self_update.py` running `stop.ps1` → `git pull --ff-only` → `install.ps1` → `start.ps1` hidden); the same flow with `service.py` was run end to end on Linux.
   - The page's **Roll back to previous version** button on Windows (same scripts, with `git reset --keep <saved commit>` instead of the pull); the rollback logic itself is covered by tests against a temporary git repository on Linux.
 
+</details>
+
 
 ## Credits
 
 This tool was built mainly by Grok Bot (琥珀, "Amber"), with Gemini 3.8 and Gemini 4 assisting. The original author only coordinated the work and provided the ideas. Future maintenance and updates will be adjusted as circumstances change.
+
 
 ## Third-party notices
 
