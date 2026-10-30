@@ -6,6 +6,33 @@ MAJOR for changes that need you to do something, MINOR for new features, PATCH f
 The current version is in the `VERSION` file and shown small at the top of the page.
 The changelog is kept in English only; [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md) is no longer updated.
 
+## [1.11.0] - 2026-10-31
+
+### Added
+- **Daily tab: sort the log list.** A small pill in the list header ("Newest first" / "Oldest first", translated into every page
+  language) flips the order of the log list. It works in both the per-day and the per-hour views. The default is now **newest first**
+  for both (today / the latest hour at the top, as the per-hour list already was; the per-day list used to start with day 1 at the
+  top). The choice is remembered across reloads (localStorage key `usage.listOrder`; a stored choice always wins, an empty or
+  unknown value means newest first). The today / current-row outline, the selection that is shared with the chart columns, and the
+  reading-gap bars work the same in both orders. Because the list is part of the picture, the page now renders a second, reversed
+  set of daily/hourly pictures (`week-daily-new.png`, `week-hourly-new.png` and their selection sprites) and shows one set or the
+  other; if those files are missing the toggle is simply not shown and the list stays oldest first. The week overview list is unchanged.
+
+### Fixed
+- **Built-in tab: the disk-free bar now only ever shows the Bot computer's disk.** When the dashboard ran on your own PC with no
+  disk report from your Grok Bot, it showed that PC's drive as "Bot computer disk free ... (this PC)" and could raise a false
+  "Very low" warning. Now the bar (and its "?") appears only when the dashboard runs on the Bot computer itself, or when your Grok Bot's
+  snapshot carries `disk_free_gb` / `disk_total_gb`; on any other machine without a report it is hidden. The local disk is never
+  substituted, and the "(this PC)" label is gone. Thresholds are unchanged (orange under 23 %, red under 16 % of the disk).
+  `disk_source` now only matters on the Bot computer.
+- **`install.sh`, `Install-Mac.command` and `start-dashboard.sh` are marked executable** in the git history again (they were stored
+  as plain files, so a `git clone` could not run `./install.sh`). Files uploaded through GitHub's web page cannot carry the
+  executable bit; the README's `bash install.sh` / `bash Install-Mac.command` fallback covers that. The update notes also never show
+  an "Unreleased" entry.
+- **Tests / GitHub Actions:** the `tests` workflow failed on every run. The day-select picture tests assumed today was day 5 of the
+  2026-10-24 week (they now pin the chart's clock), the language-switch test compared pictures that carry the clock minute (it now
+  compares within one minute), and the executable-bit test is skipped on GitHub Actions (web uploads cannot set the bit) but still runs everywhere else. No dashboard behaviour changed.
+
 ## [1.10.0] - 2026-10-30
 
 ### Added

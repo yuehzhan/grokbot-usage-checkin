@@ -115,6 +115,8 @@ BASE_STRINGS = {
     "tab_week": "Week",
     "unit_day": "Per day",
     "unit_hour": "Per hour",
+    "order_old": "Oldest first",
+    "order_new": "Newest first",
     "inc_title": "Daily Increments",
     "hourly_title": "Hourly Increments",
     "ylabel_hour": "Increase (%)",
@@ -211,6 +213,8 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "tab_week": "本週總覽",
         "unit_day": "每日",
         "unit_hour": "每小時",
+        "order_old": "最舊在上",
+        "order_new": "最新在上",
         "inc_title": "每日增量",
         "hourly_title": "每小時增量",
         "ylabel_hour": "增量 (%)",
@@ -305,6 +309,8 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "tab_week": "本周总览",
         "unit_day": "每日",
         "unit_hour": "每小时",
+        "order_old": "最旧在上",
+        "order_new": "最新在上",
         "inc_title": "每日增量",
         "hourly_title": "每小时增量",
         "ylabel_hour": "增量 (%)",
@@ -399,6 +405,8 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "tab_week": "週間概要",
         "unit_day": "日別",
         "unit_hour": "時間別",
+        "order_old": "古い順",
+        "order_new": "新しい順",
         "inc_title": "日ごとの増加",
         "hourly_title": "時間ごとの増加",
         "ylabel_hour": "増加 (%)",
@@ -493,6 +501,8 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "tab_week": "주간 요약",
         "unit_day": "일별",
         "unit_hour": "시간별",
+        "order_old": "오래된 순",
+        "order_new": "최신 순",
         "inc_title": "일별 증가량",
         "hourly_title": "시간별 증가량",
         "ylabel_hour": "증가 (%)",
@@ -588,6 +598,8 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "tab_week": "Semana",
         "unit_day": "Por día",
         "unit_hour": "Por hora",
+        "order_old": "Antiguos",
+        "order_new": "Recientes",
         "inc_title": "Aumento diario",
         "hourly_title": "Aumento por hora",
         "ylabel_hour": "Aumento (%)",
@@ -683,6 +695,8 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "tab_week": "Semana",
         "unit_day": "Por dia",
         "unit_hour": "Por hora",
+        "order_old": "Antigos",
+        "order_new": "Recentes",
         "inc_title": "Aumento diário",
         "hourly_title": "Aumento por hora",
         "ylabel_hour": "Aumento (%)",
@@ -778,6 +792,8 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "tab_week": "Semaine",
         "unit_day": "Par jour",
         "unit_hour": "Par heure",
+        "order_old": "Anciens",
+        "order_new": "Récents",
         "inc_title": "Hausse par jour",
         "hourly_title": "Hausse par heure",
         "ylabel_hour": "Hausse (%)",
@@ -873,6 +889,8 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "tab_week": "Woche",
         "unit_day": "Pro Tag",
         "unit_hour": "Pro Stunde",
+        "order_old": "Älteste",
+        "order_new": "Neueste",
         "inc_title": "Anstieg pro Tag",
         "hourly_title": "Anstieg pro Stunde",
         "ylabel_hour": "Anstieg (%)",
@@ -968,6 +986,8 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "tab_week": "Minggu",
         "unit_day": "Per hari",
         "unit_hour": "Per jam",
+        "order_old": "Terlama",
+        "order_new": "Terbaru",
         "inc_title": "Kenaikan harian",
         "hourly_title": "Kenaikan per jam",
         "ylabel_hour": "Kenaikan (%)",
@@ -1064,6 +1084,8 @@ TRANSLATIONS: Dict[str, Dict[str, object]] = {
         "tab_week": "7/7",
         "unit_day": "Δ/d",
         "unit_hour": "Δ/h",
+        "order_old": "↓",
+        "order_new": "↑",
         "inc_title": "Δ %/d",
         "hourly_title": "Δ %/h",
         "ylabel_hour": "Δ%",
@@ -1684,13 +1706,47 @@ def draw_segments(ax_hud, rect, items, active, pal, fontsize=11.0):
                     fontsize=fontsize, fontweight="bold", ha="center", va="center", zorder=4)
 
 
-def hotspots():
-    """Clickable areas of the header tabs and the unit switch, in % of the image (left, top, width, height; y down)."""
+def hotspots(L=None):
+    """Clickable areas of the header tabs and the unit switch, in % of the image (left, top, width, height; y down).
+    With the page's strings `L` also the list's sort toggle ("order"; its width follows the label's language)."""
     def pct(rect, i, n):
         x0, y0, w, h = rect
         return [round((x0 + i * w / n) * 100, 3), round((1 - y0 - h) * 100, 3), round(w / n * 100, 3), round(h * 100, 3)]
-    return {"tabs": {"week": pct(TAB_RECT, 0, 2), "daily": pct(TAB_RECT, 1, 2)},
-            "units": {"day": pct(UNIT_RECT, 0, 2), "hour": pct(UNIT_RECT, 1, 2)}}
+    out = {"tabs": {"week": pct(TAB_RECT, 0, 2), "daily": pct(TAB_RECT, 1, 2)},
+           "units": {"day": pct(UNIT_RECT, 0, 2), "hour": pct(UNIT_RECT, 1, 2)}}
+    if L is not None:
+        out["order"] = pct(order_rect(L), 0, 1)
+    return out
+
+
+ORDER_UNIT = 0.0058   # figure width of one Latin character of the sort toggle's 8 pt label (a CJK character counts 1.6)
+ORDER_PAD = 0.024     # figure width kept around the label (arrow, space and the pill's two ends)
+ORDER_H = 0.026       # figure height of the sort toggle
+LIST_ORDERS = ("new", "old")  # 最新在上 (default) / 最舊在上
+
+
+def order_text(L, order):
+    """What the sort toggle shows for `order`: an arrow (time runs down / up the list) and the language's short label."""
+    lbl = str(L["order_new" if order == "new" else "order_old"])
+    return lbl if lbl[:1] in ("↓", "↑") else f"{'↑' if order == 'new' else '↓'} {lbl}"
+
+
+def order_rect(L):
+    """The sort toggle in the list card's header, right-aligned on the title's line (figure fractions x0, y0, w, h): wide enough
+    for the longer of the two labels, so the toggle does not move or resize when it flips."""
+    lx, ly, lw, lh = DAY_LOG_CARD
+    units = max(sum(1.6 if ord(ch) >= 0x2E80 else 1.0 for ch in order_text(L, o)) for o in LIST_ORDERS)
+    w = ORDER_PAD + units * ORDER_UNIT
+    return (lx + lw - 0.015 - w, ly + lh - 0.025 - ORDER_H / 2, w, ORDER_H)
+
+
+def draw_order_toggle(ax_hud, L, pal, order):
+    """The list's sort toggle: one small rounded button showing the current order ("↓ Oldest first" / "↑ Newest first"); the served
+    page lays a real toggle button over it (hotspots()["order"]). Same card style as the other switches, no new colours."""
+    x0, y0, w, h = order_rect(L)
+    draw_card(ax_hud, x0, y0, w, h, pal, radius=8.0)
+    ax_hud.text((x0 + w / 2) * FIG_W, (y0 + h / 2) * FIG_H, order_text(L, order), color=pal["text_dim"], fontsize=8,
+                fontweight="bold", ha="center", va="center", zorder=4)
 
 
 def draw_header(ax_hud, cfg, L, pal, t_info, view="week"):
@@ -2283,10 +2339,13 @@ def draw_daily_log_panel(ax_hud, data, cfg, L, pal, t_info):
 
     sel = data.get("sel")
 
+    newest_first = data.get("order") == "new"
+    pos_of = (lambda d: 7 - d) if newest_first else (lambda d: d - 1)  # row position (0 = top) of day d
+
     def highlight(d, col):
         """The highlighted card (box in the day's colour). With a day selection every day gets one, hidden until selected
         (the page's sprites are the difference between two selections); without, only the latest recorded day."""
-        rb = (top_y - d * row_h) * FIG_H
+        rb = (top_y - (pos_of(d) + 1) * row_h) * FIG_H
         hl = FancyBboxPatch(
             ((lx + 0.010) * FIG_W, rb + 3.0), (lw - 0.020) * FIG_W, row_h * FIG_H - 6.0,
             boxstyle="round,pad=0,rounding_size=7",
@@ -2298,7 +2357,7 @@ def draw_daily_log_panel(ax_hud, data, cfg, L, pal, t_info):
             sel_add(sel, hl, cur=(d - 1 == sel["id"]), every=True)
 
     for d in range(1, 8):
-        ry_top = top_y - (d - 1) * row_h
+        ry_top = top_y - pos_of(d) * row_h
         ry_mid = (ry_top - row_h * 0.5) * FIG_H
         ry_bot = (ry_top - row_h) * FIG_H
 
@@ -2348,7 +2407,7 @@ def draw_daily_log_panel(ax_hud, data, cfg, L, pal, t_info):
             ax_hud.text(x_cum, ry_mid + 1.0, "--", color=pal["text_dim"], alpha=alpha_val, fontsize=12, fontweight="bold", ha="right", va="center", zorder=4)
             ax_hud.text(x_inc, ry_mid + 1.0, "--", color=pal["text_dim"], alpha=alpha_val, fontsize=12, fontweight="bold", ha="right", va="center", zorder=4)
 
-        if d < 7:
+        if pos_of(d) < 6:
             ax_hud.plot([(lx + 0.015) * FIG_W, (lx + lw - 0.015) * FIG_W], [ry_bot, ry_bot], color=pal["card_border"], alpha=0.65, lw=0.8, zorder=3)
 
 
@@ -2515,7 +2574,7 @@ def draw_hourly_panel(fig, ax_hud, data, cfg, L, pal, t_info, card, axes):
         sel_add(sel, ax.add_patch(Rectangle((bands[i0][0], 0), bands[i0][1] - bands[i0][0], ymax, facecolor=mcol, alpha=malpha,
                                             edgecolor="none", zorder=0.5)), cur=True)
         sel["id"] = i0
-        sel["meta"] = {"i": i0, "cols": cols, "clips": clips, "rows": [None] * len(rows), "labels": [None] * len(rows)}
+        sel["meta"] = {"i": i0, "cols": cols, "clips": clips, "rows": [None] * len(rows), "labels": [None] * len(rows), "order": data.get("order", "new")}
 
     ax.axhline(per_h, color=pal["orange"], alpha=0.9, lw=1.6, ls="--", zorder=4)
     ax.add_patch(Rectangle((0, 0), span_total, ymax, fill=False, edgecolor=pal["accent"], alpha=0.55, lw=1.4, zorder=5, clip_on=False))
@@ -2632,10 +2691,14 @@ def draw_hourly_log_panel(ax_hud, data, cfg, L, pal, t_info, max_rows=HOURLY_LOG
     per_h = pace / 24.0
     sel = data.get("sel")
     strip = sel is not None and bool(cfg.get("sel_sprites"))
-    rows = list(reversed(data["hourly"]["rows"]))
+    newest_first = data.get("order") == "new"
+    rows = list(reversed(data["hourly"]["rows"]))  # newest first; the page-mode strip lists all of them
     if not strip:
-        rows = rows[:max_rows]
+        rows = rows[:max_rows]  # (a plain PNG shows the newest ones either way)
+    if not newest_first:
+        rows.reverse()
     n_all = len(data["hourly"]["rows"])
+    idx = (lambda i: n_all - 1 - i) if newest_first else (lambda i: n_all - len(rows) + i)  # row position -> chart index
     lx, ly, lw, lh = DAY_LOG_CARD
     sb = HOURLY_LOG_SB if strip else 0.0
     draw_card(ax_hud, lx, ly, lw, lh, pal, accent=pal["accent"], radius=14.0)
@@ -2651,7 +2714,7 @@ def draw_hourly_log_panel(ax_hud, data, cfg, L, pal, t_info, max_rows=HOURLY_LOG
         ax_hud.text(x_t, (ly + lh - 0.10) * FIG_H, "--", color=pal["text_dim"], fontsize=12, fontweight="bold", va="center")
         return
     if strip:
-        _stash_strip(data, rows, per_h, L, pal)
+        _stash_strip(data, rows, per_h, L, pal, newest_first)
         return
     top_y = ly + lh - 0.080
     row_h = (lh - 0.095) / float(max_rows)
@@ -2659,7 +2722,7 @@ def draw_hourly_log_panel(ax_hud, data, cfg, L, pal, t_info, max_rows=HOURLY_LOG
         ry_mid = (top_y - (i + 0.5) * row_h) * FIG_H
         label, col = _draw_hourly_row(ax_hud, r, x_t, x_cum, x_inc, ry_mid, per_h, L, pal)
         if sel is not None and sel.get("meta"):  # the newest row is the default selection; each shown row can be selected
-            k = n_all - 1 - i
+            k = idx(i)
             rb = (top_y - (i + 1) * row_h) * FIG_H
             hl = FancyBboxPatch(((lx + 0.010) * FIG_W, rb + 3.0), (lw - 0.020) * FIG_W, row_h * FIG_H - 6.0,
                                 boxstyle="round,pad=0,rounding_size=7", facecolor=blend_color(pal["card_fill"], col, 0.10),
@@ -2674,17 +2737,18 @@ def draw_hourly_log_panel(ax_hud, data, cfg, L, pal, t_info, max_rows=HOURLY_LOG
             ax_hud.plot([(lx + 0.015) * FIG_W, (lx + lw - 0.015) * FIG_W], [yb, yb], color=pal["card_border"], lw=0.6, alpha=0.6)
 
 
-def _stash_strip(data, rows, per_h, L, pal):
-    """Remember what the page-mode list needs (rows newest first); render() draws the strip after the card is saved."""
-    data["hourly_strip"] = {"rows": rows, "per_h": per_h, "L": L, "pal": pal}
+def _stash_strip(data, rows, per_h, L, pal, newest_first=True):
+    """Remember what the page-mode list needs (rows in list order); render() draws the strip after the card is saved."""
+    data["hourly_strip"] = {"rows": rows, "per_h": per_h, "L": L, "pal": pal, "newest_first": newest_first}
 
 
 def write_hourly_strip(data, out_png):
-    """<chart>-rows.png: ALL hour rows of the 7-day chart as one tall transparent picture (newest first, drawn exactly like the
+    """<chart>-rows.png: ALL hour rows of the 7-day chart as one tall transparent picture (in the chosen list order, drawn exactly like the
     card's own rows), laid by the page inside a scrollable viewport over the card. Fills the selection meta (row boxes in %
     of this picture, their colours and the viewport on the chart) the page needs. Returns the path."""
     st = data["hourly_strip"]
     rows, per_h, L, pal = st["rows"], st["per_h"], st["L"], st["pal"]
+    newest_first = st.get("newest_first", True)
     sel = data["sel"]
     lay = hourly_list_layout()
     lx, ly, lw, lh = DAY_LOG_CARD
@@ -2704,7 +2768,7 @@ def write_hourly_strip(data, out_png):
                              round(HOURLY_LOG_VISIBLE * lay["row_h"] * 100, 3)],
                      "px": [round(w_px, 1), round(h_px, 1)], "colors": [None] * n_all}
     for i, r in enumerate(rows):
-        k = n_all - 1 - i
+        k = n_all - 1 - i if newest_first else i
         ry_mid = h_px - (i + 0.5) * row_px
         label, col = _draw_hourly_row(ax, r, (c_t - 0.010) * FIG_W, (c_cum - 0.010) * FIG_W, (c_inc - 0.010) * FIG_W, ry_mid, per_h, L, pal)
         meta["rows"][k] = [0.0, round(i * row_px / h_px * 100, 4), 100.0, round(row_px / h_px * 100, 4)]
@@ -2754,7 +2818,7 @@ def sel_mask_style(pal):
     return (pal["text"], SEL_MASK_ALPHA_LIGHT) if pal["is_light"] else ("#FFFFFF", SEL_MASK_ALPHA)
 
 
-def sel_geometry(i):
+def sel_geometry(i, order="new"):
     """Clickable areas of the daily view for the page, in % of the image (left, top, width, height; y down): the seven
     bar columns (with their day labels) and the seven log cards, plus the selected index when the chart is drawn."""
     ax_l, ax_b, ax_w, ax_h = INC_AXES
@@ -2763,9 +2827,10 @@ def sel_geometry(i):
     lx, ly, lw, lh = DAY_LOG_CARD
     row_h = (lh - 0.095) / 7.0
     top_y = ly + lh - 0.080
-    rows = [[round((lx + 0.010) * 100, 3), round((1 - (top_y - d * row_h)) * 100, 3),
+    pos = (lambda d: 6 - d) if order == "new" else (lambda d: d)  # day index -> row position (0 = top of the list)
+    rows = [[round((lx + 0.010) * 100, 3), round((1 - (top_y - pos(d) * row_h)) * 100, 3),
              round((lw - 0.020) * 100, 3), round(row_h * 100, 3)] for d in range(7)]
-    return {"i": int(i), "cols": cols, "rows": rows}
+    return {"i": int(i), "cols": cols, "rows": rows, "order": order}
 
 
 def write_sel_sprites(fig, sel, out_png):
@@ -2805,6 +2870,7 @@ def draw_increments_view(fig, ax_hud, data, cfg, L, pal, t_info, view):
     else:
         draw_hourly_panel(fig, ax_hud, data, cfg, L, pal, t_info, INC_CARD, INC_AXES)
         draw_hourly_log_panel(ax_hud, data, cfg, L, pal, t_info)
+    draw_order_toggle(ax_hud, L, pal, data.get("order", "old"))
     draw_segments(ax_hud, UNIT_RECT, [("day", str(L["unit_day"])), ("hour", str(L["unit_hour"]))], unit, pal, fontsize=10)
 
 
@@ -2868,6 +2934,7 @@ def configure_fonts_and_locale(lang: str) -> str:
 def render(rows, out_png, week_start, cfg=None):
     """Render the weekly usage HUD dashboard from `rows` (list of dicts with day,date,pct,note)."""
     sel_cfg = {k: (cfg or {}).get(k) for k in ("sel_day", "sel_idx", "sel_sprites")}  # linked selection (每日增量 views only)
+    list_order = "old" if (cfg or {}).get("list_order") == "old" else "new"  # 每日增量 list: 最新在上 (default) / 最舊在上
     samples = (cfg or {}).get("samples")  # finer readings for a mid-week reset's time (not a theme/config key)
     view = (cfg or {}).get("view") or "week"  # "week" overview (default) | "daily" / "hourly" increments
     if view not in VIEWS:
@@ -2937,6 +3004,7 @@ def render(rows, out_png, week_start, cfg=None):
         "rows": sorted_rows, "days": days, "pcts": pcts, "xs": xs, "ys_plot": ys_plot,
         "row_map": row_map, "inc_map": inc_map, "latest_day": latest_day, "latest_pct": latest_pct,
         "pct_map": dict(zip(days, pcts)),
+        "order": list_order if view in ("daily", "hourly") else "old",  # the 本週總覽 list keeps oldest first
     }
 
     tz, tz_spec = resolve_tz(cfg.get("tz"))
@@ -3046,7 +3114,7 @@ def render(rows, out_png, week_start, cfg=None):
         data["sel"] = {"id": None, "arts": [], "meta": None}
         if view == "daily":
             data["sel"]["id"] = min(max(int(cfg.get("sel_day") or day_now), 1), 7) - 1
-            data["sel"]["meta"] = sel_geometry(data["sel"]["id"])
+            data["sel"]["meta"] = sel_geometry(data["sel"]["id"], data["order"])
 
     draw_header(ax_hud, cfg, L, pal, t_info, view)
     draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info)
@@ -3077,6 +3145,7 @@ def render(rows, out_png, week_start, cfg=None):
     meta.update(data.get("chart_meta", {}))
     hb = data["hourly"]
     meta["view"] = view
+    meta["order"] = data["order"]
     meta["inc"] = {"readings": hb["readings"], "hours": sum(1 for r in hb["rows"] if not r["gap"]), "rich": bool(hb["rich"]),
                    "step_min": round(hb["step_min"], 1) if hb["step_min"] else None}
     return meta

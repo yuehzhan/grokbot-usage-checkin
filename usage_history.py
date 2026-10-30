@@ -1627,8 +1627,14 @@ def render_clock_range(ctx, name, key, mode="ot", dial="24"):
 
 
 WEEK_VIEW_FILES = ("week-current.png", "week-daily.png", "week-hourly.png")  # 本週總覽 / 每日增量 per day / per hour
-SEL_SPRITES = tuple(f"week-{v}-{k}.png" for v in ("daily", "hourly") for k in ("off", "on"))  # linked selection (chart_hud.write_sel_sprites)
+# 每日增量 list order: the list is drawn into the picture, so 最新在上 is a second set of the same pictures (week-daily-new.png ...,
+# chart_hud cfg list_order="new"); the page shows one set or the other (WKVIEW_JS) and remembers the choice ('usage.listOrder').
+NEW_VIEW_FILES = ("week-daily-new.png", "week-hourly-new.png")
+SEL_SPRITES = tuple(f"{fn[:-4]}-{k}.png" for fn in WEEK_VIEW_FILES[1:] + NEW_VIEW_FILES for k in ("off", "on"))  # linked selection (chart_hud.write_sel_sprites)
 HOURLY_ROWS_FILE = "week-hourly-rows.png"  # every hour row of the per-hour list as one tall picture the page scrolls (chart_hud.write_hourly_strip)
+HOURLY_ROWS_FILE_NEW = "week-hourly-new-rows.png"  # the same, newest first
+INC_VIEWS = (("daily", WEEK_VIEW_FILES[1], "old"), ("hourly", WEEK_VIEW_FILES[2], "old"),
+             ("daily-new", NEW_VIEW_FILES[0], "new"), ("hourly-new", NEW_VIEW_FILES[1], "new"))  # page view key, file, list order
 
 
 def render_current_week(ctx, nowa, names=None):
@@ -1641,7 +1647,7 @@ def render_current_week(ctx, nowa, names=None):
         rows = [r for r in csv.DictReader(f.open(encoding="utf-8"))] if f.exists() else []
         if not rows:
             for d in ([ctx.hist_dir] if publish else []) + [dd for _, dd in _palette_dirs(ctx, names)]:
-                for fn in WEEK_VIEW_FILES + SEL_SPRITES + (HOURLY_ROWS_FILE, "week-current.json"):
+                for fn in WEEK_VIEW_FILES + NEW_VIEW_FILES + SEL_SPRITES + (HOURLY_ROWS_FILE, HOURLY_ROWS_FILE_NEW, "week-current.json"):
                     if (d / fn).exists():
                         (d / fn).unlink()
             return False
@@ -1659,22 +1665,23 @@ def render_current_week(ctx, nowa, names=None):
                     "samples": samples}
             # 本週總覽 (default) + 每日增量 per day / per hour: same header and cards, the page switches between them
             sels = {}
-            for view, fn in zip(("daily", "hourly"), WEEK_VIEW_FILES[1:]):
-                vm = chart_hud.render(rows, str(d / fn), f"{ws.astimezone(ctx.tz):%Y-%m-%d}", dict(hcfg, view=view, sel_sprites=True))
+            for view, fn, order in INC_VIEWS:
+                vm = chart_hud.render(rows, str(d / fn), f"{ws.astimezone(ctx.tz):%Y-%m-%d}",
+                                      dict(hcfg, view=view.split("-")[0], list_order=order, sel_sprites=True))
                 if (vm or {}).get("sel"):
                     sels[view] = vm["sel"]
                 else:  # no selection this time (e.g. too few hourly readings): drop sprites left by an earlier render
                     for k in ("off", "on"):
-                        (d / f"week-{view}-{k}.png").unlink(missing_ok=True)
-                    if view == "hourly":
-                        (d / HOURLY_ROWS_FILE).unlink(missing_ok=True)
+                        (d / f"{fn[:-4]}-{k}.png").unlink(missing_ok=True)
+                    if view.startswith("hourly"):
+                        (d / (HOURLY_ROWS_FILE_NEW if order == "new" else HOURLY_ROWS_FILE)).unlink(missing_ok=True)
             meta = chart_hud.render(rows, str(d / "week-current.png"), f"{ws.astimezone(ctx.tz):%Y-%m-%d}", dict(hcfg, view="week"))
             if sels:  # where the 每日增量 days / hours are on each picture, and which one is selected when the page opens
                 meta["sel"] = sels
             # gauge geometry/colours for the page's animated overlay (the PNG stays the static export)
             _write_text(d / "week-current.json", json.dumps(meta or {}, ensure_ascii=False))
         if publish:
-            _publish_default(ctx, list(WEEK_VIEW_FILES) + list(SEL_SPRITES) + [HOURLY_ROWS_FILE, "week-current.json"])
+            _publish_default(ctx, list(WEEK_VIEW_FILES) + list(NEW_VIEW_FILES) + list(SEL_SPRITES) + [HOURLY_ROWS_FILE, HOURLY_ROWS_FILE_NEW, "week-current.json"])
         return True
     except Exception as exc:
         print(f"Warning: current week chart failed: {exc}", file=sys.stderr)
@@ -2363,17 +2370,24 @@ def clock_tips_json(ctx):
 # per-hour choice ('usage.incUnit'), else per hour only when this week has enough hourly readings (heavy use).
 WKVIEW_CSS = ("[data-wv] .hot{position:absolute;background:transparent;border:0;padding:0;margin:0;border-radius:9px;cursor:pointer}"
               " [data-wv] .hot[aria-pressed=true]{cursor:default} [data-wv] .hot:hover:not([aria-pressed=true]){background:rgba(127,127,127,.12)}"
-              " [data-wv] .hot:focus-visible{outline:2px solid var(--accent);outline-offset:1px}")
+              " [data-wv] .hot:focus-visible{outline:2px solid var(--accent);outline-offset:1px}"
+              " [data-wv] .hot.ord[aria-pressed=true]{cursor:pointer} [data-wv] .hot.ord[aria-pressed=true]:hover{background:rgba(127,127,127,.12)}")
 WKVIEW_JS = r"""(function(){var sec=document.getElementById('p-wk');if(!sec)return;var W=[].slice.call(sec.querySelectorAll('[data-wv]'));if(W.length<2)return;
-var D={};try{D=JSON.parse(sec.getAttribute('data-inc')||'{}')||{};}catch(e){}var UK='usage.incUnit',TK='usage.wkTab';
+var D={};try{D=JSON.parse(sec.getAttribute('data-inc')||'{}')||{};}catch(e){}var UK='usage.incUnit',TK='usage.wkTab',OK='usage.listOrder';
 function has(v){return W.some(function(w){return w.getAttribute('data-wv')===v;});}
 function unit(){var u=null;try{u=localStorage.getItem(UK);}catch(e){}return (u==='daily'||u==='hourly')&&has(u)?u:(D.rich&&has('hourly')?'hourly':'daily');}
+function order(){var o=null;try{o=localStorage.getItem(OK);}catch(e){}return o==='old'?'old':'new';}
+function view(u){return order()==='new'&&has(u+'-new')?u+'-new':u;}
+function vis(){for(var i=0;i<W.length;i++)if(!W[i].hidden)return W[i];return null;}
 function show(v,focus){if(!has(v))v='week';W.forEach(function(w){w.hidden=w.getAttribute('data-wv')!==v;});
-try{localStorage.setItem(TK,v==='week'?'week':'inc');if(v!=='week')localStorage.setItem(UK,v);}catch(e){}
-if(focus){var w=sec.querySelector("[data-wv='"+v+"']"),b=w&&w.querySelector("button.hot[aria-pressed='true'][data-go='"+focus+"']");if(b)b.focus();}}
-sec.addEventListener('click',function(e){var b=e.target.closest?e.target.closest('button.hot'):null;if(!b||b.getAttribute('aria-pressed')==='true')return;
-var g=b.getAttribute('data-go');show(g==='inc'?unit():g,g);});
-var t=null;try{t=localStorage.getItem(TK);}catch(e){}if(t==='inc')show(unit());})();"""
+try{localStorage.setItem(TK,v==='week'?'week':'inc');if(v!=='week')localStorage.setItem(UK,v.replace(/-new$/,''));}catch(e){}
+if(focus){var w=sec.querySelector("[data-wv='"+v+"']"),b=w&&w.querySelector("button.hot"+(focus==='order'?"":"[aria-pressed='true']")+"[data-go='"+focus+"']");if(b)b.focus();}}
+sec.addEventListener('click',function(e){var b=e.target.closest?e.target.closest('button.hot'):null;if(!b)return;var g=b.getAttribute('data-go');
+if(g==='order'){var from=vis(),p=from&&from.querySelector("[data-i][aria-pressed='true']"),sel=p&&p.getAttribute('data-i'),u=from?from.getAttribute('data-wv').replace(/-new$/,''):unit();
+try{localStorage.setItem(OK,order()==='new'?'old':'new');}catch(x){}show(view(u),'order');var to=vis(),c=sel!=null&&to!==from?to.querySelector("[data-i='"+sel+"']"):null;
+if(c)c.click();return;}  // the chosen day / hour stays chosen in the other order (the same click as on its column)
+if(b.getAttribute('aria-pressed')==='true')return;show(g==='inc'?view(unit()):(g==='week'?g:view(g)),g);});
+var t=null;try{t=localStorage.getItem(TK);}catch(e){}if(t==='inc')show(view(unit()));})();"""
 
 
 # 每日增量 (per day / per hour): the linked selection. The chart's columns and the log's cards are real click areas laid
@@ -2403,7 +2417,7 @@ SEL_CSS = ("[data-wv] .dsel{position:absolute;display:block;box-sizing:border-bo
 SEL_JS = r"""(function(){var sec=document.getElementById('p-wk');if(!sec)return;
 function init(w){var img=w.querySelector('img[data-f]'),S=[].slice.call(w.querySelectorAll('img.ssprite')),off=S[0],onc=S[1],onr=S[2],I=[].slice.call(w.querySelectorAll('[data-i]'));
 if(!img||S.length<3||!I.length)return;var d0=+off.getAttribute('data-sel'),cur=d0,ready=false,seq=0;
-function url(k){var s=img.getAttribute('src')||'';return /week-(daily|hourly)\.png/.test(s)?s.replace(/week-(daily|hourly)\.png/,'week-$1-'+k+'.png'):'';}
+function url(k){var s=img.getAttribute('src')||'',r=/week-(daily|hourly)(-new)?\.png/;return r.test(s)?s.replace(r,'week-$1$2-'+k+'.png'):'';}
 function find(c,i){for(var j=0;j<I.length;j++)if(I[j].classList.contains(c)&&+I[j].getAttribute('data-i')===i)return I[j];return null;}
 function box(e){var c=e.getAttribute('data-clip');return c?c.split(',').map(parseFloat):[parseFloat(e.style.left),parseFloat(e.style.top),parseFloat(e.style.width),parseFloat(e.style.height)];}
 function clip(im,e){if(!e){im.hidden=true;return;}var r=box(e);im.style.clipPath='inset('+r[1]+'% '+(100-r[0]-r[2])+'% '+(100-r[1]-r[3])+'% '+r[0]+'%)';im.hidden=false;}
@@ -2414,10 +2428,11 @@ function render(){mark();reveal(find('hrow',cur));if(!ready||cur===d0){S.forEach
 function load(){ready=false;S.forEach(function(im){im.hidden=true;});var a=url('off'),b=url('on'),my=++seq,n=0;if(!a||w.hidden)return;
 [a,b].forEach(function(u){var im=new Image();im.onload=function(){if(my!==seq)return;if(++n===2){off.src=a;onc.src=b;onr.src=b;ready=true;render();}};im.src=u;});}
 w.addEventListener('click',function(e){var t=e.target&&e.target.closest?e.target.closest('[data-i]'):null;if(!t)return;cur=+t.getAttribute('data-i');render();});
+var HR=w.querySelector('img.hrows');if(HR&&!HR.complete)HR.addEventListener('load',function(){reveal(find('hrow',cur));});  // oldest first: the newest row is at the bottom
 if(window.MutationObserver){new MutationObserver(load).observe(img,{attributes:true,attributeFilter:['src']});
 new MutationObserver(function(){if(!w.hidden&&!ready)load();}).observe(w,{attributes:true,attributeFilter:['hidden']});}
 mark();load();}
-['daily','hourly'].forEach(function(v){var w=sec.querySelector("[data-wv='"+v+"']");if(w)init(w);});})();"""
+['daily','hourly','daily-new','hourly-new'].forEach(function(v){var w=sec.querySelector("[data-wv='"+v+"']");if(w)init(w);});})();"""
 
 
 def select_html(sel, label_of, strip_src=None):
@@ -2443,13 +2458,14 @@ def select_html(sel, label_of, strip_src=None):
         # the viewport is the list's width plus its 16 px scrollbar (the scrollbar takes its room from the content box)
         out.append(f"<div class='hscroll' style='left:{x}%;top:{y}%;width:calc({w}% + 16px);height:{h}%'><div class='hstrip'>"
                    f"<img class='hrows' alt='' loading='lazy' data-f='{html.escape(strip_src[0])}' src='{html.escape(strip_src[1])}'>")
-        for k, r in enumerate(rows):
+        for k, r in sorted(enumerate(rows), key=lambda kr: (kr[1] or [0, 0])[1]):  # top to bottom = the list's order, so Tab follows it
             if r:
                 out.append(f"<button type='button' class='dsel hrow' data-i='{k}' aria-pressed='{'true' if k == i0 else 'false'}'"
                            f" aria-label='{html.escape(str(label_of(k)))}' style='{box(r)};--c:{strip['colors'][k]}'></button>")
         out.append("</div></div>")
         return "".join(out), i0
-    for k, r in enumerate(rows if not strip else []):  # (strip row boxes are in the tall picture's coordinates, not the chart's)
+    # (strip row boxes are in the tall picture's coordinates, not the chart's); top to bottom = the list's order, so Tab follows it
+    for k, r in sorted(enumerate(rows if not strip else []), key=lambda kr: (kr[1] or [0, 0])[1]):
         if r:
             out.append(f"<button type='button' class='dsel dcard' data-i='{k}' aria-pressed='{'true' if k == i0 else 'false'}'"
                        f" aria-label='{html.escape(str(label_of(k)))}' style='{box(r)}'></button>")
@@ -2462,36 +2478,45 @@ def week_views_html(ctx, gmeta, b64):
     import chart_hud
     lk = "numeric" if ctx.privacy else ctx.lang
     HL = dict(chart_hud.BASE_STRINGS, **chart_hud.TRANSLATIONS.get(lk, {}))
-    H = chart_hud.hotspots()
+    H = chart_hud.hotspots(HL)
     inc = (gmeta or {}).get("inc") or {}
 
-    def btn(go, rect, label, on):
+    def btn(go, rect, label, on, cls="hot"):
         l, t, w, h = rect
-        return (f"<button type='button' class='hot' data-go='{go}' aria-pressed='{'true' if on else 'false'}' aria-label='{html.escape(str(label))}'"
+        return (f"<button type='button' class='{cls}' data-go='{go}' aria-pressed='{'true' if on else 'false'}' aria-label='{html.escape(str(label))}'"
                 f" title='{html.escape(str(label))}' style='left:{l}%;top:{t}%;width:{w}%;height:{h}%'></button>")
 
     def tabs(on):
         return btn("week", H["tabs"]["week"], HL["tab_week"], on == "week") + btn("inc", H["tabs"]["daily"], HL["tab_daily"], on != "week")
 
     def units(on):
-        return (btn("daily", H["units"]["day"], HL["unit_day"], on == "daily")
-                + btn("hourly", H["units"]["hour"], HL["unit_hour"], on == "hourly"))
+        base = on.split("-")[0]
+        return (btn("daily", H["units"]["day"], HL["unit_day"], base == "daily")
+                + btn("hourly", H["units"]["hour"], HL["unit_hour"], base == "hourly"))
+
+    def order(on):
+        """The list's sort toggle (drawn in the picture: "↓ Oldest first" / "↑ Newest first"): one toggle button, pressed = newest first."""
+        return btn("order", H["order"], HL["order_new"], on.endswith("-new"), "hot ord")
     wk = ctx.hist_dir / "week-current.png"
     have = all((ctx.hist_dir / f).exists() for f in WEEK_VIEW_FILES[1:])
+    have_new = have and all((ctx.hist_dir / f).exists() for f in NEW_VIEW_FILES)  # without the newest-first pictures there is no toggle
     parts = [f"<div class='gwrap' data-wv='week'><img alt='' data-f='week-current.png' src='data:image/png;base64,{b64(wk)}'>"
              + (tabs("week") if have else "") + "</div>"]
     if have:
-        for v, fn in zip(("daily", "hourly"), WEEK_VIEW_FILES[1:]):
+        for v, fn, ordr in INC_VIEWS:
+            if ordr == "new" and not have_new:
+                continue
             ver = int((ctx.hist_dir / fn).stat().st_mtime)
             sel = ((gmeta or {}).get("sel") or {}).get(v)
+            unit = v.split("-")[0]
             day_label = lambda k: chart_hud.sfmt(HL["day_fmt"], d=k + 1, day=k + 1)
-            hour_label = lambda k: (sel.get("labels") or [])[k] or ""
-            rows_fn = HOURLY_ROWS_FILE
+            hour_label = lambda k, sel=sel: (sel.get("labels") or [])[k] or ""
+            rows_fn = HOURLY_ROWS_FILE_NEW if ordr == "new" else HOURLY_ROWS_FILE
             rver = int((ctx.hist_dir / rows_fn).stat().st_mtime) if (ctx.hist_dir / rows_fn).exists() else None
-            strip_src = (rows_fn, f"{rows_fn}?v={rver}") if v == "hourly" and rver is not None else None
-            dsel, i0 = select_html(sel, day_label if v == "daily" else hour_label, strip_src) if sel else (None, None)
+            strip_src = (rows_fn, f"{rows_fn}?v={rver}") if unit == "hourly" and rver is not None else None
+            dsel, i0 = select_html(sel, day_label if unit == "daily" else hour_label, strip_src) if sel else (None, None)
             parts.append(f"<div class='gwrap' data-wv='{v}' hidden><img alt='' loading='lazy' data-f='{fn}' src='{fn}?v={ver}'>"
-                         + (dsel or "") + tabs(v) + units(v) + "</div>")
+                         + (dsel or "") + tabs(v) + units(v) + (order(v) if have_new else "") + "</div>")
     dinc = html.escape(json.dumps({"rich": bool(inc.get("rich")), "hours": inc.get("hours")}), quote=True)
     return f"<section id='p-wk' class='on' data-inc=\"{dinc}\">" + "".join(parts) + "</section>"
 

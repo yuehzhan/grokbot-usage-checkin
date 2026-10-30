@@ -328,11 +328,14 @@ def to_plain(entry, cjk=False):
     return text
 
 
+_UNRELEASED_RE = re.compile(r"##\s*\[[^\]]*\]\s*[-–—]\s*unreleased\b", re.I)
+
+
 def notes_between(text, current, cap=NOTES_MAX_CHARS, max_entries=NOTES_MAX_ENTRIES, cjk=False):
     """Plain text (see ``to_plain``) of the entries newer than ``current`` (only the newest one when ``current``
     is unknown), control / bidi characters removed, at most ``cap`` characters."""
     cur = parse_version(current)
-    entries = [e for v, e in parse_changelog(text) if cur is None or v > cur]
+    entries = [e for v, e in parse_changelog(text) if (cur is None or v > cur) and not _UNRELEASED_RE.match(e)]  # "## [1.11.0] - Unreleased" is not news yet
     entries = entries[:1] if cur is None else entries[:max_entries]
     out = "\n\n".join(to_plain(_CTRL_RE.sub("", e), cjk) for e in entries)
     return out if len(out) <= cap else out[:cap - 1].rstrip() + "…"

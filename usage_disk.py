@@ -1,6 +1,10 @@
-"""usage_disk.py - free disk space of the machine the dashboard runs on, for the top of the Built-in tab (stdlib only).
+"""usage_disk.py - free disk space of the Grok Bot's own computer ("the box"), for the top of the Built-in tab (stdlib only).
 
-Reads the home folder's filesystem with ``shutil.disk_usage`` (falls back to the filesystem root). No network, no API calls.
+The bar describes the Bot computer's disk and nothing else. It is shown only when the numbers really come from there: either the
+dashboard itself runs on the Bot computer (``is_bot_computer``; then it reads the home folder's filesystem with
+``shutil.disk_usage``, falling back to the filesystem root), or the Bot wrote ``disk_free_gb`` / ``disk_total_gb`` into the snapshot.
+On any other machine (for example your own Windows PC) without such a report the bar and its "?" are hidden: the local disk is never
+substituted. No network, no API calls.
 The level is "danger" when free space is strictly under the danger threshold, "warn" when strictly under the warning
 threshold, else "ok" (so exactly at the warning threshold is still ok, and exactly at the danger threshold is only a warning).
 The thresholds scale with the disk: by default free space under 23 % of the total is a warning and under 16 % is danger
@@ -8,11 +12,11 @@ The thresholds scale with the disk: by default free space under 23 % of the tota
 (percent of the total). The older fixed keys ``disk_warn_gb`` / ``disk_danger_gb`` (1 GB = 1024**3 bytes, what Windows / Explorer
 calls GB) still work: when one is set to a valid number it wins over the percentage for that level.
 
-The bot that writes the Built-in snapshots can also record the disk of the computer *it* runs on (``disk_free_gb`` /
-``disk_total_gb`` in the snapshot). ``disk_source`` in usage_config.json: ``"auto"`` (default) uses that report only when it
-is there and the dashboard clearly runs on another machine (the local disk's total size differs from the reported one by more
-than 5 % and more than 1 GB; on the same machine the live local reading is better), ``"local"`` never prefers it, ``"snapshot"`` always
-prefers it (either way it is the fallback when the local disk cannot be read). Missing or odd fields are ignored and the local reading is used.
+The bot that writes the Built-in snapshots records the disk of the computer *it* runs on (``disk_free_gb`` /
+``disk_total_gb`` in the snapshot). ``disk_source`` in usage_config.json only matters when the dashboard runs on the Bot computer
+itself: ``"auto"`` (default) uses that report only when it is there and differs from the local disk (total size more than 5 % and
+more than 1 GB apart; on the same machine the live local reading is better), ``"local"`` never prefers it, ``"snapshot"`` always
+prefers it. On another machine only the report is used. Missing or odd fields are ignored (no report = no bar there).
 
 Test hook (never needed in normal use): the environment variables ``USAGE_DISK_FAKE_FREE_GB`` (and optionally
 ``USAGE_DISK_FAKE_TOTAL_GB``, default 128) replace the real reading, so screenshots and tests never depend on the real disk.
@@ -84,6 +88,28 @@ def _fake():
     return free * GB, max(total, free) * GB
 
 
+BOX_HOST_PREFIX = "grok-bot-vm"   # host name of a Grok Bot computer
+BOX_ENV_PREFIX = "SAND_BOX_"      # environment variables the Bot computer's runtime sets
+
+
+def is_bot_computer(system=None, hostname=None, environ=None, home=None, isdir=None):
+    """True when this process runs on the Grok Bot's own (Linux) computer. Any one marker is enough: its host name starts with
+    ``grok-bot-vm``, its runtime environment variables (``SAND_BOX_*``) are set, or it is the ``box`` user's home with a
+    ``/workspace`` folder. A normal PC (Windows, macOS, or a Linux desktop) has none of them. The arguments are for tests."""
+    import platform
+    if (system if system is not None else platform.system()) != "Linux":
+        return False
+    environ = os.environ if environ is None else environ
+    host = str(hostname if hostname is not None else platform.node()).lower()
+    if host.startswith(BOX_HOST_PREFIX) or any(str(k).startswith(BOX_ENV_PREFIX) for k in environ):
+        return True
+    try:
+        home = str(home if home is not None else Path.home())
+    except (RuntimeError, KeyError):
+        home = ""
+    return home.rstrip("/") == "/home/box" and (isdir or os.path.isdir)("/workspace")
+
+
 def read(path=None):
     """(free_bytes, total_bytes) of the home folder's filesystem (or `path`'s), the root as a fallback; None when unreadable."""
     fake = _fake()
@@ -138,10 +164,14 @@ def _floor1(x):
     return math.floor(x * 10 + 1e-9) / 10   # shown value never rounds up past a threshold (29.96 shows 29.9, not 30.0)
 
 
-def page_data(cfg=None, reading=None, snap=None):
-    """JSON-ready dict for the bar, or None when the disk cannot be read. `reading` (free, total bytes) is for tests;
-    `snap` is the newest normalized snapshot (its optional disk fields may be preferred, see `pick`)."""
-    local = reading if reading is not None else read()
+def page_data(cfg=None, reading=None, snap=None, box=None):
+    """JSON-ready dict for the bar, or None (bar and "?" hidden) when there is no Bot-computer disk figure. The local disk is read
+    only when this really is the Bot computer (`box`: None = detect with is_bot_computer, or the fake-disk test hook is set);
+    anywhere else only the snapshot's report counts. `reading` (free, total bytes) is for tests; `snap` is the newest normalized
+    snapshot (its optional disk fields may be preferred, see `pick`)."""
+    if box is None:
+        box = is_bot_computer() or _fake() is not None
+    local = (reading if reading is not None else read()) if box else None
     src, r, ts = pick(cfg, local if local and local[1] > 0 else None, snap)
     if not r or r[1] <= 0:
         return None

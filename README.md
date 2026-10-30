@@ -635,7 +635,7 @@ All commands accept `--config`, `--data-dir`, `--tz`, `--lang`, `--theme`, `--pa
 - Summary cards: week count, average weekly peak, weeks at 100%, extra spend (from `extra_spend_csv`).
 - Ranges with too few weeks (1m < 3, 3m < 10, 6m < 20, 1y < 40) still render, with an "insufficient data" badge.
 - `* ` marks the current week (not complete yet).
-- **This week** has two tabs drawn in its header: **Week** (the overview, shown on a first visit) and **Daily** (increments, per day or per hour from the real readings; per hour opens by default once the week has 12+ hourly readings). The page remembers the last tab and the per-day / per-hour choice in the browser (`usage.wkTab`, `usage.incUnit`), so a heavy user who left on per hour lands straight on it. In both views the chart columns and the log cards / rows share **one selection**: it starts on today (or the latest hour), clicking either side moves a light mask on the chart column and the highlight on the list, days not yet recorded can be selected too, and it is not remembered across a reload. In the per-hour view the list on the right holds **every hour row of the 7-day chart** (newest first) and scrolls (always-visible scrollbar on its right edge); a click on a bar scrolls to and highlights its row.
+- **This week** has two tabs drawn in its header: **Week** (the overview, shown on a first visit) and **Daily** (increments, per day or per hour from the real readings; per hour opens by default once the week has 12+ hourly readings). The page remembers the last tab and the per-day / per-hour choice in the browser (`usage.wkTab`, `usage.incUnit`), so a heavy user who left on per hour lands straight on it. In both views the chart columns and the log cards / rows share **one selection**: it starts on today (or the latest hour), clicking either side moves a light mask on the chart column and the highlight on the list, days not yet recorded can be selected too, and it is not remembered across a reload. In the per-hour view the list on the right holds **every hour row of the 7-day chart** (newest first) and scrolls (always-visible scrollbar on its right edge); a click on a bar scrolls to and highlights its row. A small pill in the list header switches between **Newest first** (the default, for both views) and **Oldest first**; the choice is remembered in the browser (`usage.listOrder`).
 
 </details>
 
@@ -846,9 +846,10 @@ saves it as a small JSON file; the dashboard only displays files in `usage-data/
   show the change in percentage points. The bars use the dashboard accent, never the over / under colours. Every `share` is a
   percentage of **all Grok Bot usage in that period**, not of the limit.
 - **Disk space bar:** at the very top, a small bar "Bot computer disk free: XX GB / YY GB" (the disk of the computer your Grok Bot runs on, not your own PC). It
-  uses the disk figures your Grok Bot saves in its snapshot (see `disk_free_gb` below); without them it reads the machine the
-  dashboard runs on (`shutil.disk_usage` on the home folder's filesystem, root as a fallback; no network, no API; read each time
-  the page is built) and adds "(this PC)" to the label. Free space **under 23 % of the disk's total** turns the bar orange with a "Getting low" flag, **under 16 %** red with a "Very low"
+  uses the disk figures your Grok Bot saves in its snapshot (see `disk_free_gb` below), or, when the dashboard itself runs on the Bot
+  computer, that machine's own disk (`shutil.disk_usage` on the home folder's filesystem, root as a fallback; no network, no API; read
+  each time the page is built). On any other machine (your own PC) without such a report the bar and its **?** are hidden; your own
+  disk is never shown in its place. Free space **under 23 % of the disk's total** turns the bar orange with a "Getting low" flag, **under 16 %** red with a "Very low"
   flag (on a 128 GB disk that is about 29.4 GB and 20.5 GB, on 512 GB about 117.8 GB and 81.9 GB; strictly under: exactly 23 % is still
   normal, exactly 16 % is orange); otherwise it is neutral grey. This is the one
   place the dashboard uses red / orange to mean "needs attention"; those two colours are separate constants in `usage_disk.py`
@@ -920,11 +921,11 @@ ignored, a bad value drops only that field, files over 256 KB are skipped, and a
   an unknown name is shown as written. `captured_at` and `resets_at` accept ISO 8601 (no offset = the dashboard time zone) or the
   report's own wording such as `Saturday Oct 31 01:41`.
 - `disk_free_gb` / `disk_total_gb` (optional, GB, numbers or text like `"27.5 GB"`): the free and total disk of the computer your
-  Grok Bot runs on (for example from `df -h ~`). The disk bar uses them when the dashboard runs on a *different* machine from
-  that computer; on the same machine it keeps its own live reading. "Different" means the local disk's total size differs from
-  `disk_total_gb` by more than 5 % (and 1 GB). Set `disk_source` in `usage_config.json` to `"snapshot"` to always prefer the report
-  or `"local"` to never prefer it. A report-based bar also shows how old the report is. Older snapshots without these fields, or
-  with odd values (free larger than total, total of 0), are fine: the local reading is used.
+  Grok Bot runs on (for example from `df -h ~`). The disk bar uses them whenever the dashboard runs on a *different* machine from
+  that computer (for example your PC); on the Bot computer itself it keeps its own live reading unless the report differs ("Different" means the local disk's total
+  size differs from `disk_total_gb` by more than 5 % and 1 GB). `disk_source` in `usage_config.json` (`"snapshot"` = always prefer the report,
+  `"local"` = never prefer it) only matters on the Bot computer. A report-based bar also shows how old the report is. Without a usable
+  report (older snapshots, or odd values such as free larger than total or a total of 0) the bar is simply not shown on another machine.
 - `by_day` is stored for later trends and not displayed yet. The report may not offer a per-day split; leave it out then.
 - The report has no per-model usage, no other apps' usage and no last-week percentage, so none is shown or invented.
 
@@ -1122,7 +1123,7 @@ network.
 | `over_budget_percent` | `90` | Over-budget alert when weekly `%` reaches this value. |
 | `disk_warn_pct` | `23` | Built-in tab disk bar turns orange when free space is strictly under this percent of the disk's total size (so it scales with the disk). |
 | `disk_warn_gb` | *(unset)* | Optional fixed warning level in GB. If set to a valid number it wins over `disk_warn_pct`. |
-| `disk_source` | `"auto"` | Where the disk bar reads from: `"auto"` (local, unless the Grok Bot's snapshot reports a disk and the dashboard is clearly on another machine), `"local"`, or `"snapshot"` (prefer the snapshot's `disk_free_gb` / `disk_total_gb`). |
+| `disk_source` | `"auto"` | Where the disk bar reads from: `"auto"` (the Bot computer's own disk when the dashboard runs there, unless the Grok Bot's snapshot reports a different disk; on any other machine only the snapshot's report is used), `"local"`, or `"snapshot"` (prefer the snapshot's `disk_free_gb` / `disk_total_gb`). Only matters on the Bot computer. |
 | `disk_danger_pct` | `16` | Built-in tab disk bar turns red when free space is strictly under this percent of the disk's total size (never above the warning level). |
 | `disk_danger_gb` | *(unset)* | Optional fixed danger level in GB. If set to a valid number it wins over `disk_danger_pct`. |
 | `unavailable_after_failures` | `3` | Unavailable alert after this many failed reads in a row. |
