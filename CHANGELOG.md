@@ -6,6 +6,24 @@ MAJOR for changes that need you to do something, MINOR for new features, PATCH f
 The current version is in the `VERSION` file and shown small at the top of the page.
 The changelog is kept in English only; [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md) is no longer updated.
 
+## [1.11.1] - 2026-10-31
+
+### Changed
+- **Daily tab: the increments chart follows the same order as the list.** With "Newest first" (the default) the chart now runs
+  newest to oldest from the left (the latest day / hour at the left, day 1 / the oldest hour at the right); "Oldest first" (only an exact
+  stored `old`) keeps the old left-to-right order. Switching the pill switches the chart too, without a reload (the reversed pictures
+  already exist). Legend, baseline, colours, labels, the linked selection and the reading-gap bars are the same in both orders; the
+  week overview chart is unchanged (oldest first). A peak label on a bar at the right edge of the per-hour chart is now right-aligned
+  so it stays inside the card.
+- **Per day and per hour keep their own order.** The pill used to flip both views at once (one shared `usage.listOrder`). Now the per-day
+  view keeps `usage.listOrder` and the per-hour view has its own key `usage.listOrder.hourly`; flipping one never changes the other, and
+  switching between 每日 / 每小時 never touches either choice. Each defaults to newest first. (A previously stored `old` now applies to the
+  per-day view only; the per-hour view starts newest first until you flip it.)
+
+### Docs
+- **README (English and 繁體中文): Mac/Linux note for a launcher that will not start.** If `Install-Mac.command`, `install.sh` or
+  `start-dashboard.sh` lacks the executable permission, the README now says to run it with `bash` or to `chmod +x` it first.
+
 ## [1.11.0] - 2026-10-31
 
 ### Added

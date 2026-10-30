@@ -2201,7 +2201,7 @@ def draw_daily_bars_panel(fig, ax_hud, data, cfg, L, pal, card=None, axes=None, 
     ax_hud.text((cx + 0.018) * FIG_W, (cy + ch - 0.020) * FIG_H, str(title or L["bar_title"]), color=pal["text"], fontsize=13, fontweight="bold", va="center")
 
     ax = fig.add_axes(list(axes or (0.078, 0.080, 0.580, 0.190)), facecolor=pal["card_fill"], zorder=3)
-    ax.set_xlim(0, 7)
+    ax.set_xlim(7, 0) if data.get("order") == "new" else ax.set_xlim(0, 7)  # 每日增量 newest first: the latest day at the left (本週總覽 is always "old")
 
     max_inc = max([v["raw_inc"] for v in inc_map.values()] + [pace * 2.0, 28.0])
     bar_ymax = max(32.0, min(115.0, max_inc * 1.28))
@@ -2520,7 +2520,8 @@ def draw_hourly_panel(fig, ax_hud, data, cfg, L, pal, t_info, card, axes):
 
     span_total = 7 * 24.0
     ax = fig.add_axes(list(axes), facecolor=pal["card_fill"], zorder=3)
-    ax.set_xlim(0, span_total)
+    newest_left = data.get("order") == "new"  # newest first: the latest hour at the left (the axis runs backwards; everything is placed in data coordinates)
+    ax.set_xlim(span_total, 0) if newest_left else ax.set_xlim(0, span_total)
     xh = lambda t: (t - start).total_seconds() / 3600.0
     per_h = pace / 24.0
     top = max([gap_bar_height(r) for r in rows] + [per_h * 3.0, 2.0])  # gaps count by their per-hour average
@@ -2565,7 +2566,9 @@ def draw_hourly_panel(fig, ax_hud, data, cfg, L, pal, t_info, card, axes):
             w0 = max(x1 - x0, min_w)
             lo = min(max(c - w0 / 2, 0.0), span_total - w0)  # centred on the column; at the axis ends slid inside, never cut thinner
             bands.append((lo, lo + w0))
-            rect = lambda u0, u1: [round((ax_l + max(0.0, u0) / span_total * ax_w) * 100, 3), round((1 - ax_b - ax_h) * 100, 3),
+            # (screen position of data span u0..u1: mirrored when the axis runs backwards)
+            lft = (lambda u0, u1: span_total - min(span_total, u1)) if newest_left else (lambda u0, u1: max(0.0, u0))
+            rect = lambda u0, u1: [round((ax_l + lft(u0, u1) / span_total * ax_w) * 100, 3), round((1 - ax_b - ax_h) * 100, 3),
                                    round((min(span_total, u1) - max(0.0, u0)) / span_total * ax_w * 100, 3), round((ax_h + 0.045) * 100, 3)]
             cols.append(rect(x0, x1))      # what a click on the chart hits (the columns tile the axis)
             clips.append(rect(*bands[-1]))  # the band shown (wider than a column when that is only a few px)
@@ -2600,6 +2603,8 @@ def draw_hourly_panel(fig, ax_hud, data, cfg, L, pal, t_info, card, axes):
 
     # label the largest changes with their real time (greedy, at least 10 h apart so labels never collide)
     picked = []
+    # a label centred on a bar in the last 7% of the screen's right side would run out of the card: right-align it there
+    edge_right = lambda m: ((1.0 - m / span_total) if newest_left else (m / span_total)) > 0.93
     for r in sorted(rows, key=lambda r: -r["inc"]):
         if r["inc"] <= max(per_h, top * 0.35) or len(picked) >= 6:
             break
@@ -2612,7 +2617,7 @@ def draw_hourly_panel(fig, ax_hud, data, cfg, L, pal, t_info, card, axes):
             over = r["inc"] / max(r["span_h"], 1e-6) > per_h
             ax.annotate(txt, xy=(m, min(gap_bar_height(r), ymax * 0.92)), textcoords="offset points", xytext=(0, 4),
                         color=pal["text_dim"] if r["gap"] else (pal["purple"] if over else pal["green"]),
-                        fontsize=8.6, fontweight="bold", ha="center", va="bottom", zorder=7,
+                        fontsize=8.6, fontweight="bold", ha=("right" if edge_right(m) else "center"), va="bottom", zorder=7,
                         bbox=dict(boxstyle="round,pad=0.12", facecolor=pal["card_fill"], edgecolor="none", alpha=0.85))
 
     if is_num:
@@ -2822,7 +2827,8 @@ def sel_geometry(i, order="new"):
     """Clickable areas of the daily view for the page, in % of the image (left, top, width, height; y down): the seven
     bar columns (with their day labels) and the seven log cards, plus the selected index when the chart is drawn."""
     ax_l, ax_b, ax_w, ax_h = INC_AXES
-    cols = [[round((ax_l + d * ax_w / 7.0) * 100, 3), round((1 - ax_b - ax_h) * 100, 3),
+    cpos = (lambda d: 6 - d) if order == "new" else (lambda d: d)  # day index -> column position (0 = left): newest first puts the latest day at the left
+    cols = [[round((ax_l + cpos(d) * ax_w / 7.0) * 100, 3), round((1 - ax_b - ax_h) * 100, 3),
              round(ax_w / 7.0 * 100, 3), round((ax_h + 0.045) * 100, 3)] for d in range(7)]
     lx, ly, lw, lh = DAY_LOG_CARD
     row_h = (lh - 0.095) / 7.0

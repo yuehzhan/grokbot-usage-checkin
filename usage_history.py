@@ -2373,18 +2373,19 @@ WKVIEW_CSS = ("[data-wv] .hot{position:absolute;background:transparent;border:0;
               " [data-wv] .hot:focus-visible{outline:2px solid var(--accent);outline-offset:1px}"
               " [data-wv] .hot.ord[aria-pressed=true]{cursor:pointer} [data-wv] .hot.ord[aria-pressed=true]:hover{background:rgba(127,127,127,.12)}")
 WKVIEW_JS = r"""(function(){var sec=document.getElementById('p-wk');if(!sec)return;var W=[].slice.call(sec.querySelectorAll('[data-wv]'));if(W.length<2)return;
-var D={};try{D=JSON.parse(sec.getAttribute('data-inc')||'{}')||{};}catch(e){}var UK='usage.incUnit',TK='usage.wkTab',OK='usage.listOrder';
+var D={};try{D=JSON.parse(sec.getAttribute('data-inc')||'{}')||{};}catch(e){}var UK='usage.incUnit',TK='usage.wkTab',OK='usage.listOrder',OH='usage.listOrder.hourly';  // each unit keeps its own order: per day = OK (the original key), per hour = OH
 function has(v){return W.some(function(w){return w.getAttribute('data-wv')===v;});}
 function unit(){var u=null;try{u=localStorage.getItem(UK);}catch(e){}return (u==='daily'||u==='hourly')&&has(u)?u:(D.rich&&has('hourly')?'hourly':'daily');}
-function order(){var o=null;try{o=localStorage.getItem(OK);}catch(e){}return o==='old'?'old':'new';}
-function view(u){return order()==='new'&&has(u+'-new')?u+'-new':u;}
+function okey(u){return u==='hourly'?OH:OK;}
+function order(u){var o=null;try{o=localStorage.getItem(okey(u));}catch(e){}return o==='old'?'old':'new';}
+function view(u){return order(u)==='new'&&has(u+'-new')?u+'-new':u;}
 function vis(){for(var i=0;i<W.length;i++)if(!W[i].hidden)return W[i];return null;}
 function show(v,focus){if(!has(v))v='week';W.forEach(function(w){w.hidden=w.getAttribute('data-wv')!==v;});
 try{localStorage.setItem(TK,v==='week'?'week':'inc');if(v!=='week')localStorage.setItem(UK,v.replace(/-new$/,''));}catch(e){}
 if(focus){var w=sec.querySelector("[data-wv='"+v+"']"),b=w&&w.querySelector("button.hot"+(focus==='order'?"":"[aria-pressed='true']")+"[data-go='"+focus+"']");if(b)b.focus();}}
 sec.addEventListener('click',function(e){var b=e.target.closest?e.target.closest('button.hot'):null;if(!b)return;var g=b.getAttribute('data-go');
 if(g==='order'){var from=vis(),p=from&&from.querySelector("[data-i][aria-pressed='true']"),sel=p&&p.getAttribute('data-i'),u=from?from.getAttribute('data-wv').replace(/-new$/,''):unit();
-try{localStorage.setItem(OK,order()==='new'?'old':'new');}catch(x){}show(view(u),'order');var to=vis(),c=sel!=null&&to!==from?to.querySelector("[data-i='"+sel+"']"):null;
+try{localStorage.setItem(okey(u),order(u)==='new'?'old':'new');}catch(x){}show(view(u),'order');var to=vis(),c=sel!=null&&to!==from?to.querySelector("[data-i='"+sel+"']"):null;
 if(c)c.click();return;}  // the chosen day / hour stays chosen in the other order (the same click as on its column)
 if(b.getAttribute('aria-pressed')==='true')return;show(g==='inc'?view(unit()):(g==='week'?g:view(g)),g);});
 var t=null;try{t=localStorage.getItem(TK);}catch(e){}if(t==='inc')show(view(unit()));})();"""

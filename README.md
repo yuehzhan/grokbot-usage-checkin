@@ -13,7 +13,7 @@ Track your Grok Bot's weekly usage quota, log what was done, and search which da
 2. Double-click the file for your computer:
    - **Windows:** `Install-Windows.cmd` (if Windows says "Windows protected your PC", click **More info → Run anyway**)
    - **Mac (beta, not yet tested on a real Mac; please report how it goes via a GitHub issue):** `Install-Mac.command` (the first time: right-click it, choose **Open**, then **Open** again)
-     - If double-clicking is refused ("permission" or "cannot be executed"): open **Terminal**, type `bash ` (with a space after it), drag `Install-Mac.command` into the window, then press Enter.
+     - If double-clicking is refused, see **Mac / Linux: double-click refused?** below.
    - **Linux:** `install.sh` (choose "Run in Terminal"), or in a terminal: `bash install.sh`
 3. It lists what it will install and then just does it, start to finish, without asking anything (Python on
    Windows via winget, Grok Build, `tmux`, the Python packages). Windows may show its own permission box for Python,
@@ -24,6 +24,12 @@ Track your Grok Bot's weekly usage quota, log what was done, and search which da
 5. If Grok Build was just installed, sign in once: open a **new** terminal / PowerShell window and run `grok`, check
    the account in the browser, press **Allow**, then quit with **Ctrl+Q**. The installer prints this reminder only when it finds no Grok Build
    sign-in file (it only checks that the file exists; it never opens it).
+
+> **Mac / Linux: double-click refused?** The `.command` and `.sh` files downloaded from GitHub may be missing their
+> "executable" permission, so double-clicking can be refused ("permission" or "cannot be executed"). The files themselves are fine:
+> open **Terminal**, type `bash ` (with a space after it), drag the file into the window, then press Enter.
+> To make them double-clickable again, run this once in the project folder:
+> `chmod +x Install-Mac.command install.sh start-dashboard.sh`. Windows is not affected.
 
 <details>
 <summary><b>What the installer does, and its options</b></summary>
@@ -635,7 +641,7 @@ All commands accept `--config`, `--data-dir`, `--tz`, `--lang`, `--theme`, `--pa
 - Summary cards: week count, average weekly peak, weeks at 100%, extra spend (from `extra_spend_csv`).
 - Ranges with too few weeks (1m < 3, 3m < 10, 6m < 20, 1y < 40) still render, with an "insufficient data" badge.
 - `* ` marks the current week (not complete yet).
-- **This week** has two tabs drawn in its header: **Week** (the overview, shown on a first visit) and **Daily** (increments, per day or per hour from the real readings; per hour opens by default once the week has 12+ hourly readings). The page remembers the last tab and the per-day / per-hour choice in the browser (`usage.wkTab`, `usage.incUnit`), so a heavy user who left on per hour lands straight on it. In both views the chart columns and the log cards / rows share **one selection**: it starts on today (or the latest hour), clicking either side moves a light mask on the chart column and the highlight on the list, days not yet recorded can be selected too, and it is not remembered across a reload. In the per-hour view the list on the right holds **every hour row of the 7-day chart** (newest first) and scrolls (always-visible scrollbar on its right edge); a click on a bar scrolls to and highlights its row. A small pill in the list header switches between **Newest first** (the default, for both views) and **Oldest first**; the choice is remembered in the browser (`usage.listOrder`).
+- **This week** has two tabs drawn in its header: **Week** (the overview, shown on a first visit) and **Daily** (increments, per day or per hour from the real readings; per hour opens by default once the week has 12+ hourly readings). The page remembers the last tab and the per-day / per-hour choice in the browser (`usage.wkTab`, `usage.incUnit`), so a heavy user who left on per hour lands straight on it. In both views the chart columns and the log cards / rows share **one selection**: it starts on today (or the latest hour), clicking either side moves a light mask on the chart column and the highlight on the list, days not yet recorded can be selected too, and it is not remembered across a reload. In the per-hour view the list on the right holds **every hour row of the 7-day chart** (newest first) and scrolls (always-visible scrollbar on its right edge); a click on a bar scrolls to and highlights its row. A small pill in the list header switches between **Newest first** (the default, for both views) and **Oldest first**; the choice is remembered in the browser, separately for the two views (`usage.listOrder` per day, `usage.listOrder.hourly` per hour). The chart follows the same order: newest first puts the latest day / hour at the left of the chart (the week overview is not affected).
 
 </details>
 
