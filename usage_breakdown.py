@@ -23,6 +23,7 @@ Snapshot format (every field is optional except that a snapshot needs *something
         {"name": "Bot-to-Bot", "share": 7}
       ],
       "by_day": [{"date": "2026-10-28", "share": 14}],   # optional: the report cannot always split a period by day
+      "disk_free_gb": 27.5, "disk_total_gb": 128,        # optional: free / total disk of the computer the bot runs on (GB)
       "notes": "free text"
     }
 
@@ -212,9 +213,22 @@ def normalize(raw, tz=timezone.utc, fallback_time=None):
         if n and sh is not None:
             days.append({"date": n, "share": sh, "lt1": lt})
     s["by_day"] = days or None
+    s["disk_free_gb"], s["disk_total_gb"] = disk_gb(raw)
     s["notes"] = _text(raw.get("notes"), 600)
     has = (s["weekly_used_pct"] is not None or gb is not None or s["by_bot"] or acts or s["plan"] or s["resets_at"])
     return s if has else None
+
+
+def disk_gb(raw):
+    """(free_gb, total_gb) from the optional ``disk_free_gb`` / ``disk_total_gb`` fields (numbers or text like "27.5 GB"), or
+    (None, None) when either is missing or they do not make sense (free > total, total <= 0). Never raises."""
+    try:
+        free, total = (_num(raw.get(k, raw.get(k.replace("_gb", "")))) for k in ("disk_free_gb", "disk_total_gb"))
+    except Exception:
+        return None, None
+    if free is None or total is None or total <= 0 or free > total * 1.01:
+        return None, None
+    return round(free, 1), round(total, 1)
 
 
 def stamp(captured_at):

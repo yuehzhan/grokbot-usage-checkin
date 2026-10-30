@@ -10,6 +10,7 @@ import json
 from datetime import datetime
 
 import usage_breakdown as ub
+import usage_disk
 import usage_dates
 
 STALE_HOURS = 36   # a daily routine that has not run for a day and a half: the age turns into a notice
@@ -26,7 +27,9 @@ PROMPT_EN = (
     '"grokbot_used_pct":0,"shared_with_other_apps":true,"resets_at":"<ISO 8601>","extra_usage_source":"...",'
     '"by_bot":[{"name":"...","share":0}],"by_activity":[{"name":"Chats with the user","share":0},'
     '{"name":"Routines","share":0,"routines":[{"name":"...","share":0,"runs_per_week":0}]},'
-    '{"name":"Bot-to-Bot","share":0}],"notes":""}. '
+    '{"name":"Bot-to-Bot","share":0}],"disk_free_gb":0,"disk_total_gb":0,"notes":""}. '
+    "Also record the free and total disk space of the computer you run on, in GB (for example from df -h ~), as "
+    "disk_free_gb and disk_total_gb (plain numbers). "
     "Percentages are plain numbers (or the text \"<1%\"). Do not send the file anywhere. Reply only \"saved\", "
     "or the reason it could not be saved."
 )
@@ -39,7 +42,8 @@ PROMPT_ZH = (
     '"grokbot_used_pct":0,"shared_with_other_apps":true,"resets_at":"<ISO 8601>","extra_usage_source":"...",'
     '"by_bot":[{"name":"...","share":0}],"by_activity":[{"name":"Chats with the user","share":0},'
     '{"name":"Routines","share":0,"routines":[{"name":"...","share":0,"runs_per_week":0}]},'
-    '{"name":"Bot-to-Bot","share":0}],"notes":""}。'
+    '{"name":"Bot-to-Bot","share":0}],"disk_free_gb":0,"disk_total_gb":0,"notes":""}。'
+    "另外也把你所在這台電腦的硬碟剩餘和總容量（單位 GB，例如用 df -h ~ 查）記成 disk_free_gb 和 disk_total_gb（一般數字）。"
     "百分比用一般數字（或文字 \"<1%\"）。不要把檔案傳給任何人。完成後只回覆「saved」，或無法儲存的原因。"
 )
 
@@ -64,6 +68,14 @@ EN = {
     "empty_2": "Each run saves one small JSON file in the dashboard's data folder: <data folder>/breakdown/.",
     "empty_3": "Reload this page (or press Refresh): the newest file is shown here. Older files are kept as history.",
     "empty_doc": "The file format is described in the README.",
+    "disk": "Bot computer disk free: {f} GB / {t} GB", "disk_local": "(this PC)", "disk_warn": "Getting low", "disk_danger": "Very low",
+    "disk_help_aria": "Tips for low disk space", "disk_help_title": "Low on disk space?",
+    "disk_help_0": "This is the disk space on the Bot's computer, separate from your PC. When it gets full, free up some space.",
+    "disk_help_local": "If the label says “(this PC)”, no disk report from your Grok Bot was found yet, so the bar shows the disk of the computer running this dashboard.",
+    "disk_help_1": "When the Bot computer's disk space is low or critically low, Grok Bot may create a Disk Saver bot to help free space. It doesn't delete anything without your confirmation.",
+    "disk_help_2": "Clear caches that rebuild themselves: browser temp/cache folders, pip/uv/npm download caches.",
+    "disk_help_3": "Find big folders with:",
+    "disk_help_4": "Don't Update or Reset the computer just to free space: Update removes installed apps and packages; Reset rebuilds from the last saved snapshot, so very recent changes may be lost.",
     "prompt": PROMPT_EN,
 }
 ZH_TW = dict(EN, **{
@@ -87,6 +99,14 @@ ZH_TW = dict(EN, **{
     "empty_2": "每次執行會在儀表板資料夾存一個小小的 JSON 檔：<資料夾>/breakdown/。",
     "empty_3": "重新載入本頁（或按「重新整理」）就會顯示最新的一份，舊的檔案會留著當歷史紀錄。",
     "empty_doc": "檔案格式寫在 README 裡。", "prompt": PROMPT_ZH,
+    "disk": "Bot 電腦硬碟剩餘 {f} GB / {t} GB", "disk_local": "（本機）", "disk_warn": "空間偏低", "disk_danger": "空間不足",
+    "disk_help_aria": "硬碟空間不足時的小提示", "disk_help_title": "硬碟空間快滿了？",
+    "disk_help_0": "這是 Bot 電腦的硬碟空間，跟你的電腦是分開的；快滿時請清理一下。",
+    "disk_help_local": "如果標示「（本機）」，代表還沒有收到 Grok Bot 回報的硬碟資料，目前顯示的是執行這個儀表板的那台電腦的硬碟。",
+    "disk_help_1": "Bot 電腦硬碟空間偏低或嚴重不足時，Grok Bot 可能會建立 Disk Saver 來幫忙清理；沒有你確認，它不會刪除任何東西。",
+    "disk_help_2": "先清掉可以自動重建的快取：瀏覽器的暫存／快取資料夾，以及 pip、uv、npm 的下載快取。",
+    "disk_help_3": "用這個指令找出最佔空間的資料夾：",
+    "disk_help_4": "不要為了騰出空間就更新或重設電腦：更新會移除已安裝的應用程式和套件；重設會從上次儲存的快照重建，最近的變更可能會遺失。",
 })
 ZH_CN = dict(ZH_TW, **{
     "tab": "内置", "h": "Grok Bot 内置用量报告", "sub": "由你的 Grok Bot 保存，显示最新一份。",
@@ -104,6 +124,14 @@ ZH_CN = dict(ZH_TW, **{
     "empty_1": "在你的 Grok Bot 创建一个定时任务（例如每天一次），把下面的提示粘贴进去。",
     "empty_2": "每次运行会在仪表板数据文件夹保存一个小小的 JSON 文件：<文件夹>/breakdown/。",
     "empty_3": "重新加载本页（或点「刷新」）就会显示最新的一份，旧文件会保留作为历史记录。", "empty_doc": "文件格式写在 README 里。",
+    "disk": "Bot 电脑硬盘剩余 {f} GB / {t} GB", "disk_local": "（本机）", "disk_warn": "空间偏低", "disk_danger": "空间不足",
+    "disk_help_aria": "硬盘空间不足时的小提示", "disk_help_title": "硬盘空间快满了？",
+    "disk_help_0": "这是 Bot 电脑的硬盘空间，和你的电脑是分开的；快满时请清理一下。",
+    "disk_help_local": "如果标示“（本机）”，说明还没有收到 Grok Bot 报告的硬盘数据，目前显示的是运行这个仪表板的那台电脑的硬盘。",
+    "disk_help_1": "Bot 电脑硬盘空间偏低或严重不足时，Grok Bot 可能会创建 Disk Saver 来帮忙清理；没有你的确认，它不会删除任何东西。",
+    "disk_help_2": "先清掉可以自动重建的缓存：浏览器的临时／缓存文件夹，以及 pip、uv、npm 的下载缓存。",
+    "disk_help_3": "用这个命令找出最占空间的文件夹：",
+    "disk_help_4": "不要为了腾出空间就更新或重置电脑：更新会移除已安装的应用和软件包；重置会从上次保存的快照重建，最近的更改可能会丢失。",
 })
 JA = dict(EN, **{
     "tab": "内蔵", "h": "Grok Bot 内蔵の使用状況レポート", "sub": "Grok Bot が保存した最新のスナップショットを表示します。",
@@ -124,6 +152,14 @@ JA = dict(EN, **{
     "empty_2": "実行のたびに小さな JSON ファイルがダッシュボードのデータフォルダ <データフォルダ>/breakdown/ に保存されます。",
     "empty_3": "このページを再読み込み（または更新）すると最新のものが表示されます。古いファイルは履歴として残ります。",
     "empty_doc": "ファイル形式は README に書かれています。",
+    "disk": "Bot コンピューターのディスク空き: {f} GB / {t} GB", "disk_local": "（このPC）", "disk_warn": "残りわずか", "disk_danger": "空きが不足",
+    "disk_help_aria": "ディスク容量が少ないときのヒント", "disk_help_title": "ディスクの空きが少なくなってきた？",
+    "disk_help_0": "これは Bot のコンピューターのディスク容量で、あなたの PC とは別です。いっぱいになりそうなときは、少し空きを作ってください。",
+    "disk_help_local": "「（このPC）」と表示されている場合は、Grok Bot からのディスク情報がまだないため、このダッシュボードを動かしているコンピューターのディスクを表示しています。",
+    "disk_help_1": "Bot のコンピューターのディスク容量が少なくなったり、深刻に不足したりすると、Grok Bot が空きを作るために Disk Saver を作成することがあります。あなたの確認なしには何も削除しません。",
+    "disk_help_2": "自動で作り直されるキャッシュを消しましょう：ブラウザの一時／キャッシュフォルダ、pip・uv・npm のダウンロードキャッシュ。",
+    "disk_help_3": "大きなフォルダを探すコマンド：",
+    "disk_help_4": "空きを増やすためだけにコンピューターの更新やリセットをしないでください。更新するとインストール済みのアプリとパッケージが削除され、リセットは最後に保存したスナップショットから再構築されるため、直近の変更が失われることがあります。",
 })
 KO = dict(EN, **{
     "tab": "내장", "h": "Grok Bot 내장 사용량 보고서", "sub": "Grok Bot이 저장한 가장 최근 스냅샷을 보여 줍니다.",
@@ -143,6 +179,14 @@ KO = dict(EN, **{
     "empty_2": "실행할 때마다 작은 JSON 파일이 대시보드 데이터 폴더 <데이터 폴더>/breakdown/ 에 저장됩니다.",
     "empty_3": "이 페이지를 새로고침하면 가장 최근 파일이 표시됩니다. 이전 파일은 기록으로 남습니다.",
     "empty_doc": "파일 형식은 README에 설명되어 있습니다.",
+    "disk": "Bot 컴퓨터 디스크 여유 공간: {f} GB / {t} GB", "disk_local": "(이 PC)", "disk_warn": "공간 부족 주의", "disk_danger": "공간 매우 부족",
+    "disk_help_aria": "디스크 공간 부족 시 팁", "disk_help_title": "디스크 공간이 부족한가요?",
+    "disk_help_0": "이것은 Bot 컴퓨터의 디스크 공간이며, 본인 PC와는 별개입니다. 가득 차 가면 공간을 조금 비워 주세요.",
+    "disk_help_local": "'(이 PC)'라고 표시되면 Grok Bot의 디스크 보고가 아직 없어서, 이 대시보드를 실행 중인 컴퓨터의 디스크를 보여 주는 것입니다.",
+    "disk_help_1": "Bot 컴퓨터의 디스크 공간이 부족하거나 심각하게 부족해지면 Grok Bot이 공간 확보를 돕는 Disk Saver를 만들 수 있습니다. 사용자의 확인 없이는 아무것도 삭제하지 않습니다.",
+    "disk_help_2": "저절로 다시 만들어지는 캐시부터 지우세요: 브라우저 임시/캐시 폴더, pip·uv·npm 다운로드 캐시.",
+    "disk_help_3": "큰 폴더를 찾는 명령어:",
+    "disk_help_4": "공간을 비우려고 컴퓨터를 업데이트하거나 초기화하지 마세요. 업데이트하면 설치된 앱과 패키지가 삭제되고, 초기화하면 마지막으로 저장된 스냅샷에서 다시 구성되므로 최근 변경 사항이 사라질 수 있습니다.",
 })
 NUMERIC = dict(EN, **{
     "tab": "▣", "h": "", "sub": "", "p_this_week": "W", "p_last_7_days": "7D", "p_last_30_days": "30D", "plan": "", "weekly": "∑",
@@ -151,6 +195,7 @@ NUMERIC = dict(EN, **{
     "rt_other_routines": "…", "rt_not_routine": "−", "runs": "{n}×", "runs1": "1×", "pt_u": "", "asof": "{t}", "ago_now": "0", "ago_m": "{n}′",
     "ago_h": "{n}h", "ago_d": "{n}d", "stale": "▲", "prev": "Δ {d} ({t})", "notes": "", "no_bots": "∅", "no_acts": "∅",
     "empty_h": "∅", "empty_p": "", "empty_1": "", "empty_2": "", "empty_3": "", "empty_doc": "", "prompt": "",
+    "disk": "▤ {f} / {t} GB", "disk_local": "⌂", "disk_warn": "▲", "disk_danger": "▲▲",
 })
 ES = {
     "tab": "Integrado", "h": "Informe de uso integrado de Grok Bot", "sub": "Guardado por tu Grok Bot; se muestra la instantánea más reciente.",
@@ -170,6 +215,14 @@ ES = {
     "empty_2": "Cada ejecución guarda un pequeño archivo JSON en la carpeta de datos del panel: <carpeta de datos>/breakdown/.",
     "empty_3": "Recarga esta página (o pulsa Actualizar): se muestra el archivo más reciente. Los anteriores se conservan como historial.",
     "empty_doc": "El formato del archivo se describe en el README.",
+    "disk": "Disco libre del ordenador del Bot: {f} GB / {t} GB", "disk_local": "(este PC)", "disk_warn": "Queda poco", "disk_danger": "Casi sin espacio",
+    "disk_help_aria": "Consejos para cuando queda poco espacio en disco", "disk_help_title": "¿Poco espacio en disco?",
+    "disk_help_0": "Este es el espacio en disco del ordenador del Bot, aparte de tu PC. Cuando se llene, libera algo de espacio.",
+    "disk_help_local": "Si la etiqueta dice «(este PC)», todavía no hay un informe de disco de tu Grok Bot, así que la barra muestra el disco del equipo que ejecuta este panel.",
+    "disk_help_1": "Cuando el espacio en disco del ordenador del Bot es bajo o críticamente bajo, Grok Bot puede crear un Disk Saver para ayudar a liberar espacio. No borra nada sin tu confirmación.",
+    "disk_help_2": "Borra las cachés que se regeneran solas: carpetas temporales o de caché del navegador y cachés de descargas de pip, uv y npm.",
+    "disk_help_3": "Encuentra las carpetas más grandes con:",
+    "disk_help_4": "No actualices ni restablezcas el equipo solo para liberar espacio: actualizar elimina las apps y paquetes instalados; restablecer reconstruye desde la última instantánea guardada, así que los cambios muy recientes pueden perderse.",
 }
 PT = {
     "tab": "Integrado", "h": "Relatório de uso integrado do Grok Bot", "sub": "Salvo pelo seu Grok Bot; o instantâneo mais recente é mostrado.",
@@ -189,6 +242,14 @@ PT = {
     "empty_2": "Cada execução salva um pequeno arquivo JSON na pasta de dados do painel: <pasta de dados>/breakdown/.",
     "empty_3": "Recarregue esta página (ou clique em Atualizar): o arquivo mais recente aparece aqui. Os antigos ficam como histórico.",
     "empty_doc": "O formato do arquivo está descrito no README.",
+    "disk": "Disco livre do computador do Bot: {f} GB / {t} GB", "disk_local": "(este PC)", "disk_warn": "Pouco espaço", "disk_danger": "Quase sem espaço",
+    "disk_help_aria": "Dicas para pouco espaço em disco", "disk_help_title": "Pouco espaço em disco?",
+    "disk_help_0": "Este é o espaço em disco do computador do Bot, separado do seu PC. Quando estiver cheio, libere um pouco de espaço.",
+    "disk_help_local": "Se o rótulo disser «(este PC)», ainda não há um relatório de disco do seu Grok Bot, então a barra mostra o disco do computador que executa este painel.",
+    "disk_help_1": "Quando o espaço em disco do computador do Bot está baixo ou criticamente baixo, o Grok Bot pode criar um Disk Saver para ajudar a liberar espaço. Ele não apaga nada sem a sua confirmação.",
+    "disk_help_2": "Limpe caches que se recriam sozinhos: pastas temporárias e de cache do navegador, caches de download do pip, uv e npm.",
+    "disk_help_3": "Encontre as pastas grandes com:",
+    "disk_help_4": "Não atualize nem redefina o computador só para liberar espaço: atualizar remove os apps e pacotes instalados; redefinir reconstrói a partir do último snapshot salvo, então mudanças muito recentes podem ser perdidas.",
 }
 FR = {
     "tab": "Intégré", "h": "Rapport d'utilisation intégré de Grok Bot", "sub": "Enregistré par votre Grok Bot ; le dernier instantané est affiché.",
@@ -208,6 +269,14 @@ FR = {
     "empty_2": "Chaque exécution enregistre un petit fichier JSON dans le dossier de données du tableau de bord : <dossier de données>/breakdown/.",
     "empty_3": "Rechargez cette page (ou cliquez sur Actualiser) : le fichier le plus récent s'affiche. Les anciens sont conservés comme historique.",
     "empty_doc": "Le format du fichier est décrit dans le README.",
+    "disk": "Disque libre de l'ordinateur du Bot : {f} Go / {t} Go", "disk_local": "(ce PC)", "disk_warn": "Espace faible", "disk_danger": "Espace très faible",
+    "disk_help_aria": "Conseils en cas de manque d'espace disque", "disk_help_title": "Peu d'espace disque ?",
+    "disk_help_0": "Voici l'espace disque de l'ordinateur du Bot, distinct de votre PC. Quand il se remplit, libérez un peu de place.",
+    "disk_help_local": "Si l'étiquette indique « (ce PC) », aucun rapport de disque de votre Grok Bot n'a encore été trouvé : la barre affiche le disque de l'ordinateur qui exécute ce tableau de bord.",
+    "disk_help_1": "Quand l'espace disque de l'ordinateur du Bot est faible ou critiquement faible, Grok Bot peut créer un Disk Saver pour aider à libérer de la place. Il ne supprime rien sans votre confirmation.",
+    "disk_help_2": "Videz les caches qui se reconstruisent seuls : dossiers temporaires et de cache du navigateur, caches de téléchargement de pip, uv et npm.",
+    "disk_help_3": "Repérez les gros dossiers avec :",
+    "disk_help_4": "Ne mettez pas à jour et ne réinitialisez pas l'ordinateur juste pour libérer de la place : la mise à jour supprime les applications et paquets installés ; la réinitialisation reconstruit depuis le dernier instantané enregistré, donc des changements très récents peuvent être perdus.",
 }
 DE = {
     "tab": "Integriert", "h": "Integrierter Nutzungsbericht von Grok Bot", "sub": "Von deinem Grok Bot gespeichert; der neueste Schnappschuss wird angezeigt.",
@@ -227,6 +296,14 @@ DE = {
     "empty_2": "Jeder Lauf speichert eine kleine JSON-Datei im Datenordner des Dashboards: <Datenordner>/breakdown/.",
     "empty_3": "Lade diese Seite neu (oder klicke auf Aktualisieren): Die neueste Datei wird angezeigt. Ältere bleiben als Verlauf erhalten.",
     "empty_doc": "Das Dateiformat ist in der README beschrieben.",
+    "disk": "Freier Speicher des Bot-Computers: {f} GB / {t} GB", "disk_local": "(dieser PC)", "disk_warn": "Wird knapp", "disk_danger": "Sehr knapp",
+    "disk_help_aria": "Tipps bei knappem Speicherplatz", "disk_help_title": "Wenig Speicherplatz?",
+    "disk_help_0": "Das ist der Speicherplatz auf dem Computer des Bots, getrennt von deinem PC. Wenn er voll wird, schaffe etwas Platz.",
+    "disk_help_local": "Steht dort „(dieser PC)“, liegt noch kein Festplattenbericht deines Grok Bots vor, und die Leiste zeigt die Festplatte des Computers, auf dem dieses Dashboard läuft.",
+    "disk_help_1": "Wenn der Speicherplatz auf dem Computer des Bots knapp oder kritisch knapp ist, kann Grok Bot einen Disk Saver erstellen, der beim Freiräumen hilft. Ohne deine Bestätigung löscht er nichts.",
+    "disk_help_2": "Leere Caches, die sich von selbst neu aufbauen: temporäre Browser-/Cache-Ordner, Download-Caches von pip, uv und npm.",
+    "disk_help_3": "Große Ordner findest du mit:",
+    "disk_help_4": "Aktualisiere oder setze den Computer nicht nur zurück, um Platz zu schaffen: Ein Update entfernt installierte Apps und Pakete; ein Zurücksetzen baut aus dem zuletzt gespeicherten Snapshot neu auf, daher können sehr aktuelle Änderungen verloren gehen.",
 }
 ID = {
     "tab": "Bawaan", "h": "Laporan pemakaian bawaan Grok Bot", "sub": "Disimpan oleh Grok Bot Anda; snapshot terbaru yang ditampilkan.",
@@ -246,6 +323,14 @@ ID = {
     "empty_2": "Setiap eksekusi menyimpan satu berkas JSON kecil di folder data dasbor: <folder data>/breakdown/.",
     "empty_3": "Muat ulang halaman ini (atau tekan Segarkan): berkas terbaru ditampilkan. Berkas lama disimpan sebagai riwayat.",
     "empty_doc": "Format berkas dijelaskan di README.",
+    "disk": "Disk komputer Bot kosong: {f} GB / {t} GB", "disk_local": "(PC ini)", "disk_warn": "Mulai menipis", "disk_danger": "Sangat sedikit",
+    "disk_help_aria": "Tips saat ruang disk menipis", "disk_help_title": "Ruang disk menipis?",
+    "disk_help_0": "Ini adalah ruang disk di komputer Bot, terpisah dari PC Anda. Jika hampir penuh, kosongkan sedikit ruang.",
+    "disk_help_local": "Jika labelnya berbunyi “(PC ini)”, laporan disk dari Grok Bot Anda belum ada, jadi bilah menampilkan disk komputer yang menjalankan dasbor ini.",
+    "disk_help_1": "Saat ruang disk di komputer Bot menipis atau sangat menipis, Grok Bot dapat membuat Disk Saver untuk membantu mengosongkan ruang. Disk Saver tidak menghapus apa pun tanpa konfirmasi Anda.",
+    "disk_help_2": "Bersihkan cache yang bisa dibuat ulang sendiri: folder sementara/cache browser, cache unduhan pip, uv, dan npm.",
+    "disk_help_3": "Temukan folder besar dengan:",
+    "disk_help_4": "Jangan memperbarui atau mereset komputer hanya untuk melegakan ruang: pembaruan menghapus aplikasi dan paket yang terpasang; reset membangun ulang dari snapshot terakhir yang tersimpan, sehingga perubahan yang sangat baru bisa hilang.",
 }
 LANGS = {"en": EN, "zh-TW": ZH_TW, "zh-CN": ZH_CN, "ja": JA, "ko": KO, "numeric": NUMERIC,
          "es": dict(EN, **ES), "pt": dict(EN, **PT), "fr": dict(EN, **FR), "de": dict(EN, **DE), "id": dict(EN, **ID)}
@@ -274,13 +359,14 @@ def _label(strings, kind, name, priv):
     return "…" if priv else name
 
 
-def page_data(snaps, lang, tz, privacy=False):
-    """JSON-ready dict for the tab. Privacy mode: bots and routines become #1, #2 ..., the plan, the extra-usage
+def page_data(snaps, lang, tz, privacy=False, disk=None):
+    """JSON-ready dict for the tab. `disk` is usage_disk.page_data() (the free-space bar; plain numbers, so it stays in privacy
+    mode, only its labels become symbols). Privacy mode: bots and routines become #1, #2 ..., the plan, the extra-usage
     source and the notes are left out, and every label comes from the symbol-only table."""
     S = for_lang("numeric" if privacy else lang)
     cur, prev = ub.latest_and_previous(snaps)
     out = {"L": {k: v for k, v in S.items() if k != "prompt"}, "priv": bool(privacy), "snap": None,
-           "stale_h": STALE_HOURS, "prompt": "" if privacy else S["prompt"]}
+           "stale_h": STALE_HOURS, "prompt": "" if privacy else S["prompt"], "disk": disk}
     if cur is None:
         return out
     lk = "numeric" if privacy else lang
@@ -328,6 +414,19 @@ def pane_html(L):
 
 CSS = """.bd-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;margin:2px 0 4px}.bd-head h2{margin:0;font-size:18px}
 .bd-badge{border:1px solid var(--accent);color:var(--accent);border-radius:999px;padding:1px 10px;font-size:12px;font-weight:700}
+.bd-diskrow{position:relative;display:flex;align-items:center;gap:8px;margin:2px 0 10px;max-width:760px}
+.bd-disk{flex:1 1 0;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;font-size:13px}
+.bd-help{flex:none;box-sizing:border-box;width:18px;height:18px;padding:0;border-radius:50%;border:1.5px solid currentColor;background:transparent;color:inherit;
+opacity:.55;font:700 12px/1 inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.bd-help:hover,.bd-help[aria-expanded=true]{opacity:1;border-color:var(--accent);color:var(--accent)}.bd-help:focus-visible{opacity:1;outline:2px solid var(--accent);outline-offset:2px}
+.bd-help-pop{position:absolute;z-index:30;left:0;top:calc(100% + 4px);box-sizing:border-box;width:min(420px,100%);padding:10px 14px 12px;background:var(--card);
+border:1px solid var(--bd);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.45);font-size:13px;line-height:1.5;text-align:left}
+.bd-help-pop h4{margin:0 0 6px;font-size:14px}.bd-help-lead{margin:0 0 6px;font-weight:700}.bd-help-local{margin:8px 0 0;font-size:12px;opacity:.75}.bd-help-pop ul{margin:0;padding-left:18px}.bd-help-pop li{margin:4px 0;overflow-wrap:anywhere}
+.bd-help-pop code{display:block;margin-top:4px;padding:5px 8px;border-radius:6px;border:1px solid var(--bd);font:12px/1.4 ui-monospace,Consolas,monospace;
+background:color-mix(in srgb,currentColor 7%,transparent);overflow-wrap:anywhere;user-select:all}
+.bd-disk-t{font-weight:700;font-variant-numeric:tabular-nums}.bd-disk-src{font-size:12px;opacity:.7}.bd-disk-flag{font-size:12px;font-weight:700;border:1px solid currentColor;border-radius:999px;padding:0 8px}
+.bd-disk-track{flex:1 1 160px;min-width:120px;height:8px;border-radius:4px;background:color-mix(in srgb,currentColor 14%,transparent);overflow:hidden}
+.bd-disk-fill{height:100%;min-width:2px;border-radius:4px;background:color-mix(in srgb,currentColor 55%,transparent)}
 .bd-asof{font-size:13px;opacity:.75}.bd-asof.stale{color:var(--notice);opacity:1;font-weight:700}
 .bd-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:10px 0}
 .bd-card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:10px 14px}
@@ -362,7 +461,24 @@ function row(n,s,lt,cls,sub){var r=el('div',null,'bd-row'+(cls?' '+cls:'')),a=el
 function empty(){var b=el('div',null,'bd-empty');b.appendChild(el('h3',T.empty_h));if(T.empty_p)b.appendChild(el('div',T.empty_p));
  var ol=el('ol');[T.empty_1,T.empty_2,T.empty_3].forEach(function(x){if(x)ol.appendChild(el('li',x));});b.appendChild(ol);
  if(D.prompt)b.appendChild(el('pre',D.prompt,'bd-prompt'));if(T.empty_doc)b.appendChild(el('div',T.empty_doc,'sub'));root.appendChild(b);}
-function draw(){root.textContent='';if(!S){empty();return;}
+var helpOn=false;
+function setHelp(on,focus){helpOn=on;var b=root.querySelector('.bd-help'),p=root.querySelector('.bd-help-pop');if(!b||!p)return;
+ b.setAttribute('aria-expanded',on?'true':'false');p.hidden=!on;if(!on&&focus)b.focus();}
+document.addEventListener('click',function(e){if(helpOn&&!(e.target.closest&&e.target.closest('.bd-diskrow')))setHelp(false);});
+document.addEventListener('keydown',function(e){if(helpOn&&(e.key==='Escape'||e.key==='Esc'))setHelp(false,true);});
+function help(row,d){if(!T.disk_help_title)return;var b=el('button','?','bd-help'),p=el('div',null,'bd-help-pop'),ul=el('ul'),i,x;
+ b.type='button';b.setAttribute('aria-label',T.disk_help_aria||T.disk_help_title);b.setAttribute('aria-expanded','false');b.setAttribute('aria-controls','bd-help-pop');
+ p.id='bd-help-pop';p.setAttribute('role','region');p.setAttribute('aria-label',T.disk_help_title);p.hidden=true;p.appendChild(el('h4',T.disk_help_title));
+ if(T.disk_help_0)p.appendChild(el('p',T.disk_help_0,'bd-help-lead'));
+ for(i=1;i<=4;i++){x=T['disk_help_'+i];if(!x)continue;var li=el('li',x);if(i===3&&d.du)li.appendChild(el('code',d.du));ul.appendChild(li);}
+ p.appendChild(ul);if(d.src!=='snapshot'&&T.disk_help_local)p.appendChild(el('p',T.disk_help_local,'bd-help-local'));b.onclick=function(){setHelp(!helpOn);};row.appendChild(b);row.appendChild(p);}
+function disk(){var d=D.disk;if(!d||!T.disk)return;var row=el('div',null,'bd-diskrow'),w=el('div',null,'bd-disk'),c=d.level==='ok'?'':d.colors[d.level],
+ t=el('span',f(T.disk,{f:d.free,t:d.total})+(d.src!=='snapshot'&&T.disk_local?' '+T.disk_local:''),'bd-disk-t'),k=el('div',null,'bd-disk-track'),b=el('div',null,'bd-disk-fill');
+ w.setAttribute('role','meter');w.setAttribute('aria-valuemin','0');w.setAttribute('aria-valuemax','100');w.setAttribute('aria-valuenow',d.pct);
+ b.style.width=Math.max(0,Math.min(100,d.pct))+'%';if(c){w.style.color=c;b.style.background=c;}k.appendChild(b);w.appendChild(t);w.appendChild(k);
+ if(c){var fl=T['disk_'+d.level];if(fl)w.appendChild(el('span',fl,'bd-disk-flag'));}w.title=d.free+' / '+d.total+' GB';
+ if(d.src==='snapshot'&&d.ts){var sa=el('span','· '+age(d.ts),'bd-disk-src');w.appendChild(sa);}row.appendChild(w);help(row,d);root.appendChild(row);setHelp(helpOn);}
+function draw(){root.textContent='';disk();if(!S){empty();return;}
  var h=el('div',null,'bd-head');if(T.h)h.appendChild(el('h2',T.h));if(S.period)h.appendChild(el('span',S.period,'bd-badge'));
  var stale=(Date.now()/1000-S.ts)/3600>D.stale_h,a=el('span',f(T.asof,{t:S.asof})+' · '+age(S.ts),'bd-asof'+(stale?' stale':''));h.appendChild(a);root.appendChild(h);
  if(stale&&T.stale)root.appendChild(el('div',(D.priv?'':'▲ ')+T.stale,'bd-note'));

@@ -377,7 +377,17 @@ python3 service.py start        # 背景啟動網頁與每小時取樣；停止�
 
 **內建**分頁（在「打卡」分頁的右邊）顯示 Grok Bot *內建*用量報告裡的內容，這些是儀表板自己讀不到的：你的方案、每週上限已用多少、其中 Grok Bot 用了多少、上限是否和其他應用程式共用、何時重置，以及 Grok Bot 依「機器人」和依「活動」的用量（對話、每個排程的占比和每週大約執行幾次、機器人之間、群組聊天）。儀表板不會去抓畫面：由你的 Grok Bot 讀自己的報告，存成一個小小的 JSON 檔，儀表板只顯示 `usage-data/breakdown/` 裡的檔案。
 
+![內建分頁：Bot 電腦硬碟剩餘空間條，並展開說明提示框（示範資料）](docs/media/builtin-disk-zh-TW.png)
+
 - **顯示：** 方案、每週已用、Grok Bot 的占比、與其他應用程式共用時的提示、重置時間（附倒數）、依機器人的橫向占比條、依活動的占比（排程底下列出各排程的名稱、占比、每週約幾次），以及「截至……」和它距今多久。超過 36 小時的快照會用提示色（紫色）標示：你的排程可能已經沒有在存檔了。若上一份快照是同一個期間、同一次重置，卡片上還會顯示增減的百分點。長條用儀表板的強調色，不用「超過／低於」的顏色。每個 `share` 都是「該期間 Grok Bot 全部用量」的百分比，不是占上限的百分比。
+- **硬碟空間條：** 最上方有一條小橫條「Bot 電腦硬碟剩餘 XX GB / YY GB」，顯示你的 Grok Bot 所在那台電腦（不是你自己的電腦）的剩餘空間。
+  它優先用 Grok Bot 存在快照裡的硬碟數字（見下面的 `disk_free_gb`）；沒有的話就讀儀表板所在這台電腦（用 `shutil.disk_usage` 讀家目錄所在的磁碟，
+  失敗時改讀根目錄；不連網、不呼叫任何 API；每次產生頁面時讀取），並在標籤加上「（本機）」。剩餘空間**低於硬碟總容量的 23%** 變橘色並標「空間偏低」，**低於 16%** 變紅色並標「空間不足」
+  （128 GB 的硬碟約為 29.4 GB 與 20.5 GB，512 GB 約為 117.8 GB 與 81.9 GB，所以會跟著硬碟大小調整；嚴格小於：剛好 23% 仍是正常，剛好 16% 是橘色）；其他情況是中性灰色。這是儀表板唯一用紅／橘表示「需要注意」的地方，兩個顏色是 `usage_disk.py`
+  裡獨立的常數，不影響圖表的「高於／低於」配色。門檻可在 `usage_config.json` 用 `disk_warn_pct`、`disk_danger_pct`（總容量的百分比）設定；舊的固定值 `disk_warn_gb`、`disk_danger_gb` 仍可用，有設定時以它們為準。隱私模式保留數字，文字換成符號。長條後面有個圓形小「?」（是真正的按鈕：可點、可觸控、可用 Enter／空白鍵），按下會開啟一個小提示框，
+  列出硬碟快滿時的幾個建議；點旁邊或按 Esc 就關閉。純內嵌 JS／CSS、離線可用、所有頁面語言都有翻譯，隱私模式下也照常顯示（內容沒有任何私人資訊）。
+  共四則建議：Disk Saver（依官方文件：Bot 電腦硬碟空間偏低或嚴重不足時，Grok Bot *可能*建立 Disk Saver 來幫忙清理，沒有你確認不會刪除任何東西；不寫任何觸發的 GB 數字）、
+  清掉可自動重建的快取（瀏覽器、pip、uv、npm）、用 `du` 指令找出最大的資料夾，以及不要為了騰出空間而更新或重設電腦（更新會移除已安裝的應用程式和套件；重設會從上次儲存的快照重建，最近的變更可能會遺失）。
 - **歷史：** 每份快照是一個獨立的檔案，不會被覆蓋，之後可以拿來做趨勢；目前只顯示最新的一份。
 - **空狀態：** 還沒有檔案時，分頁會說明設定步驟，並顯示下面的提示詞。
 - **隱私模式：** 機器人和排程的名稱改成 `#1`、`#2`……；方案、額外用量來源、備註和提示詞都會隱藏，活動名稱換成沒有文字的符號；百分比保留。
@@ -386,13 +396,13 @@ python3 service.py start        # 背景啟動網頁與每小時取樣；停止�
 **設定（只要一次）：** 幫你的 Grok Bot 建一個排程（每天一次就夠），貼上下面這段提示詞，每次執行會存一個新檔：
 
 ```text
-每天早上 9:00，查看我這週的用量報告（方案、每週用量上限已用多少、其中 Grok Bot 用了多少、這個上限是否和其他應用程式共用、何時重置，以及 Grok Bot 依「機器人」和依「活動」的用量：對話、每個排程的占比和每週大約執行幾次、機器人之間、群組聊天）。把結果存成「一個新的」JSON 檔，放在 grokbot-usage-checkin 資料夾裡的 usage-data/breakdown/<YYYY-MM-DDTHH-MM>.json（資料夾不存在就建立；不要覆蓋舊檔）。格式如下，報告沒有顯示的欄位就省略：{"captured_at":"<現在時間，ISO 8601，含我的 UTC 偏移>","period":"this_week","plan":"...","weekly_used_pct":0,"grokbot_used_pct":0,"shared_with_other_apps":true,"resets_at":"<ISO 8601>","extra_usage_source":"...","by_bot":[{"name":"...","share":0}],"by_activity":[{"name":"Chats with the user","share":0},{"name":"Routines","share":0,"routines":[{"name":"...","share":0,"runs_per_week":0}]},{"name":"Bot-to-Bot","share":0}],"notes":""}。百分比用一般數字（或文字 "<1%"）。不要把檔案傳給任何人。完成後只回覆「saved」，或無法儲存的原因。
+每天早上 9:00，查看我這週的用量報告（方案、每週用量上限已用多少、其中 Grok Bot 用了多少、這個上限是否和其他應用程式共用、何時重置，以及 Grok Bot 依「機器人」和依「活動」的用量：對話、每個排程的占比和每週大約執行幾次、機器人之間、群組聊天）。把結果存成「一個新的」JSON 檔，放在 grokbot-usage-checkin 資料夾裡的 usage-data/breakdown/<YYYY-MM-DDTHH-MM>.json（資料夾不存在就建立；不要覆蓋舊檔）。格式如下，報告沒有顯示的欄位就省略：{"captured_at":"<現在時間，ISO 8601，含我的 UTC 偏移>","period":"this_week","plan":"...","weekly_used_pct":0,"grokbot_used_pct":0,"shared_with_other_apps":true,"resets_at":"<ISO 8601>","extra_usage_source":"...","by_bot":[{"name":"...","share":0}],"by_activity":[{"name":"Chats with the user","share":0},{"name":"Routines","share":0,"routines":[{"name":"...","share":0,"runs_per_week":0}]},{"name":"Bot-to-Bot","share":0}],"disk_free_gb":0,"disk_total_gb":0,"notes":""}。另外也把你所在這台電腦的硬碟剩餘和總容量（單位 GB，例如用 df -h ~ 查）記成 disk_free_gb 和 disk_total_gb（一般數字）。百分比用一般數字（或文字 "<1%"）。不要把檔案傳給任何人。完成後只回覆「saved」，或無法儲存的原因。
 ```
 
 想用英文？貼這個版本（檔案格式相同）：
 
 ```text
-Every day at 09:00, look at my usage report for this week (the plan, the weekly limit used, how much of it is Grok Bot's, whether the limit is shared with other apps, when it resets, and Grok Bot's usage by bot and by activity: chats, each routine with its share and about how many runs a week, bot-to-bot, group chats). Save it as ONE new JSON file named usage-data/breakdown/<YYYY-MM-DDTHH-MM>.json inside the grokbot-usage-checkin folder (create the folder if it is missing; never overwrite an older file). Use this shape and leave out anything the report does not show: {"captured_at":"<now, ISO 8601 with my UTC offset>","period":"this_week","plan":"...","weekly_used_pct":0,"grokbot_used_pct":0,"shared_with_other_apps":true,"resets_at":"<ISO 8601>","extra_usage_source":"...","by_bot":[{"name":"...","share":0}],"by_activity":[{"name":"Chats with the user","share":0},{"name":"Routines","share":0,"routines":[{"name":"...","share":0,"runs_per_week":0}]},{"name":"Bot-to-Bot","share":0}],"notes":""}. Percentages are plain numbers (or the text "<1%"). Do not send the file anywhere. Reply only "saved", or the reason it could not be saved.
+Every day at 09:00, look at my usage report for this week (the plan, the weekly limit used, how much of it is Grok Bot's, whether the limit is shared with other apps, when it resets, and Grok Bot's usage by bot and by activity: chats, each routine with its share and about how many runs a week, bot-to-bot, group chats). Save it as ONE new JSON file named usage-data/breakdown/<YYYY-MM-DDTHH-MM>.json inside the grokbot-usage-checkin folder (create the folder if it is missing; never overwrite an older file). Use this shape and leave out anything the report does not show: {"captured_at":"<now, ISO 8601 with my UTC offset>","period":"this_week","plan":"...","weekly_used_pct":0,"grokbot_used_pct":0,"shared_with_other_apps":true,"resets_at":"<ISO 8601>","extra_usage_source":"...","by_bot":[{"name":"...","share":0}],"by_activity":[{"name":"Chats with the user","share":0},{"name":"Routines","share":0,"routines":[{"name":"...","share":0,"runs_per_week":0}]},{"name":"Bot-to-Bot","share":0}],"disk_free_gb":0,"disk_total_gb":0,"notes":""}. Also record the free and total disk space of the computer you run on, in GB (for example from df -h ~), as disk_free_gb and disk_total_gb (plain numbers). Percentages are plain numbers (or the text "<1%"). Do not send the file anywhere. Reply only "saved", or the reason it could not be saved.
 ```
 
 **手動匯入：** `python3 usage_history.py breakdown report.json`（或用 `breakdown -` 從標準輸入讀；文字可以包在 ```` ```json ```` 區塊裡，前後有說明也行）。會驗證、存成新的快照並重建頁面。只打 `python3 usage_history.py breakdown` 會印出最新的快照。結束碼 `2` 表示沒有可用內容、什麼都沒存。
@@ -402,6 +412,10 @@ Every day at 09:00, look at my usage report for this week (the plan, the weekly 
 - `period`：`this_week`（預設）、`last_7_days` 或 `last_30_days`。沒有 `captured_at` 就用檔案的修改時間。
 - 百分比可以是數字，或像 `"61.1% used"`、`"<1%"` 這樣的文字（顯示成 `<1%`，畫成一小條）；範圍限制在 0–100。
 - `by_bot`、`by_activity` 也接受 `[名稱, 占比]` 配對或 `{名稱: 占比}` 的對照表。活動依名稱辨識（對話、排程、其他排程、非排程、機器人之間、群組聊天，中英文都可以）；不認得的名稱照原樣顯示。`captured_at`、`resets_at` 接受 ISO 8601（沒寫偏移就用儀表板時區），或報告原本的寫法，例如 `Saturday Oct 31 01:41`。
+- `disk_free_gb`／`disk_total_gb`（選填，單位 GB，可以是數字或像 `"27.5 GB"` 的文字）：你的 Grok Bot 所在那台電腦的硬碟剩餘和總容量（例如用 `df -h ~` 查）。
+  儀表板跑在「另一台」電腦時，硬碟長條會改用這兩個值；在同一台電腦上則維持自己的即時讀數。「另一台」的判斷是：本機硬碟總容量和 `disk_total_gb`
+  相差超過 5%（且超過 1 GB）。在 `usage_config.json` 把 `disk_source` 設成 `"snapshot"` 就一律優先用報告，設成 `"local"` 就不優先用。
+  用報告畫出來的長條會顯示報告有多舊。沒有這些欄位的舊快照，或數值怪怪的（剩餘比總量大、總量為 0），都沒問題：會改用本機讀數。
 - `by_day` 先存起來給之後的趨勢用，目前不顯示；報告若沒有逐日拆分就省略。
 - 報告裡沒有「各模型用量」、「其他應用程式的用量」和「上週百分比」，所以不會顯示，也不會編造。
 

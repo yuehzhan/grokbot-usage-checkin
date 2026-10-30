@@ -40,6 +40,7 @@ import usage_checkins  # noqa: E402  (check-in points and start/end sessions)
 import usage_checkins_ui  # noqa: E402  (check-in tab: HTML/CSS/JS)
 import usage_breakdown  # noqa: E402  (usage breakdown snapshots saved by the user's Grok Bot)
 import usage_breakdown_ui  # noqa: E402  (Built-in tab: HTML/CSS/JS)
+import usage_disk  # noqa: E402  (Built-in tab: free disk space bar)
 import usage_history_l10n as l10n  # noqa: E402  (page strings for es / pt / fr / de / id)
 import proc_util  # noqa: E402  (Windows-safe "is this pid alive?")
 
@@ -1003,7 +1004,9 @@ def checkin_page_data(ctx, sums):
 
 def breakdown_page_data(ctx):
     """Data of the Built-in tab: the newest usage breakdown snapshot (and the previous one for the small delta)."""
-    return usage_breakdown_ui.page_data(usage_breakdown.load(ctx.data_dir, ctx.tz), ctx.lang, ctx.tz, ctx.privacy)
+    snaps = usage_breakdown.load(ctx.data_dir, ctx.tz)
+    newest = usage_breakdown.latest_and_previous(snaps)[0]   # its optional disk fields (the bot's own computer) feed the disk bar
+    return usage_breakdown_ui.page_data(snaps, ctx.lang, ctx.tz, ctx.privacy, usage_disk.page_data(ctx.cfg, snap=newest))
 
 
 def breakdown_import(ctx, text):

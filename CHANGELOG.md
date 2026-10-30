@@ -6,6 +6,23 @@ MAJOR for changes that need you to do something, MINOR for new features, PATCH f
 The current version is in the `VERSION` file and shown small at the top of the page.
 The changelog is kept in English only; [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md) is no longer updated.
 
+## [1.10.0] - 2026-10-30
+
+### Added
+- **Built-in tab: "Bot computer disk free" bar.** A small bar at the top of the tab shows how much disk space is left on the computer
+  your Grok Bot runs on, for example "Bot computer disk free: 27 GB / 128 GB". It turns orange ("Getting low") when free space is under
+  23 % of the disk and red ("Very low") under 16 % (about 29.4 GB and 20.5 GB on a 128 GB disk), so it scales with the disk size.
+  Labels are translated into every page language, and privacy mode keeps the numbers.
+- **Help "?" next to the bar** (click, tap, Enter or Space; click outside or Esc closes it) with four tips: Grok Bot's Disk Saver
+  (worded as the official docs state it), clearing caches that rebuild themselves, finding the biggest folders with `du`, and not using
+  Update / Reset just to free space (Update removes installed apps and packages; Reset rebuilds from the last saved snapshot, so very
+  recent changes may be lost).
+- **Disk fields in the Built-in snapshot.** The copy-paste routine prompt now also asks your Grok Bot to record `disk_free_gb` and
+  `disk_total_gb` (for example from `df -h ~`). The bar prefers them when the dashboard runs on another machine than the Grok Bot's
+  computer; without them it reads the disk of the machine the dashboard runs on and adds "(this PC)". Old snapshots keep working.
+- **New config keys:** `disk_warn_pct` (default 23) and `disk_danger_pct` (default 16); `disk_source` (`auto` / `local` / `snapshot`).
+  The fixed `disk_warn_gb` / `disk_danger_gb`, if you set them, still win over the percentages.
+
 ## [1.9.0] - 2026-10-30
 
 ### Added

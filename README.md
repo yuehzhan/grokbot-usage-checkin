@@ -837,12 +837,30 @@ shared with other apps, when it resets, and Grok Bot's usage **by bot** and **by
 share and about how many runs a week, bot-to-bot, group chats). Nothing is scraped: your Grok Bot reads its own report and
 saves it as a small JSON file; the dashboard only displays files in `usage-data/breakdown/`.
 
+![Built-in tab: the Bot computer disk-free bar, with its help popover open (synthetic data)](docs/media/builtin-disk-en.png)
+
 - **Display:** plan, weekly limit used, Grok Bot's share, a note when the limit is shared with other apps, the reset time with
   a countdown, horizontal share bars by bot, the activity split with the routines nested under *Routines* (name, share, about N
   runs a week), and "as of ..." with its age. A snapshot older than 36 hours is flagged in the notice colour (purple): your
   routine has probably stopped saving. When the previous snapshot is from the same period and the same reset, the cards also
   show the change in percentage points. The bars use the dashboard accent, never the over / under colours. Every `share` is a
   percentage of **all Grok Bot usage in that period**, not of the limit.
+- **Disk space bar:** at the very top, a small bar "Bot computer disk free: XX GB / YY GB" (the disk of the computer your Grok Bot runs on, not your own PC). It
+  uses the disk figures your Grok Bot saves in its snapshot (see `disk_free_gb` below); without them it reads the machine the
+  dashboard runs on (`shutil.disk_usage` on the home folder's filesystem, root as a fallback; no network, no API; read each time
+  the page is built) and adds "(this PC)" to the label. Free space **under 23 % of the disk's total** turns the bar orange with a "Getting low" flag, **under 16 %** red with a "Very low"
+  flag (on a 128 GB disk that is about 29.4 GB and 20.5 GB, on 512 GB about 117.8 GB and 81.9 GB; strictly under: exactly 23 % is still
+  normal, exactly 16 % is orange); otherwise it is neutral grey. This is the one
+  place the dashboard uses red / orange to mean "needs attention"; those two colours are separate constants in `usage_disk.py`
+  and do not touch the chart's over / under palette. Thresholds: `disk_warn_pct` and `disk_danger_pct` in `usage_config.json` (the older fixed `disk_warn_gb` / `disk_danger_gb` still work and win when set).
+  Privacy mode keeps the numbers and swaps the words for symbols. A small round **?** after the bar (a real button: click, tap,
+  Enter or Space) opens a popover with short tips for when the disk runs low; click outside or press Esc to close it. The tips
+  are plain inline JS/CSS, work offline, are translated into every page language, and stay in privacy mode (nothing private in them).
+  There are four tips: Grok Bot's Disk Saver (as its docs say: when the Bot computer's disk space is low or critically low, Grok Bot
+  *may* create a Disk Saver bot to help free space, and it never deletes anything without your confirmation; no trigger size is stated),
+  clearing caches that rebuild themselves (browser, pip, uv, npm), finding the biggest folders with the `du` command, and not pressing
+  Update or Reset just to free space (Update removes installed apps and packages; Reset rebuilds from the last saved snapshot, so very
+  recent changes may be lost).
 - **History:** every snapshot is a separate file that is never overwritten, so a later trend view can use them. Only the newest is shown.
 - **Empty state:** with no file yet, the tab explains the setup and shows the prompt below.
 - **Privacy mode:** bot and routine names become `#1`, `#2` ..., the plan, the extra-usage source, the notes and the prompt are
@@ -853,13 +871,13 @@ saves it as a small JSON file; the dashboard only displays files in `usage-data/
 **Set it up** (once): create a routine for your Grok Bot, daily is plenty, and paste this prompt. It saves one new file per run:
 
 ```text
-Every day at 09:00, look at my usage report for this week (the plan, the weekly limit used, how much of it is Grok Bot's, whether the limit is shared with other apps, when it resets, and Grok Bot's usage by bot and by activity: chats, each routine with its share and about how many runs a week, bot-to-bot, group chats). Save it as ONE new JSON file named usage-data/breakdown/<YYYY-MM-DDTHH-MM>.json inside the grokbot-usage-checkin folder (create the folder if it is missing; never overwrite an older file). Use this shape and leave out anything the report does not show: {"captured_at":"<now, ISO 8601 with my UTC offset>","period":"this_week","plan":"...","weekly_used_pct":0,"grokbot_used_pct":0,"shared_with_other_apps":true,"resets_at":"<ISO 8601>","extra_usage_source":"...","by_bot":[{"name":"...","share":0}],"by_activity":[{"name":"Chats with the user","share":0},{"name":"Routines","share":0,"routines":[{"name":"...","share":0,"runs_per_week":0}]},{"name":"Bot-to-Bot","share":0}],"notes":""}. Percentages are plain numbers (or the text "<1%"). Do not send the file anywhere. Reply only "saved", or the reason it could not be saved.
+Every day at 09:00, look at my usage report for this week (the plan, the weekly limit used, how much of it is Grok Bot's, whether the limit is shared with other apps, when it resets, and Grok Bot's usage by bot and by activity: chats, each routine with its share and about how many runs a week, bot-to-bot, group chats). Save it as ONE new JSON file named usage-data/breakdown/<YYYY-MM-DDTHH-MM>.json inside the grokbot-usage-checkin folder (create the folder if it is missing; never overwrite an older file). Use this shape and leave out anything the report does not show: {"captured_at":"<now, ISO 8601 with my UTC offset>","period":"this_week","plan":"...","weekly_used_pct":0,"grokbot_used_pct":0,"shared_with_other_apps":true,"resets_at":"<ISO 8601>","extra_usage_source":"...","by_bot":[{"name":"...","share":0}],"by_activity":[{"name":"Chats with the user","share":0},{"name":"Routines","share":0,"routines":[{"name":"...","share":0,"runs_per_week":0}]},{"name":"Bot-to-Bot","share":0}],"disk_free_gb":0,"disk_total_gb":0,"notes":""}. Also record the free and total disk space of the computer you run on, in GB (for example from df -h ~), as disk_free_gb and disk_total_gb (plain numbers). Percentages are plain numbers (or the text "<1%"). Do not send the file anywhere. Reply only "saved", or the reason it could not be saved.
 ```
 
 Prefer Traditional Chinese? Paste this version instead (same file format):
 
 ```text
-每天早上 9:00，查看我這週的用量報告（方案、每週用量上限已用多少、其中 Grok Bot 用了多少、這個上限是否和其他應用程式共用、何時重置，以及 Grok Bot 依「機器人」和依「活動」的用量：對話、每個排程的占比和每週大約執行幾次、機器人之間、群組聊天）。把結果存成「一個新的」JSON 檔，放在 grokbot-usage-checkin 資料夾裡的 usage-data/breakdown/<YYYY-MM-DDTHH-MM>.json（資料夾不存在就建立；不要覆蓋舊檔）。格式如下，報告沒有顯示的欄位就省略：{"captured_at":"<現在時間，ISO 8601，含我的 UTC 偏移>","period":"this_week","plan":"...","weekly_used_pct":0,"grokbot_used_pct":0,"shared_with_other_apps":true,"resets_at":"<ISO 8601>","extra_usage_source":"...","by_bot":[{"name":"...","share":0}],"by_activity":[{"name":"Chats with the user","share":0},{"name":"Routines","share":0,"routines":[{"name":"...","share":0,"runs_per_week":0}]},{"name":"Bot-to-Bot","share":0}],"notes":""}。百分比用一般數字（或文字 "<1%"）。不要把檔案傳給任何人。完成後只回覆「saved」，或無法儲存的原因。
+每天早上 9:00，查看我這週的用量報告（方案、每週用量上限已用多少、其中 Grok Bot 用了多少、這個上限是否和其他應用程式共用、何時重置，以及 Grok Bot 依「機器人」和依「活動」的用量：對話、每個排程的占比和每週大約執行幾次、機器人之間、群組聊天）。把結果存成「一個新的」JSON 檔，放在 grokbot-usage-checkin 資料夾裡的 usage-data/breakdown/<YYYY-MM-DDTHH-MM>.json（資料夾不存在就建立；不要覆蓋舊檔）。格式如下，報告沒有顯示的欄位就省略：{"captured_at":"<現在時間，ISO 8601，含我的 UTC 偏移>","period":"this_week","plan":"...","weekly_used_pct":0,"grokbot_used_pct":0,"shared_with_other_apps":true,"resets_at":"<ISO 8601>","extra_usage_source":"...","by_bot":[{"name":"...","share":0}],"by_activity":[{"name":"Chats with the user","share":0},{"name":"Routines","share":0,"routines":[{"name":"...","share":0,"runs_per_week":0}]},{"name":"Bot-to-Bot","share":0}],"disk_free_gb":0,"disk_total_gb":0,"notes":""}。另外也把你所在這台電腦的硬碟剩餘和總容量（單位 GB，例如用 df -h ~ 查）記成 disk_free_gb 和 disk_total_gb（一般數字）。百分比用一般數字（或文字 "<1%"）。不要把檔案傳給任何人。完成後只回覆「saved」，或無法儲存的原因。
 ```
 
 **Import by hand:** `python3 usage_history.py breakdown report.json` (or `... breakdown -` to read stdin; the text may be
@@ -889,6 +907,8 @@ ignored, a bad value drops only that field, files over 256 KB are skipped, and a
     {"name": "Group chats", "share": 2}
   ],
   "by_day": [ {"date": "2026-10-21", "share": 14} ],
+  "disk_free_gb": 27.5,
+  "disk_total_gb": 128,
   "notes": ""
 }
 ```
@@ -899,6 +919,12 @@ ignored, a bad value drops only that field, files over 256 KB are skipped, and a
   (chats, routines, other routines, not from a routine, bot-to-bot, group chats, also in Traditional / Simplified Chinese);
   an unknown name is shown as written. `captured_at` and `resets_at` accept ISO 8601 (no offset = the dashboard time zone) or the
   report's own wording such as `Saturday Oct 31 01:41`.
+- `disk_free_gb` / `disk_total_gb` (optional, GB, numbers or text like `"27.5 GB"`): the free and total disk of the computer your
+  Grok Bot runs on (for example from `df -h ~`). The disk bar uses them when the dashboard runs on a *different* machine from
+  that computer; on the same machine it keeps its own live reading. "Different" means the local disk's total size differs from
+  `disk_total_gb` by more than 5 % (and 1 GB). Set `disk_source` in `usage_config.json` to `"snapshot"` to always prefer the report
+  or `"local"` to never prefer it. A report-based bar also shows how old the report is. Older snapshots without these fields, or
+  with odd values (free larger than total, total of 0), are fine: the local reading is used.
 - `by_day` is stored for later trends and not displayed yet. The report may not offer a per-day split; leave it out then.
 - The report has no per-model usage, no other apps' usage and no last-week percentage, so none is shown or invented.
 
@@ -1094,6 +1120,11 @@ network.
 | `ledger_path` | `<data_dir>/ledger.json` | Where the shared usage ledger is written. |
 | `daily_spike_points` | `20` | Daily spike alert threshold (points gained vs. ~24 h earlier). |
 | `over_budget_percent` | `90` | Over-budget alert when weekly `%` reaches this value. |
+| `disk_warn_pct` | `23` | Built-in tab disk bar turns orange when free space is strictly under this percent of the disk's total size (so it scales with the disk). |
+| `disk_warn_gb` | *(unset)* | Optional fixed warning level in GB. If set to a valid number it wins over `disk_warn_pct`. |
+| `disk_source` | `"auto"` | Where the disk bar reads from: `"auto"` (local, unless the Grok Bot's snapshot reports a disk and the dashboard is clearly on another machine), `"local"`, or `"snapshot"` (prefer the snapshot's `disk_free_gb` / `disk_total_gb`). |
+| `disk_danger_pct` | `16` | Built-in tab disk bar turns red when free space is strictly under this percent of the disk's total size (never above the warning level). |
+| `disk_danger_gb` | *(unset)* | Optional fixed danger level in GB. If set to a valid number it wins over `disk_danger_pct`. |
 | `unavailable_after_failures` | `3` | Unavailable alert after this many failed reads in a row. |
 | `stale_after_hours` | `6` | Ledger age after which readers should refresh first. |
 | `desktop_notify` | `true` | Show OS desktop toasts for new alerts (`false` = log only). |
