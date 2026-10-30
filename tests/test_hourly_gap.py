@@ -28,7 +28,7 @@ def samples():
 def gap_band(made):
     """The reading gap's bar: the one wide bar on the 168-hour axis."""
     for ax, p in made:
-        if isinstance(p, Rectangle) and p.get_zorder() == 3 and ax.get_xlim()[1] == 168.0 and p.get_width() > 5:
+        if isinstance(p, Rectangle) and p.get_zorder() == 3 and max(ax.get_xlim()) == 168.0 and p.get_width() > 5:
             return ax, p
     raise AssertionError("no gap band drawn")
 

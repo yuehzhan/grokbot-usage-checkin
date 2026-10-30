@@ -247,7 +247,7 @@ class MaskIsDrawnTests(unittest.TestCase):
             masks = [(ax, p) for ax, p in made if isinstance(p, Rectangle) and p.get_zorder() == 0.5]
             self.assertEqual(len(masks), 2)
             ax, cur = masks[1]  # the default day's own column (the first is the whole-plot band the sprite is cut from)
-            x0, x1 = ax.get_xlim()
+            x0, x1 = sorted(ax.get_xlim())  # (newest first runs the axis backwards)
             y0, y1 = ax.get_ylim()
             self.assertEqual(meta["sel"]["i"], 4)
             self.assertAlmostEqual(cur.get_x(), 4.0)          # day 5's column ...
@@ -393,7 +393,8 @@ class HourlyListTests(unittest.TestCase):
         for k in range(n):
             self.assertGreaterEqual(sel["clips"][k][2] / 100 * W, 11.5, k)
         # the band of the oldest hour of day 1 and of the newest one are inside the plot, at both ends of the 7-day axis
-        self.assertLess(sel["clips"][0][0], sel["clips"][n - 1][0])
+        first, last = sel["clips"][0][0], sel["clips"][n - 1][0]
+        self.assertTrue(first > last if sel.get("order") == "new" else first < last)  # newest first: the oldest hour is at the right
         ax_l, _b, ax_w, _h = chart_hud.INC_AXES
         for k in (0, n - 1):
             self.assertGreaterEqual(sel["clips"][k][0], ax_l * 100 - 0.01)

@@ -11,6 +11,7 @@ import subprocess
 import unittest
 from datetime import datetime, timedelta, timezone
 
+import matplotlib.text
 import numpy as np
 
 from _helpers import read_text, scratch
@@ -157,6 +158,155 @@ class PictureOrderTests(unittest.TestCase):
             self.assertTrue(os.path.isfile(out))
 
 
+def snap(ax):
+    """What the chart drew, positioned on the screen (display x): axis limits, tick / day labels, bars, baseline, legend."""
+    x = lambda v: float(ax.transData.transform((v, 0))[0])
+    ticks = [(x(t), lb.get_text()) for t, lb in zip(ax.get_xticks(), ax.get_xticklabels())]
+    days = [(x(t.get_position()[0]), t.get_text()) for t in ax.texts if re.match(r"^\d\d-\d\d", t.get_text())]
+    wide = 0.52 if ax.get_xlim()[0] + ax.get_xlim()[1] == 7 else None  # (the per-day bars are 0.52 wide; the per-hour bars vary)
+    bars = [(x(p.get_x() + p.get_width() / 2), round(p.get_height(), 6)) for p in ax.patches
+            if p.get_zorder() == 3 and (wide is None or abs(p.get_width() - wide) < 1e-6)]
+    base = [round(float(l.get_ydata()[0]), 6) for l in ax.lines if l.get_linestyle() == "--" and len(set(l.get_ydata())) == 1 and l.get_xdata()[0] in (0, 1)]
+    leg = [t.get_text() for t in ax.get_legend().get_texts()] if ax.get_legend() else []
+    return {"xlim": tuple(ax.get_xlim()), "ylim": tuple(ax.get_ylim()), "ticks": sorted(ticks), "days": sorted(days), "bars": sorted(bars),
+            "base": base, "legend": leg,
+            "peaks": sorted((x(t.xy[0]), t.get_ha()) for t in ax.texts if isinstance(t, matplotlib.text.Annotation) and re.match(r"^\d\d:\d\d ", t.get_text()))}
+
+
+def chart_snap(view, d, name="c", **cfg):
+    """Render `view` and return (snap of its main chart axes, meta, png path)."""
+    got = []
+    real = {k: getattr(chart_hud, k) for k in ("draw_daily_bars_panel", "draw_hourly_panel")}
+
+    def wrap(k):
+        def f(fig, *a, **kw):
+            real[k](fig, *a, **kw)
+            got.append(snap(fig.axes[-1]))
+        return f
+    for k in real:
+        setattr(chart_hud, k, wrap(k))
+    try:
+        out, meta = render(view, d, name=name, sel_sprites=True, **cfg)
+    finally:
+        for k, v in real.items():
+            setattr(chart_hud, k, v)
+    return got[-1], meta, out
+
+
+class ChartOrderTests(unittest.TestCase):
+    """The 每日增量 chart follows the same order setting as the list: newest at the left by default, oldest at the left only for "old"."""
+
+    def setUp(self):
+        self.d = scratch()
+        self.addCleanup(shutil.rmtree, self.d)
+
+    def test_daily_default_has_the_latest_day_at_the_left(self):
+        dflt, _, _ = chart_snap("daily", self.d, "a")
+        new, _, _ = chart_snap("daily", self.d, "b", list_order="new")
+        old, _, _ = chart_snap("daily", self.d, "c", list_order="old")
+        odd, _, _ = chart_snap("daily", self.d, "d", list_order="sideways")
+        self.assertEqual(dflt, new)
+        self.assertEqual(odd, new)  # only an exact "old" gives oldest first
+        self.assertEqual(old["xlim"], (0.0, 7.0))
+        self.assertEqual(new["xlim"], (7.0, 0.0))
+        lab = lambda sn: [int(re.search(r"\d+", t).group()) for _, t in sn["ticks"]]
+        self.assertEqual(lab(old), [1, 2, 3, 4, 5, 6, 7])  # left to right
+        self.assertEqual(lab(new), [7, 6, 5, 4, 3, 2, 1])
+        # the same five bars (day 1 .. 5 = +12, +18, +11, +29, +4), left to right
+        self.assertEqual([round(h) for _, h in old["bars"]], [12, 18, 11, 29, 4])
+        self.assertEqual([round(h) for _, h in new["bars"]], [4, 29, 11, 18, 12])
+        self.assertEqual(len(new["bars"]), 5)
+
+    def test_daily_legend_baseline_and_scale_are_the_same_in_both_orders(self):
+        new, _, _ = chart_snap("daily", self.d, "b", list_order="new")
+        old, _, _ = chart_snap("daily", self.d, "c", list_order="old")
+        for k in ("legend", "base", "ylim"):
+            self.assertEqual(new[k], old[k], k)
+        self.assertEqual(len(new["base"]), 1)
+        self.assertEqual(len(new["legend"]), 3)
+        self.assertTrue(any("%" in t or "base" in t.lower() for t in new["legend"]))
+
+    def test_daily_columns_on_the_page_are_mirrored_with_the_chart(self):
+        _, new, _ = chart_snap("daily", self.d, "b", list_order="new")
+        _, old, _ = chart_snap("daily", self.d, "c", list_order="old")
+        cn, co = [c[0] for c in new["sel"]["cols"]], [c[0] for c in old["sel"]["cols"]]
+        self.assertEqual(co, sorted(co))  # day 1 at the left
+        self.assertEqual(cn, sorted(cn, reverse=True))  # the last day at the left
+        self.assertEqual(sorted(cn), sorted(co))
+        self.assertEqual([c[1:] for c in new["sel"]["cols"]], [c[1:] for c in old["sel"]["cols"]])
+
+    def test_daily_picture_differs_between_orders_and_overview_is_untouched(self):
+        _, _, a = chart_snap("daily", self.d, "b", list_order="new")
+        _, _, b = chart_snap("daily", self.d, "c", list_order="old")
+        self.assertGreater(np.abs(px(a) - px(b)).max(), 40)
+        got = []
+        real = chart_hud.draw_daily_bars_panel
+
+        def f(fig, *a, **kw):
+            real(fig, *a, **kw)
+            got.append(snap(fig.axes[-1]))
+        chart_hud.draw_daily_bars_panel = f
+        try:
+            for order in ("new", "old", None):
+                render("week", self.d, name="w" + str(order), **({"list_order": order} if order else {}))
+        finally:
+            chart_hud.draw_daily_bars_panel = real
+        self.assertEqual([g["xlim"] for g in got], [(0.0, 7.0)] * 3)  # 本週總覽 stays oldest first
+        self.assertEqual(got[0], got[1])
+
+    def test_hourly_default_has_the_latest_hour_at_the_left(self):
+        dflt, _, _ = chart_snap("hourly", self.d, "a")
+        new, _, _ = chart_snap("hourly", self.d, "b", list_order="new")
+        old, _, _ = chart_snap("hourly", self.d, "c", list_order="old")
+        odd, _, _ = chart_snap("hourly", self.d, "d", list_order="")
+        self.assertEqual(dflt, new)
+        self.assertEqual(odd, new)
+        self.assertEqual(old["xlim"], (0.0, 168.0))
+        self.assertEqual(new["xlim"], (168.0, 0.0))
+        dates = lambda sn: [t[:5] for _, t in sn["days"]]
+        self.assertEqual(dates(new), dates(old)[::-1])  # the day labels (MM-DD) run the other way
+        self.assertEqual(dates(old), sorted(dates(old)))
+        self.assertEqual(len(old["days"]), 7)
+        hrs = lambda sn: [int(t) for _, t in sn["ticks"]]
+        self.assertEqual(hrs(new), hrs(old)[::-1])  # hour ticks (00, 06, 12, 18, ...) mirrored
+        self.assertGreater(len(old["bars"]), 10)
+        self.assertEqual([h for _, h in new["bars"]], [h for _, h in old["bars"]][::-1])  # the same bars, mirrored
+
+    def test_hourly_legend_baseline_and_scale_are_the_same_in_both_orders(self):
+        new, _, _ = chart_snap("hourly", self.d, "b", list_order="new")
+        old, _, _ = chart_snap("hourly", self.d, "c", list_order="old")
+        for k in ("legend", "base", "ylim"):
+            self.assertEqual(new[k], old[k], k)
+        self.assertEqual(len(new["base"]), 1)
+        self.assertGreaterEqual(len(new["legend"]), 3)
+
+    def test_hourly_columns_on_the_page_are_mirrored_with_the_chart(self):
+        _, new, _ = chart_snap("hourly", self.d, "b", list_order="new")
+        _, old, _ = chart_snap("hourly", self.d, "c", list_order="old")
+        cn, co = [c[0] for c in new["sel"]["cols"]], [c[0] for c in old["sel"]["cols"]]
+        self.assertEqual(co, sorted(co))  # the oldest hour at the left
+        self.assertEqual(cn, sorted(cn, reverse=True))  # the newest hour at the left
+        self.assertEqual([c[2] for c in new["sel"]["cols"]], [c[2] for c in old["sel"]["cols"]])  # same widths
+        for k in range(len(cn)):  # the mirrored span: left + width of one order == 100 - (the other's position) within the plot
+            ax_l, ax_w = chart_hud.INC_AXES[0] * 100, chart_hud.INC_AXES[2] * 100
+            self.assertAlmostEqual((cn[k] - ax_l) + (co[k] - ax_l) + new["sel"]["cols"][k][2], ax_w, delta=0.01)
+
+    def test_a_peak_label_at_the_right_edge_stays_inside_the_card(self):
+        """Newest first puts the week's first hours at the right edge: a label on a bar there is right-aligned, not centred."""
+        new, _, _ = chart_snap("hourly", self.d, "b", list_order="new")
+        old, _, _ = chart_snap("hourly", self.d, "c", list_order="old")
+        self.assertEqual(len(new["peaks"]), len(old["peaks"]))
+        self.assertGreaterEqual(len(new["peaks"]), 2)
+        self.assertEqual(new["peaks"][-1][1], "right")  # the label of the rightmost peak
+        self.assertEqual(new["peaks"][0][1], "center")  # one far from the edge keeps its centred label
+        self.assertEqual({ha for _, ha in old["peaks"]}, {"center"})
+
+    def test_hourly_picture_differs_between_orders(self):
+        _, _, a = chart_snap("hourly", self.d, "b", list_order="new")
+        _, _, b = chart_snap("hourly", self.d, "c", list_order="old")
+        self.assertGreater(np.abs(px(a) - px(b)).max(), 40)
+
+
 class PageTests(unittest.TestCase):
     def setUp(self):
         self.data = scratch()
@@ -263,6 +413,7 @@ var out = {};
 console.log(JSON.stringify(out));
 """
 VIEWS = ["week", "daily", "hourly", "daily-new", "hourly-new"]
+KEYS = {"daily": "usage.listOrder", "hourly": "usage.listOrder.hourly"}  # each unit keeps its own order
 
 
 @unittest.skipUnless(shutil.which("node"), "node not installed")
@@ -282,9 +433,10 @@ class PersistenceTests(unittest.TestCase):
 
     def test_stored_oldest_first_is_restored_on_load_for_both_views(self):
         for unit in ("daily", "hourly"):
-            out = self.run_js("out.a = shown();", {"usage.wkTab": "inc", "usage.incUnit": unit, "usage.listOrder": "old"})
+            key = KEYS[unit]
+            out = self.run_js("out.a = shown();", {"usage.wkTab": "inc", "usage.incUnit": unit, key: "old"})
             self.assertEqual(out["a"], [unit])
-            out = self.run_js("out.a = shown();", {"usage.wkTab": "inc", "usage.incUnit": unit, "usage.listOrder": "new"})
+            out = self.run_js("out.a = shown();", {"usage.wkTab": "inc", "usage.incUnit": unit, key: "new"})
             self.assertEqual(out["a"], [unit + "-new"])
 
     def test_unknown_stored_value_means_newest_first(self):
@@ -300,7 +452,8 @@ class PersistenceTests(unittest.TestCase):
 
     def test_choice_survives_a_reload(self):
         out = self.run_js("click('order', 'true'); out.s = store;", {"usage.wkTab": "inc", "usage.incUnit": "hourly"})
-        self.assertEqual(out["s"]["usage.listOrder"], "old")
+        self.assertEqual(out["s"]["usage.listOrder.hourly"], "old")
+        self.assertNotIn("usage.listOrder", out["s"])
         again = self.run_js("out.a = shown();", out["s"])  # the next page load reads what was stored
         self.assertEqual(again["a"], ["hourly"])
 
@@ -311,8 +464,45 @@ class PersistenceTests(unittest.TestCase):
         self.assertEqual(out["u"], "hourly")  # the unit key is unchanged by the order (same key as before)
         self.assertEqual((out["b"], out["c"], out["d"]), (["daily-new"], ["week"], ["daily-new"]))
         out = self.run_js("click('hourly'); out.a = shown(); click('daily'); out.b = shown(); click('week'); click('inc'); out.d = shown();",
-                          {"usage.wkTab": "inc", "usage.listOrder": "old"})
+                          {"usage.wkTab": "inc", "usage.listOrder": "old", "usage.listOrder.hourly": "old"})
         self.assertEqual((out["a"], out["b"], out["d"]), (["hourly"], ["daily"], ["daily"]))
+
+    def test_daily_and_hourly_keep_their_own_order(self):
+        """Flipping the order of one unit never changes the other's (stored value or shown view), in either direction."""
+        base = {"usage.wkTab": "inc"}
+        out = self.run_js("click('order', 'true'); out.a = shown(); out.s = store; click('hourly'); out.b = shown();", base)
+        self.assertEqual(out["a"], ["daily"])
+        self.assertEqual(out["s"]["usage.listOrder"], "old")
+        self.assertNotIn("usage.listOrder.hourly", out["s"])
+        self.assertEqual(out["b"], ["hourly-new"])  # hourly still newest first
+        out = self.run_js("click('order', 'true'); out.a = shown(); out.s = store; click('daily'); out.b = shown();",
+                          {"usage.wkTab": "inc", "usage.incUnit": "hourly"})
+        self.assertEqual(out["a"], ["hourly"])
+        self.assertEqual(out["s"]["usage.listOrder.hourly"], "old")
+        self.assertNotIn("usage.listOrder", out["s"])
+        self.assertEqual(out["b"], ["daily-new"])  # daily still newest first
+        # both set differently, then switching the unit back and forth and flipping each: nothing leaks
+        out = self.run_js("out.a = shown(); click('hourly'); out.b = shown(); click('order', 'true'); out.c = shown(); click('daily'); out.d = shown();"
+                          "click('order'); out.e = shown(); out.s = store;",
+                          {"usage.wkTab": "inc", "usage.listOrder": "old", "usage.listOrder.hourly": "new"})
+        self.assertEqual((out["a"], out["b"], out["c"], out["d"], out["e"]), (["daily"], ["hourly-new"], ["hourly"], ["daily"], ["daily-new"]))
+        self.assertEqual((out["s"]["usage.listOrder"], out["s"]["usage.listOrder.hourly"], out["s"]["usage.incUnit"]), ("new", "old", "daily"))
+
+    def test_the_unit_switch_never_touches_the_order_keys_or_the_selection(self):
+        out = self.run_js("click('hourly'); click('daily'); click('hourly'); out.s = store; out.n = W.map(function (w) { return w.cards.map(function (c) { return c.clicked; }); });",
+                          {"usage.wkTab": "inc", "usage.listOrder": "old"})
+        self.assertEqual(out["s"]["usage.listOrder"], "old")
+        self.assertNotIn("usage.listOrder.hourly", out["s"])
+        self.assertEqual(out["s"]["usage.incUnit"], "hourly")
+        self.assertEqual(out["n"], [[0] * 4] * 5)  # no card was clicked (the selections are per view, not copied across units)
+
+    def test_flipping_the_order_moves_the_selection_only_within_the_same_unit(self):
+        out = self.run_js("click('order', 'true'); out.n = W.map(function (w) { return w.cards.map(function (c) { return c.clicked; }); });",
+                          {"usage.wkTab": "inc", "usage.incUnit": "hourly"}, sel=1)
+        self.assertEqual(out["n"][2], [0, 1, 0, 0])  # hourly (old) got the choice
+        self.assertEqual(out["n"][1], [0, 0, 0, 0])  # daily (old) untouched
+        self.assertEqual(out["n"][3], [0, 0, 0, 0])  # daily-new untouched
+        self.assertEqual(out["n"][4], [0, 0, 0, 0])
 
     def test_the_chosen_day_stays_chosen_in_the_other_order(self):
         out = self.run_js("click('order', 'true'); out.n = W[3].cards.map(function (c) { return c.clicked; }); out.m = W[1].cards.map(function (c) { return c.clicked; });",
@@ -329,6 +519,7 @@ class PersistenceTests(unittest.TestCase):
     def test_uses_the_existing_localstorage_namespace(self):
         self.assertIn("'usage.listOrder'", uh.WKVIEW_JS)
         self.assertIn("'usage.incUnit'", uh.WKVIEW_JS)
+        self.assertIn("'usage.listOrder.hourly'", uh.WKVIEW_JS)
         self.assertNotIn("sessionStorage", uh.WKVIEW_JS)
 
 
