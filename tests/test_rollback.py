@@ -41,6 +41,7 @@ class VersionNotesTests(unittest.TestCase):
         self.assertIsNotNone(self_update.parse_version(v))
         self.assertEqual(usage_history.APP_VERSION, v)
         entries = self_update.parse_changelog(read_text(os.path.join(ROOT, "CHANGELOG.md")))  # the English one is maintained
+        entries = [e for e in entries if not self_update._UNRELEASED_RE.match(e[1])]  # work in progress ("## [1.11.0] - Unreleased") is not a release yet
         self.assertEqual(entries[0][0], self_update.parse_version(v))  # newest first, matches VERSION
         self.assertEqual([e[0] for e in entries], sorted([e[0] for e in entries], reverse=True))
         prev = ".".join(map(str, entries[1][0]))
@@ -50,6 +51,14 @@ class VersionNotesTests(unittest.TestCase):
         self.assertEqual(self_update.CHANGELOG, "CHANGELOG.md")
         zh = read_text(os.path.join(ROOT, "CHANGELOG.zh-TW.md"))  # kept for now, with a note pointing to CHANGELOG.md
         self.assertTrue(zh.startswith("> ") and "CHANGELOG.md" in zh.splitlines()[0] and "英文" in zh.splitlines()[0])
+
+    def test_unreleased_entry_is_never_shown_as_news(self):
+        log = "# Changelog\n\n## [1.3.0] - Unreleased\n\n### Added\n- Work in progress\n\n## [1.2.0] - 2026-11-02\n\n### Added\n- Second feature\n"
+        t = self_update.notes_between(log, "1.1.0")
+        self.assertTrue(t.startswith("v1.2.0 (2026-11-02)"), t)
+        self.assertNotIn("Work in progress", t)
+        self.assertNotIn("Work in progress", self_update.notes_between(log, None))
+        self.assertEqual(self_update.notes_between("## [1.3.0] - Unreleased\n\n### Added\n- x\n", "1.0.0"), "")
 
     def test_notes_between(self):
         t = self_update.notes_between(LOG, "1.1.0")

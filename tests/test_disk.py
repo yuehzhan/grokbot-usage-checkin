@@ -25,6 +25,20 @@ def read_text(path):
         return fh.read()
 
 
+_REAL_DETECT = ud.is_bot_computer
+_BOX = mock.patch.object(ud, "is_bot_computer", return_value=True)
+
+
+def setUpModule():
+    """The tests below describe the Bot computer; whatever host runs them (a CI runner, a PC), detection says "box" here.
+    BoxOnlyTests overrides it per test."""
+    _BOX.start()
+
+
+def tearDownModule():
+    _BOX.stop()
+
+
 def lv(free, total=128, cfg=None):
     """Level of `free` GB on a `total` GB disk with the default (or given) config."""
     return ud.level(free, *ud.thresholds(cfg or {}, total))
@@ -301,11 +315,10 @@ class StringTests(unittest.TestCase):
     def test_english_and_traditional_chinese_labels(self):
         self.assertEqual(bui.EN["disk"].format(f=27, t=128), "Bot computer disk free: 27 GB / 128 GB")
         self.assertEqual(bui.ZH_TW["disk"].format(f=27, t=128), "Bot 電腦硬碟剩餘 27 GB / 128 GB")
-        self.assertEqual((bui.EN["disk_local"], bui.ZH_TW["disk_local"]), ("(this PC)", "（本機）"))
         self.assertNotEqual(bui.ZH_TW["disk_warn"], bui.EN["disk_warn"])
         for lang in ("zh-TW", "zh-CN", "ja", "ko", "es", "pt", "fr", "de", "id"):
             t = bui.for_lang(lang)
-            for k in ("disk", "disk_warn", "disk_danger", "disk_local"):
+            for k in ("disk", "disk_warn", "disk_danger"):
                 self.assertNotEqual(t[k], bui.EN[k], (lang, k))
 
     def test_label_names_the_bot_computer_in_every_language(self):
@@ -313,12 +326,12 @@ class StringTests(unittest.TestCase):
             t = bui.for_lang(lang)
             self.assertIn("Bot", t["disk"], lang)                      # the label says whose disk it is ...
             self.assertIn("{f}", t["disk"]); self.assertIn("{t}", t["disk"])
-            self.assertTrue(t["disk_local"].strip(), lang)             # ... and the fallback note exists
+            self.assertNotIn("disk_local", t, lang)                    # no "(this PC)" fallback any more: the local disk is never shown
 
 
 class HelpPopoverTests(unittest.TestCase):
     TIPS = ["disk_help_%d" % i for i in range(1, 5)]
-    LEAD = ["disk_help_0", "disk_help_local"]
+    LEAD = ["disk_help_0"]
 
     def test_every_builtin_language_has_a_title_and_four_tips(self):
         langs = [x for x in uh.PAGE_LANGS if x != "auto"]
@@ -363,12 +376,10 @@ class HelpPopoverTests(unittest.TestCase):
                 self.assertNotIn(word, t, (lang, word))
         for lang in ("en", "zh-TW", "zh-CN", "ja", "ko", "es", "pt", "fr", "de", "id"):
             self.assertEqual(re.findall(r"\d+", bui.for_lang(lang)["disk_help_0"]), [], lang)   # no size stated as universal
-        self.assertIn("(this PC)", bui.EN["disk_help_local"])
-        self.assertIn("（本機）", bui.ZH_TW["disk_help_local"])
-        for part in ("bd-help-lead", "bd-help-local"):
-            self.assertIn(part, bui.CSS)
+        self.assertIn("bd-help-lead", bui.CSS)
         self.assertIn("T.disk_help_0", bui.JS)
-        self.assertIn("d.src!=='snapshot'", bui.JS)                  # the "(this PC)" note only when the bar is the local reading
+        self.assertNotIn("disk_local", bui.JS)                       # the old "(this PC)" note and its help paragraph are gone
+        self.assertNotIn("disk_help_local", bui.JS)
 
     def test_no_exact_threshold_claim_about_disk_saver(self):
         # Only what the official docs say: low / critically low, may create a Disk Saver bot, nothing deleted without confirmation.
@@ -498,3 +509,83 @@ class PageTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BoxOnlyTests(unittest.TestCase):
+    """The bar describes the Bot computer's disk: shown on the box (or from a box-side report), hidden on any other host."""
+    LOCAL = (27 * G, 128 * G)           # a PC's C: drive or a Linux desktop: must never be shown as the Bot's disk
+    WIN = dict(system="Windows", hostname="DESKTOP-ABC123", environ={}, home="C:\\Users\\someone", isdir=lambda p: False)
+    MAC = dict(system="Darwin", hostname="macbook.local", environ={}, home="/Users/someone", isdir=lambda p: False)
+    LINUX_PC = dict(system="Linux", hostname="my-laptop", environ={"HOME": "/home/me"}, home="/home/me", isdir=lambda p: True)
+
+    def test_detection(self):
+        for name, kw in (("windows", self.WIN), ("mac", self.MAC), ("linux desktop", self.LINUX_PC)):
+            self.assertFalse(_REAL_DETECT(**kw), name)
+        box = dict(self.LINUX_PC)
+        self.assertTrue(_REAL_DETECT(**dict(box, hostname="grok-bot-vm-123")))
+        self.assertTrue(_REAL_DETECT(**dict(box, environ={"SAND_BOX_BOOT_ID": "x"})))
+        self.assertTrue(_REAL_DETECT(**dict(box, home="/home/box")))
+        self.assertFalse(_REAL_DETECT(**dict(box, home="/home/box", isdir=lambda p: False)))   # needs /workspace too
+        self.assertFalse(_REAL_DETECT(**dict(self.WIN, hostname="grok-bot-vm-1")))              # Linux only
+
+    def test_hidden_on_a_non_box_host(self):
+        self.assertIsNone(ud.page_data(None, self.LOCAL, None, box=False))
+        self.assertIsNone(ud.page_data({"disk_source": "local"}, self.LOCAL, None, box=False))   # even if asked for: never the local disk
+        self.assertIsNone(ud.page_data({}, self.LOCAL, snap_with(None, None), box=False))        # a snapshot without disk fields
+        self.assertIsNone(ud.page_data({}, self.LOCAL, snap_with(5, 0), box=False))              # an odd report is not a reading either
+
+    def test_not_substituted_through_detection_either(self):
+        _BOX.stop()
+        try:
+            with mock.patch.dict(os.environ, {}, clear=False), mock.patch("usage_disk.is_bot_computer", return_value=False), \
+                    mock.patch("usage_disk.shutil.disk_usage", return_value=shutil._ntuple_diskusage(221 * G, 186 * G, 34 * G)) as du:
+                os.environ.pop(ud.ENV_FREE, None)
+                self.assertIsNone(ud.page_data())                   # the Windows case: 34.5 GB / 221 GB must not appear
+                self.assertEqual(du.call_count, 0)                  # the local disk is not even read
+        finally:
+            _BOX.start()
+
+    def test_report_from_the_bot_is_shown_anywhere(self):
+        d = ud.page_data({}, self.LOCAL, snap_with(120, 512), box=False)
+        self.assertEqual((d["src"], d["free"], d["total"], d["level"]), ("snapshot", 120.0, 512, "ok"))
+        d = ud.page_data({"disk_source": "local"}, self.LOCAL, snap_with(15, 512), box=False)
+        self.assertEqual((d["src"], d["level"]), ("snapshot", "danger"))
+
+    def test_shown_on_the_box(self):
+        d = ud.page_data({}, self.LOCAL, None, box=True)
+        self.assertEqual((d["src"], d["free"], d["total"], d["level"]), ("local", 27.0, 128, "warn"))
+        _BOX.stop()
+        try:
+            with mock.patch("usage_disk.is_bot_computer", return_value=True), mock.patch.dict(os.environ, {}, clear=False):
+                os.environ.pop(ud.ENV_FREE, None)
+                with mock.patch("usage_disk.shutil.disk_usage", return_value=shutil._ntuple_diskusage(128 * G, 101 * G, 27 * G)):
+                    self.assertEqual(ud.page_data()["level"], "warn")
+        finally:
+            _BOX.start()
+
+    def test_thresholds_unchanged(self):
+        self.assertEqual((ud.WARN_PCT, ud.DANGER_PCT), (23.0, 16.0))
+        for free, want in ((30, "ok"), (29.4, "warn"), (20.6, "warn"), (20.4, "danger"), (5, "danger")):
+            self.assertEqual(ud.page_data({}, (int(free * G), 128 * G), None, box=True)["level"], want, free)
+            self.assertEqual(ud.page_data({}, None, snap_with(free, 128), box=False)["level"], want, free)
+
+    def test_page_hides_bar_and_help_on_another_machine(self):
+        tmp = scratch()
+        try:
+            ctx = make_ctx(tmp, "en")
+            _BOX.stop()
+            try:
+                with mock.patch("usage_disk.is_bot_computer", return_value=False), mock.patch.dict(os.environ, {}, clear=False):
+                    os.environ.pop(ud.ENV_FREE, None)
+                    self.assertIsNone(uh.breakdown_page_data(ctx)["disk"])
+                    at = datetime(2026, 10, 30, 9, 0, tzinfo=TZ)
+                    ub.write_snapshot(tmp, ub.normalize({"captured_at": at.isoformat(), "weekly_used_pct": 40,
+                                                         "disk_free_gb": 80, "disk_total_gb": 512}, TZ))
+                    self.assertEqual(uh.breakdown_page_data(ctx)["disk"]["src"], "snapshot")
+            finally:
+                _BOX.start()
+        finally:
+            shutil.rmtree(tmp)
+        js = bui.JS.split("function disk()")[1].split("function draw()")[0]
+        self.assertIn("if(!d||!T.disk)return;", js)                 # no data: no bar ...
+        self.assertLess(js.index("if(!d||!T.disk)return;"), js.index("help(row,d)"))   # ... and no "?" either

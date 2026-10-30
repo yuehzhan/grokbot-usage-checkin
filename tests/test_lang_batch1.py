@@ -10,6 +10,7 @@ import os
 import re
 import shutil
 import string
+import time
 import unittest
 import warnings
 from datetime import datetime, timezone
@@ -324,21 +325,36 @@ class SwitchTests(unittest.TestCase):
         return json.loads(read_text(os.path.join(self.data, "page_settings.json")))["lang"]
 
     def test_switch_both_ways(self):
+        # The HUD picture's footer carries the clock ("2026-10-30 14:52"), so two pictures of the same language drawn in different
+        # minutes differ. A step that straddles a minute change is therefore repeated; pictures are compared within one minute only.
+        minute = lambda: time.strftime("%Y%m%d%H%M")
         self.assertEqual(self.page()[:2], ("zh-Hant", "auto"))
-        imgs = {}
+        imgs = {}  # (page language, minute the picture was drawn in) -> the pictures seen
         for target, html_lang in (("en", "en"), ("auto", "zh-Hant"), ("es", "es"), ("auto", "zh-Hant"),
                                   ("de", "de"), ("zh-TW", "zh-Hant"), ("pt", "pt"), ("fr", "fr"), ("id", "id")):
-            self.assertEqual(self.post(target).get("lang"), target)
-            first, again = self.page(), self.page()  # a reload shows the same choice
+            for attempt in range(5):
+                t0 = minute()
+                self.assertEqual(self.post(target).get("lang"), target)
+                first, again = self.page(), self.page()  # a reload shows the same choice
+                if minute() == t0:
+                    break
+            else:
+                self.fail(f"{target}: the clock changed minute during every attempt")
             self.assertEqual(first, again, target)
             self.assertEqual(first[:2], (html_lang, target))
             self.assertIsNotNone(first[2], target)
             self.assertEqual(self.saved(), target)
-            imgs.setdefault(html_lang, set()).add(first[2])
-        for i in (0, 1):  # the HUD and the chart are drawn again for each language, and only once per language
-            per_lang = {lg: {v[i] for v in vs} for lg, vs in imgs.items()}
-            self.assertTrue(all(len(v) == 1 for v in per_lang.values()), per_lang.keys())
-            self.assertEqual(len(set().union(*per_lang.values())), len(per_lang))
+            imgs.setdefault((html_lang, t0), set()).add(first[2])
+        for i in (0, 1):  # the HUD and the chart are drawn again for each language, and only once per language (and minute)
+            per_key = {k: {v[i] for v in vs} for k, vs in imgs.items()}
+            self.assertTrue(all(len(v) == 1 for v in per_key.values()), per_key.keys())
+            for t in {k[1] for k in per_key}:  # within one minute, two languages never share a picture
+                same_minute = [next(iter(v)) for k, v in per_key.items() if k[1] == t]
+                self.assertEqual(len(set(same_minute)), len(same_minute), t)
+            by_lang = {}
+            for (lg, _), v in per_key.items():  # and across minutes the languages still never share one
+                by_lang.setdefault(lg, set()).update(v)
+            self.assertEqual(sum(len(v) for v in by_lang.values()), len(set().union(*by_lang.values())), by_lang.keys())
         pal = os.listdir(os.path.join(self.data, "history", "pal"))
         for lg in ("en", "zh_tw") + NEW:
             self.assertTrue(any(n.endswith("-L" + lg) for n in pal), (lg, pal))

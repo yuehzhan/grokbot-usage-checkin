@@ -17,7 +17,9 @@ import numpy as np
 from matplotlib.patches import Rectangle
 from PIL import Image
 
-from _helpers import read_text, scratch
+from unittest import mock
+
+from _helpers import fixed_datetime, read_text, scratch
 from test_clock_palette import make_ctx, write_samples
 from test_hourly_gap import ROWS as HOURLY_ROWS, samples as hourly_samples
 
@@ -27,10 +29,20 @@ import usage_history as uh
 DAILY_ROWS = [{"day": str(d), "date": f"2026-10-{23 + d}", "pct": str(p), "note": ""} for d, p in ((1, 12), (2, 30), (3, 41), (4, 70), (5, 74))]
 
 
+# The daily fixtures are the week of 2026-10-24 (UTC) and "today" is its day 5. The chart takes "today" from the clock, so a test run
+# on any other day used to get a different default selection: pin the clock the chart sees (only the chart; page tests use real time).
+PINNED_NOW = datetime(2026, 10, 28, 12, 0, tzinfo=timezone.utc)
+
+
+def pinned_clock():
+    return mock.patch.object(chart_hud, "datetime", fixed_datetime(PINNED_NOW))
+
+
 def render(view, d, name="w", **cfg):
     out = os.path.join(d, f"{name}-{view}.png")
     rows, ws, extra = (DAILY_ROWS, "2026-10-24", {}) if view == "daily" else (HOURLY_ROWS, "2026-01-01", {"samples": hourly_samples()})
-    meta = chart_hud.render(rows, out, ws, dict({"lang": "en", "view": view, "tz": "UTC"}, **extra, **cfg))
+    with pinned_clock():
+        meta = chart_hud.render(rows, out, ws, dict({"lang": "en", "view": view, "tz": "UTC"}, **extra, **cfg))
     return out, meta
 
 
@@ -150,11 +162,11 @@ class PictureTests(unittest.TestCase):
         sel = meta["sel"]
         n = len(sel["cols"])
         self.assertGreater(n, 10)
-        self.assertEqual(sel["i"], n - 1)  # the right list is newest first: the default is its top row
+        self.assertEqual(sel["i"], n - 1)  # the default is the newest hour (the list's order is the sort toggle's: newest first by default)
         shown = [(k, r) for k, r in enumerate(sel["rows"]) if r]
         self.assertEqual(len(shown), n)  # no row cap: every hour of the chart is in the list
         self.assertEqual(max(k for k, _ in shown), n - 1)
-        self.assertEqual(min(shown, key=lambda kr: kr[1][1])[0], n - 1)  # topmost card
+        self.assertEqual(min(shown, key=lambda kr: kr[1][1])[0], n - 1)  # topmost card: the newest hour (oldest first is the toggle's other order)
         self.assertIn("→", sel["labels"][n - 1])
         W = 1800
         for k in range(n):
@@ -302,7 +314,7 @@ def week_samples(hours=7 * 24):
 
 
 class HourlyListTests(unittest.TestCase):
-    """The per-hour list is not limited to one day: every hour row of the 7-day chart is in it (newest first, scrolled by the page)."""
+    """The per-hour list is not limited to one day: every hour row of the 7-day chart is in it (newest first by default, oldest first with the sort toggle; scrolled by the page)."""
 
     @classmethod
     def setUpClass(cls):
@@ -325,11 +337,11 @@ class HourlyListTests(unittest.TestCase):
         dates = {lb[:5] for lb in sel["labels"]}
         self.assertEqual(len(dates), 7, sorted(dates))  # all seven days are in the list, not only the newest one
 
-    def test_list_is_newest_first_and_the_default_is_its_top_row(self):
+    def test_list_is_newest_first_by_default_and_the_default_selection_is_the_newest_hour(self):
         sel = self.sel
         n = len(sel["rows"])
         tops = [sel["rows"][k][1] for k in range(n)]
-        self.assertEqual(tops, sorted(tops, reverse=True))  # k = oldest .. newest; the newest sits at the top
+        self.assertEqual(tops, sorted(tops, reverse=True))  # k = oldest .. newest; the newest sits at the top (see test_log_sort for oldest first)
         self.assertEqual(tops[n - 1], 0.0)
         self.assertEqual(sel["i"], n - 1)
         self.assertLess(sel["labels"][0], sel["labels"][n - 1])  # 'MM-DD HH:MM' sorts by time within the week
@@ -527,7 +539,7 @@ class PageTests(unittest.TestCase):
         page = self.page()
         self.assertIn("<div class='gwrap' data-wv='week'>", page)
         wk = re.search(r"<div class='gwrap' data-wv='week'>(.*?)(?=data-wv='daily')", page, re.S).group(1)
-        self.assertNotIn("dsel", wk)  # the overview has no selection
+        self.assertNotIn("dsel", re.sub(r"base64,[A-Za-z0-9+/=]+", "", wk))  # the overview has no selection (not counting the embedded picture's base64)
 
 
 STUB = r"""
