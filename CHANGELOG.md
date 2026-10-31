@@ -6,6 +6,34 @@ MAJOR for changes that need you to do something, MINOR for new features, PATCH f
 The current version is in the `VERSION` file and shown small at the top of the page.
 The changelog is kept in English only; [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md) is no longer updated.
 
+## [1.12.0] - 2026-10-31
+
+### Added
+- **Security test items.** `tests/test_security.py` now has 77 tests (23 before, 54 new) that start the
+  real servers on a random local port in a temporary folder. They check: loopback bind and the `--allow-remote` refusal, the write token
+  on every POST route, Host / Origin checks, allowed HTTP methods, path traversal on the file routes, HTML / script text in check-ins and
+  built-in-tab names, malformed or oversized queries, bodies and CSV files, response headers, and the tracked files (no tokens or personal
+  e-mail addresses, no `eval` / `exec` / `shell=True`). A README section lists the items. This is a list of what is tested, not a claim
+  that the program has no vulnerabilities.
+
+### Fixed
+- **Six low-impact gaps the new security tests found (seven tests) are fixed**, and their tests are ordinary passing tests now:
+  1. A POST with the token and `Content-Length: -1` (or any non-numeric value) no longer keeps a handler thread waiting: both servers answer
+     `400` at once (`local_guard.content_length()`).
+  2. `usage_view.py` refuses a declared request body above 1 MB with `413` before reading it (the history server already read at most 10 KB).
+  3. A CSV field over Python's 131072-character limit (damaged or hand-edited `samples.csv` / `checkins.csv`) no longer breaks
+     `/api/checkins`: the limit is raised to 16 MB, and a row the csv module still cannot parse is skipped instead of raising.
+  4. `checkins.csv`: a name, note or id that starts with `=`, `+`, `-`, `@`, tab or CR is written with a leading single quote so a
+     spreadsheet does not read it as a formula. The dashboard and CLI strip that one quote when they read it back, so what you typed is
+     shown unchanged (a value that already starts with a quote plus such a character gets one more, so it round-trips exactly).
+  5. The history server sends `X-Frame-Options: DENY` and `Content-Security-Policy: frame-ancestors 'none'`, so the page cannot be
+     framed by another site.
+  6. `usage_view.py` sends `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`.
+  7. `usage_view.py` HTML-escapes the config `title`.
+- **File routes (`.png` / `.json`) in the history server** only serve one plain file name per path segment: a segment containing a
+  backslash, a colon or NUL is answered with `404`. (On Windows a backslash is a path separator, so `..\x.png` could have pointed outside
+  the history folder; this was not verified on Windows, the guard is a precaution and is covered by a test that runs on every platform.)
+
 ## [1.11.1] - 2026-10-31
 
 ### Changed

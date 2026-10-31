@@ -457,6 +457,50 @@ Grok Build 沒有「不開畫面就印出用量」的指令；`grok -p "/usage"`
 </details>
 
 
+<details>
+<summary><b>資安測試項目（我們測了什麼）</b></summary>
+
+`tests/test_security.py`（共 77 項測試）會在臨時資料夾、隨機本機埠啟動真正的伺服器，檢查下列項目。這裡只是列出專案測了什麼，沒有其他意思。
+
+- 兩個伺服器預設只綁定 `127.0.0.1`；沒加 `--allow-remote` 時，非本機的 `--host` 會被拒絕啟動（結束碼 2）。
+- 加了 `--allow-remote` 後，寫入仍需 token，不認得的 `Host` 仍會被拒絕。
+- 每個 POST 路由都要帶本次啟動的 token：沒帶、帶錯、跨站的 `Origin` / `Sec-Fetch-Site`、用 GET 都會被拒絕；新增路由若漏掉檢查，測試會失敗。
+- token 是隨機的（至少 40 字元），檔案權限為 600，不會出現在 API 回應或其他資料檔裡。
+- `Host` 標頭不是本機（DNS rebinding）時回 `421`。
+- 只服務 GET 與 POST；PUT、DELETE、PATCH、OPTIONS、TRACE、HEAD 會被拒絕，也不送出 CORS 標頭。
+- 檔案路由的路徑穿越（`../`、`%2e%2e`、`%2f`、`%5c`、雙重編碼、絕對路徑、NUL）讀不到歷史資料夾以外的東西（token、CSV、設定檔）。
+- `/api/ledger` 不從請求取得檔名。
+- 打卡的名稱、備註、搜尋字，以及「內建」分頁的 bot 與活動名稱中的 HTML／script 文字，在頁面資料裡都是轉義後的；API 以 JSON 回應。
+- 打卡、「內建」分頁、時鐘提示的頁面腳本不使用 `innerHTML` 等會解析 HTML 的寫法。
+- 自訂吉祥物 SVG 只以 `<img>` 的 data URI 載入；含 entity、沒有 `<svg>` 根元素、超過 200 KB 或含 NUL 的檔案會被拒絕。
+- 不正常的查詢參數（超長、編碼錯誤、重複 2000 次、NUL）不會讓伺服器停止。
+- 超長的請求行、大量標頭、20 條沒送完的連線，不會擋住其他請求。
+- 不正常的 POST 內容（壞掉的 JSON、非 UTF-8、設定欄位的型別錯誤、過大的內容、非數字的 `Content-Length`）會得到 4xx 回應，伺服器繼續運作。
+- 打卡名稱（40 字）與備註（200 字）會被截到上限。
+- 損壞的 CSV／JSON 資料檔（亂碼列、未閉合的引號、NUL）不會讓伺服器停止。
+- 負數或非數字的 `Content-Length` 會立刻得到 `400`；`usage_view.py` 超過 1 MB 的內容回 `413`。
+- 含逗號、引號、換行的值，在 CSV 裡仍留在自己的儲存格；以 `=`、`+`、`-`、`@` 開頭的名稱或備註，寫入時會加上前導引號（試算表不會把它當公式），儀表板顯示時維持原樣。
+- 超過 131072 字元的 CSV 欄位不會讓 `/api/checkins` 出錯。
+- `.png`／`.json` 檔案路由會拒絕含反斜線、冒號或 NUL 的路徑片段。
+- 回應標頭：`X-Content-Type-Options: nosniff`、`Referrer-Policy`、`Cache-Control: no-store`，沒有 CORS 標頭；歷史頁另外送出 `X-Frame-Options: DENY` 與 `frame-ancestors 'none'`。
+- `usage_view.py` 會轉義設定檔的 `title`。
+- 啟動腳本與 `service.py` 不含 `--allow-remote` 或 `0.0.0.0`；範例設定為本機位址、除錯關閉。
+- Python 原始碼沒有 `eval`、`exec`、`os.system`、`os.popen`、`shell=True`、`pickle`。
+- 已追蹤的檔案不含 token、金鑰或個人 e-mail；`.gitignore` 列有 token、設定與資料檔；請求處理器不記錄請求行，也不印出 token。
+
+**先前的已知缺口：**這套測試第一版標為預期失敗的 7 個低風險缺口都已修好，對應的測試現在正常通過（細節見 [CHANGELOG](CHANGELOG.md)）。目前沒有預期失敗的測試。
+
+**免責聲明：**這些測試只涵蓋上面列出的項目。測試通過不代表程式沒有漏洞，也不是資安稽核。
+
+只跑這些測試：
+
+```bash
+python3 -m unittest discover -s tests -p "test_security.py" -v
+```
+
+</details>
+
+
 ## 致謝
 
 本工具主要由 Grok Bot（琥珀）操刀，Gemini 3.8 與 Gemini 4 輔助完成；原作者僅負責協調與激發靈感。後續維護與更新，將視未來情況調整。

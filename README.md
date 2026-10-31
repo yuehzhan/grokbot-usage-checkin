@@ -1094,6 +1094,56 @@ ConPTY-style output, manual entry parsing, process helpers, the Windows lock bra
 behind, local changes, diverged, not a repository, no git, fetch failed). Tests use temporary folders only and no
 network.
 
+### Security tests (items we test)
+
+`tests/test_security.py` (77 tests) starts the real servers on a random local port in a temporary folder and checks the items
+below. It is a list of what the project tests, nothing more.
+
+- Both servers bind to `127.0.0.1` by default; a non-loopback `--host` is refused without `--allow-remote` (exit code 2).
+- With `--allow-remote`, writes still need the token and a foreign `Host` is still refused.
+- Every POST route needs the per-start token: missing token, wrong token, cross-site `Origin` / `Sec-Fetch-Site` and GET are refused;
+  a route added without the check fails a test.
+- The token is random (at least 40 characters), its file is mode 600, and it does not appear in API answers or other data files.
+- A `Host` header that is not this machine (DNS rebinding) gets `421`.
+- Only GET and POST are served; PUT, DELETE, PATCH, OPTIONS, TRACE and HEAD are refused and no CORS header is sent.
+- Path traversal on the file routes (`../`, `%2e%2e`, `%2f`, `%5c`, double encoding, absolute paths, NUL) reads nothing outside the
+  history folder (no token, CSV or config file).
+- `/api/ledger` does not take a file name from the request.
+- HTML / script text in check-in names, notes and search words, and in built-in-tab bot and activity names, ends up escaped in the page
+  data; the API answers as JSON.
+- The page scripts for check-ins, the built-in tab and the clock tooltips never use `innerHTML` or similar.
+- A custom mascot SVG is only loaded as an `<img>` data URI; files with entities, no `<svg>` root, over 200 KB or with NUL are refused.
+- Bad query parameters (very long, invalid encoding, 2000 repeats, NUL) do not stop the server.
+- A very long request line, many headers and 20 unfinished connections do not block other requests.
+- Bad POST bodies (broken JSON, not UTF-8, wrong types in the setting fields, oversized body, non-numeric `Content-Length`) get a
+  4xx answer and the server keeps running.
+- Check-in name (40) and note (200) are cut to their limits.
+- Damaged CSV / JSON data files (garbage rows, unclosed quote, NUL) do not stop the server.
+- A negative or non-numeric `Content-Length` gets `400` at once; `usage_view.py` answers `413` above 1 MB.
+- Values with commas, quotes and line breaks stay in their own CSV cell; a name or note that starts with `=`, `+`, `-` or `@` is written
+  with a leading quote (so a spreadsheet does not read it as a formula) and shown unchanged in the dashboard.
+- A CSV field over 131072 characters does not break `/api/checkins`.
+- The `.png` / `.json` file routes refuse path segments with a backslash, a colon or NUL.
+- Response headers: `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Cache-Control: no-store`, no CORS header; the history page
+  also sends `X-Frame-Options: DENY` and `frame-ancestors 'none'`.
+- The config `title` is HTML-escaped in `usage_view.py`.
+- The launchers and `service.py` contain no `--allow-remote` or `0.0.0.0`; the example config is loopback with debug off.
+- No `eval`, `exec`, `os.system`, `os.popen`, `shell=True` or `pickle` in the Python sources.
+- Tracked files contain no tokens, keys or personal e-mail addresses; `.gitignore` lists the token, config and data files; the request
+  handlers do not log request lines or print the token.
+
+**Earlier known gaps:** the seven low-impact gaps that the first version of this suite recorded as expected failures are fixed and
+their tests now pass normally (details in the [CHANGELOG](CHANGELOG.md)). No expected failures remain.
+
+**Disclaimer:** these tests cover only the items listed above. Passing them does not show that the program has no vulnerabilities, and
+they are not an audit.
+
+Run only these tests:
+
+```bash
+python3 -m unittest discover -s tests -p "test_security.py" -v
+```
+
 </details>
 
 <details>
@@ -1188,7 +1238,7 @@ network.
 
 ## Credits
 
-This tool was built mainly by Grok Bot (琥珀, "Amber"), with Gemini 3.8 and Gemini 4 assisting. The original author only coordinated the work and provided the ideas. Future maintenance and updates will be adjusted as circumstances change.
+This tool was mainly built by Grok Bot (Amber / 琥珀), with help from Gemini 3.8 and Gemini 4; the original author handled coordination and ideas. Future maintenance and updates will depend on circumstances.
 
 
 ## Third-party notices

@@ -11,11 +11,23 @@
 """
 import hmac
 import os
+import re
 import secrets
 from urllib.parse import urlsplit
 
 TOKEN_HEADER = "X-Usage-Token"
 LOOPBACK_NAMES = ("127.0.0.1", "localhost", "::1")
+
+
+def content_length(headers):
+    """The request's Content-Length as an int >= 0 (a missing or empty header is 0). Raises ValueError for anything
+    else (negative, ``abc``, ``1e3``): ``rfile.read(-1)`` would wait for the client to close the connection."""
+    v = (headers.get("Content-Length") or "").strip()
+    if not v:
+        return 0
+    if not re.fullmatch(r"[0-9]+", v):
+        raise ValueError("bad Content-Length")
+    return int(v)
 
 
 def new_token():

@@ -28,7 +28,7 @@ ROUTES
   cross-site `Origin`/`Referer` are refused.
 """
 
-import argparse, datetime as dt_mod, ipaddress, json, math, os, subprocess, sys, threading, time, urllib.parse, webbrowser
+import argparse, datetime as dt_mod, html, ipaddress, json, math, os, subprocess, sys, threading, time, urllib.parse, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -349,7 +349,7 @@ def render_html_page(state: ViewerState) -> str:
         btn_label = "↻"
         lbl_updated = "⏱"
     else:
-        page_title = str(state.cfg_data.get("title") or "Grok Bot Usage & Check-in")
+        page_title = html.escape(str(state.cfg_data.get("title") or "Grok Bot Usage & Check-in"))
         header_title = page_title
         btn_label = "↻ Refresh"
         lbl_updated = "Last updated:"
@@ -818,16 +818,24 @@ def render_html_page(state: ViewerState) -> str:
 """
 
 
+MAX_BODY = 1024 * 1024  # request bodies here are a few bytes (pct); anything above this is refused with 413
+
+
 def make_handler(state: ViewerState):
     class ViewerRequestHandler(BaseHTTPRequestHandler):
         def log_message(self, format: str, *args: Any):
             return
+
+        def _security_headers(self):
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Referrer-Policy", "no-referrer")
 
         def _send_json(self, code: int, payload: Dict[str, Any]):
             body = (json.dumps(payload, ensure_ascii=False) + "\n").encode("utf-8")
             self.send_response(code)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Cache-Control", "no-store")
+            self._security_headers()
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
@@ -837,6 +845,7 @@ def make_handler(state: ViewerState):
             self.send_response(code)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Cache-Control", "no-store")
+            self._security_headers()
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
@@ -876,6 +885,7 @@ def make_handler(state: ViewerState):
                 self.send_response(200)
                 self.send_header("Content-Type", "image/png")
                 self.send_header("Cache-Control", "no-store")
+                self._security_headers()
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
                 self.wfile.write(data)
@@ -889,6 +899,7 @@ def make_handler(state: ViewerState):
                 self.send_response(405)
                 body = b'{"ok": false, "error": "use POST with the X-Usage-Token header"}\n'
                 self.send_header("Allow", "POST")
+                self._security_headers()
                 self.send_header("Content-Type", "application/json; charset=utf-8")
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
@@ -910,7 +921,16 @@ def make_handler(state: ViewerState):
                     self._send_json(code, {"ok": False, "error": why})
                     return
                 pct_val = qs.get("pct", [None])[0]
-                content_len = int(self.headers.get("Content-Length", "0") or "0")
+                try:
+                    content_len = local_guard.content_length(self.headers)
+                except ValueError:
+                    self.close_connection = True
+                    self._send_json(400, {"ok": False, "error": "bad Content-Length"})
+                    return
+                if content_len > MAX_BODY:
+                    self.close_connection = True
+                    self._send_json(413, {"ok": False, "error": "request body too large"})
+                    return
                 if content_len > 0:
                     raw_body = self.rfile.read(content_len).decode("utf-8", errors="replace")
                     ctype = (self.headers.get("Content-Type") or "").lower()

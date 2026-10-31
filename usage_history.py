@@ -932,7 +932,7 @@ def load_extra(ctx):
     p = Path(ctx.extra_csv)
     if not p.exists():
         return out
-    for r in csv.DictReader(p.open(encoding="utf-8")):
+    for r in usage_checkins.dict_rows(p.open(encoding="utf-8")):
         try:
             out.append((ctx.disp(datetime.fromisoformat(r["time"].strip())).replace(tzinfo=None), float(r["usd_used"])))
         except Exception:
@@ -943,7 +943,7 @@ def load_extra(ctx):
 def load_samples(ctx):
     p = ctx.data_dir / "samples.csv"; out = []
     if p.exists():
-        for r in csv.DictReader(p.open(encoding="utf-8")):
+        for r in usage_checkins.dict_rows(p.open(encoding="utf-8")):
             try:
                 out.append((ctx.disp(datetime.fromisoformat(r["timestamp"].strip())), float(r["pct"])))
             except Exception:
@@ -3077,6 +3077,12 @@ def print_search(ctx, res):
                   f"  {us}" + (f"  — {note}" if note else ""))
 
 
+def _plain_name(x):
+    """One URL path segment that names a file directly: not empty, not . / .., and no backslash, colon or NUL
+    (Windows treats ``\\`` as a separator and ``C:`` as a drive, so such a segment could leave the folder)."""
+    return bool(x) and x not in (".", "..") and not any(c in x for c in "\\:\x00")
+
+
 def serve(ctx, allow_remote=False):
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
     if ctx.host not in ("127.0.0.1", "localhost", "::1") and not allow_remote:
@@ -3424,6 +3430,8 @@ def serve(ctx, allow_remote=False):
                 self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Referrer-Policy", "same-origin")
+            self.send_header("X-Frame-Options", "DENY")  # the page cannot be framed by another site
+            self.send_header("Content-Security-Policy", "frame-ancestors 'none'")
             for k, v in (extra or {}).items():
                 self.send_header(k, v)
             self.end_headers(); self.wfile.write(body)
@@ -3454,11 +3462,11 @@ def serve(ctx, allow_remote=False):
                 return self._send(200, page.encode("utf-8"), "text/html; charset=utf-8")
             parts = u.path[1:].split("/")
             if (parts[-1] == "week-current.json" or CLOCK_JSON_RE.match(parts[-1])) and (len(parts) == 1 or (len(parts) == 3 and parts[0] == "pal" and is_dir_key(parts[1]))) \
-                    and all(x and x not in (".", "..") for x in parts):
+                    and all(_plain_name(x) for x in parts):
                 p = ctx.hist_dir.joinpath(*parts)  # gauge overlay geometry / clock check-in tooltips (what the page already shows)
                 return self._send(200, p.read_bytes()) if p.is_file() else self._send(404, {"ok": False, "error": "not found"})
             if u.path.endswith(".png") and (len(parts) == 1 or (len(parts) == 3 and parts[0] == "pal" and is_dir_key(parts[1]))) \
-                    and all(x and x not in (".", "..") for x in parts):
+                    and all(_plain_name(x) for x in parts):
                 p = ctx.hist_dir.joinpath(*parts)
                 # versioned palette images (?v=<render id>) may be cached: the page preloads them before swapping
                 cache = {"Cache-Control": "private, max-age=86400"} if len(parts) == 3 and g("v") else None
@@ -3487,7 +3495,7 @@ def serve(ctx, allow_remote=False):
                     return self._send(code, {"ok": False, "error": why})
             if u.path == "/api/checkin":
                 try:
-                    n = int(self.headers.get("Content-Length") or 0); raw = self.rfile.read(min(n, 10000)).decode("utf-8") if n else ""
+                    n = local_guard.content_length(self.headers); raw = self.rfile.read(min(n, 10000)).decode("utf-8") if n else ""
                     d = json.loads(raw) if raw.strip().startswith("{") else \
                         {k: (v if k in ("category", "categories") else v[0]) for k, v in parse_qs(raw).items()}
                 except Exception:
@@ -3497,7 +3505,7 @@ def serve(ctx, allow_remote=False):
                 return self._send(*checkin(d))
             if u.path == "/api/manual":
                 try:
-                    n = int(self.headers.get("Content-Length") or 0); raw = self.rfile.read(min(n, 4000)).decode("utf-8") if n else ""
+                    n = local_guard.content_length(self.headers); raw = self.rfile.read(min(n, 4000)).decode("utf-8") if n else ""
                     d = json.loads(raw) if raw.strip().startswith("{") else {k: v[0] for k, v in parse_qs(raw).items()}
                 except Exception:
                     return self._send(400, {"ok": False, "error": "bad json"})
@@ -3512,7 +3520,7 @@ def serve(ctx, allow_remote=False):
                 return self._send(*update_rollback(self.client_address[0]))
             if u.path == "/api/palette/render":
                 try:
-                    n = int(self.headers.get("Content-Length") or 0); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
+                    n = local_guard.content_length(self.headers); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
                     d = json.loads(raw or "{}")
                 except Exception:
                     return self._send(400, {"ok": False, "error": "bad json"})
@@ -3521,7 +3529,7 @@ def serve(ctx, allow_remote=False):
                 return self._send(*palette_render(d))
             if u.path in ("/api/lang", "/api/tz", "/api/anim", "/api/mascot", "/api/seasonal"):
                 try:
-                    n = int(self.headers.get("Content-Length") or 0); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
+                    n = local_guard.content_length(self.headers); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
                     d = json.loads(raw or "{}")
                 except Exception:
                     return self._send(400, {"ok": False, "error": "bad json"})
@@ -3530,7 +3538,7 @@ def serve(ctx, allow_remote=False):
                 return self._send(*pick_setting(u.path[5:], d))
             if u.path == "/api/interval":
                 try:
-                    n = int(self.headers.get("Content-Length") or 0); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
+                    n = local_guard.content_length(self.headers); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
                     d = json.loads(raw or "{}")
                 except Exception:
                     return self._send(400, {"ok": False, "error": "bad json"})
@@ -3539,7 +3547,7 @@ def serve(ctx, allow_remote=False):
                 return self._send(*interval_setting(d))
             if u.path == "/api/display-offset":
                 try:
-                    n = int(self.headers.get("Content-Length") or 0); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
+                    n = local_guard.content_length(self.headers); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
                     d = json.loads(raw or "{}")
                 except Exception:
                     return self._send(400, {"ok": False, "error": "bad json"})
@@ -3548,7 +3556,7 @@ def serve(ctx, allow_remote=False):
                 return self._send(*offset_setting(d))
             if u.path == "/api/patterns":
                 try:
-                    n = int(self.headers.get("Content-Length") or 0); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
+                    n = local_guard.content_length(self.headers); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
                     d = json.loads(raw or "{}")
                 except Exception:
                     return self._send(400, {"ok": False, "error": "bad json"})
@@ -3557,7 +3565,7 @@ def serve(ctx, allow_remote=False):
                 return self._send(*patterns_setting(d))
             if u.path == "/api/update/settings":
                 try:
-                    n = int(self.headers.get("Content-Length") or 0); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
+                    n = local_guard.content_length(self.headers); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
                     d = json.loads(raw or "{}")
                 except Exception:
                     return self._send(400, {"ok": False, "error": "bad json"})

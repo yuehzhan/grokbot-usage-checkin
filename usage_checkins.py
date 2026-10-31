@@ -33,6 +33,10 @@ STATUSES = ("done", "interrupted")
 DEFAULT_MAX_CATEGORIES = 3
 DEFAULT_OPEN_LIMIT_HOURS = 6.0
 DEFAULT_USAGE_TOLERANCE_MIN = 90
+CSV_FIELD_LIMIT = 16 * 1024 * 1024  # Python's default (131072 chars) makes csv raise on one long hand-edited field
+FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
+
+csv.field_size_limit(max(csv.field_size_limit(), CSV_FIELD_LIMIT))  # process-wide; every reader of the data CSVs imports this module
 
 
 class CheckinError(ValueError):
@@ -45,6 +49,36 @@ class CheckinError(ValueError):
 
 def clean(s, n: int) -> str:
     return " ".join(str(s or "").split())[:n]
+
+
+def dict_rows(f) -> Iterable[Dict]:
+    """csv.DictReader rows that skips a row the csv module cannot parse (e.g. a field above CSV_FIELD_LIMIT)."""
+    it = csv.DictReader(f)
+    while True:
+        try:
+            yield next(it)
+        except StopIteration:
+            return
+        except csv.Error:
+            continue
+
+
+def _formula_like(t: str) -> bool:
+    return t.lstrip("'").startswith(FORMULA_START)
+
+
+def csv_safe(s: str) -> str:
+    """Text for a spreadsheet-readable cell: a value that would start a formula (= + - @ tab CR) gets a leading
+    single quote. A value that is already quote(s) plus such a character gets one more, so unquote() gives
+    back exactly what was typed."""
+    t = str(s or "")
+    return "'" + t if _formula_like(t) else t
+
+
+def unquote(s: str) -> str:
+    """Undo csv_safe() when reading a cell back."""
+    t = str(s or "")
+    return t[1:] if t.startswith("'") and _formula_like(t[1:]) else t
 
 
 def new_id() -> str:
@@ -111,17 +145,17 @@ def read(path: str, cats: Optional["usage_categories.Categories"] = None) -> Lis
     if not os.path.exists(path):
         return out
     with open(path, newline="", encoding="utf-8") as f:
-        for i, r in enumerate(csv.DictReader(f)):
+        for i, r in enumerate(dict_rows(f)):
             t = _parse_ts(r.get("timestamp"))
-            name = clean(r.get("name"), 40)
+            name = clean(unquote(r.get("name")), 40)
             if t is None or not name:
                 continue
             phase = (r.get("phase") or "").strip().lower()
             phase = phase if phase in PHASES else "point"
             status = (r.get("status") or "").strip().lower()
-            out.append({"t": t, "name": name, "note": clean(r.get("note"), 200),
+            out.append({"t": t, "name": name, "note": clean(unquote(r.get("note")), 200),
                         "cats": parse_categories(r.get("category"), cats, 99, strict=False),
-                        "id": clean(r.get("id"), 40) or f"legacy-{i + 1}", "phase": phase,
+                        "id": clean(unquote(r.get("id")), 40) or f"legacy-{i + 1}", "phase": phase,
                         "status": status if (phase == "end" and status in STATUSES) else "", "line": i + 2})
     out.sort(key=lambda e: e["t"])
     return out
@@ -137,7 +171,7 @@ def _append(path: str, lock_dir: str, row: List[str]) -> None:
             w = csv.writer(f)
             if new:
                 w.writerow(HEADER)
-            w.writerow(row)
+            w.writerow([row[0], csv_safe(row[1]), csv_safe(row[2])] + row[3:4] + [csv_safe(row[4])] + row[5:])
 
 
 def open_sessions(events: Iterable[Dict]) -> List[Dict]:
@@ -224,7 +258,7 @@ def load_samples(path: str) -> List[Tuple[datetime, Optional[float]]]:
     if not os.path.exists(path):
         return out
     with open(path, newline="", encoding="utf-8") as f:
-        for r in csv.DictReader(f):
+        for r in dict_rows(f):
             t = _parse_ts(r.get("timestamp"))
             if t is None:
                 continue
