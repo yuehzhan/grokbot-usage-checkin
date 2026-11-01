@@ -3,7 +3,7 @@
 The picture is one PNG, so chart_hud draws the selection hidden and writes two sprites (what changes between "nothing" and
 "everything" selected); the page clips them to the chosen column / card. These tests check the picture side (default =
 today / the newest hour, pixel-exact composites, bars untouched, minimum hourly band), the page (click areas, pending
-days selectable, default, no stored selection, no new text) and the click logic (run with node)."""
+days not listed or selectable, default on a day with data, no stored selection, no new text) and the click logic (run with node)."""
 import json
 import os
 import re
@@ -87,9 +87,11 @@ class PictureTests(unittest.TestCase):
     def test_daily_default_is_today_and_covers_all_seven_days(self):
         _, meta = render("daily", self.d, sel_sprites=True)
         sel = meta["sel"]
-        self.assertEqual(sel["i"], 4)  # day 5 of 7 is today (the cycle's day_now)
+        self.assertEqual(sel["i"], 4)  # day 5 of 7 is today (the cycle's day_now) and it has a reading
         self.assertEqual((len(sel["cols"]), len(sel["rows"])), (7, 7))
-        self.assertTrue(all(sel["rows"]), "pending days have a card too")
+        self.assertTrue(all(sel["rows"][:5]), "recorded days have a card")
+        self.assertEqual(sel["rows"][5:], [None, None], "pending days have no card in the list")
+        self.assertEqual(sel["pending"], [5, 6])
         for sp in ("off", "on"):
             self.assertTrue(os.path.isfile(os.path.join(self.d, f"w-daily-{sp}.png")), sp)
 
@@ -102,24 +104,103 @@ class PictureTests(unittest.TestCase):
 
     def test_sprites_make_exactly_the_picture_of_that_selection(self):
         """default picture + off sprite + on sprite clipped to column k and card k == the picture drawn with day k selected,
-        for a recorded day and for pending days (mask and highlight alike)."""
+        for the recorded days (mask and highlight alike); pending days are not selectable."""
         _, meta = render("daily", self.d, sel_sprites=True)
-        for k in (0, 1, 5, 6):
+        for k in (0, 1, 3, 4):
             want, _m = render("daily", self.d, name=f"k{k}", sel_day=k + 1)
             got, ref = composite(self.d, "daily", meta, k), px(want)
             wrong = (np.abs(got - ref).max(axis=2) > 6).mean()
             self.assertLess(wrong, 0.0005, f"day {k + 1}: {wrong:.5f} of the pixels differ")
             self.assertEqual(_m["sel"]["i"], k)
 
-    def test_selected_pending_day_keeps_its_card_text(self):
-        d1, _ = render("daily", self.d, name="a", sel_day=5)
-        d2, _ = render("daily", self.d, name="b", sel_day=7)
-        a, b = px(d1), px(d2)
-        # the text of day 6 / 7 cards is the same drawing; only the box around card 7 is added
-        h, w = a.shape[:2]
-        card6 = (slice(int(h * 0.80), int(h * 0.86)), slice(int(w * 0.70), int(w * 0.80)))  # the "Day 6" label
-        self.assertLess(np.abs(a[card6] - b[card6]).max(), 8)
-        self.assertGreater((np.abs(a - b).max(axis=2) > 6).sum(), 100)
+    @staticmethod
+    def list_texts(view, d, rows=DAILY_ROWS, **cfg):
+        """Every string the render draws on the figure's overlay axes (the list's rows are drawn there)."""
+        got = []
+        real = matplotlib.axes.Axes.text
+
+        def spy(self, x, y, s, *a, **kw):
+            got.append((str(s), y))
+            return real(self, x, y, s, *a, **kw)
+        out = os.path.join(d, f"t-{view}-{cfg.get('lang', 'en')}-{cfg.get('list_order', '')}-{len(rows)}.png")
+        with pinned_clock(), mock.patch.object(matplotlib.axes.Axes, "text", spy):
+            chart_hud.render(rows, out, "2026-10-24", dict({"lang": "en", "view": view, "tz": "UTC"}, **cfg))
+        return got
+
+    def test_daily_list_has_no_rows_for_days_without_a_record_yet(self):
+        """Days 6 and 7 are still pending: no "Day 6" / "Day 7" row, no "scheduled" note, no "--" values in the 每日紀錄 list."""
+        for order in ("old", "new"):
+            texts = [t for t, _ in self.list_texts("daily", self.d, list_order=order)]
+            self.assertEqual([t for t in texts if re.fullmatch(r"Day \d", t)], [f"Day {n}" for n in range(1, 6)], order)
+            self.assertNotIn("--", texts, order)
+            self.assertFalse([t for t in texts if "scheduled" in t or "10-29" in t or "10-30" in t], order)
+
+    def test_remaining_rows_are_packed_at_the_top_in_either_order(self):
+        for order, want in (("old", [1, 2, 3, 4, 5]), ("new", [5, 4, 3, 2, 1])):
+            rows = {t: y for t, y in self.list_texts("daily", self.d, list_order=order) if re.fullmatch(r"Day \d", t)}
+            self.assertEqual(sorted(rows, key=lambda t: -rows[t]), [f"Day {n}" for n in want], order)  # top to bottom
+        top = {o: max(y for t, y in self.list_texts("daily", self.d, list_order=o) if re.fullmatch(r"Day \d", t)) for o in ("old", "new")}
+        self.assertEqual(top["old"], top["new"])  # the first row sits at the very top of the card in both orders (no empty slots above it)
+        week = {t: y for t, y in self.list_texts("week", self.d) if re.fullmatch(r"Day \d", t)}
+        self.assertEqual(max(week.values()), top["old"])  # (same first-row position as the unchanged overview list)
+
+    def test_a_day_inside_the_recorded_span_without_a_reading_keeps_its_row(self):
+        gap = [r for r in DAILY_ROWS if r["day"] != "3"]
+        texts = [t for t, _ in self.list_texts("daily", self.d, rows=gap)]
+        self.assertEqual([t for t in texts if re.fullmatch(r"Day \d", t)], ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5"])
+        self.assertIn("10-26  " + str(chart_hud.BASE_STRINGS["no_data"]), texts)
+        self.assertIn("--", texts)  # its own "--" values stay (only days after the latest reading are dropped)
+
+    def test_overview_list_still_shows_the_pending_days(self):
+        texts = [t for t, _ in self.list_texts("week", self.d)]
+        self.assertEqual(texts.count("--"), 4)  # days 6 and 7: cumulative + increment
+        self.assertEqual([t for t in texts if re.fullmatch(r"Day \d", t)], [f"Day {n}" for n in range(1, 8)])
+        self.assertIn("10-29  scheduled", texts)
+        self.assertIn("10-30  scheduled", texts)
+
+    def test_every_language_hides_the_pending_note_in_the_daily_view(self):
+        for lang in list(chart_hud.TRANSLATIONS) + ["en"]:  # numeric is the privacy render
+            L = dict(chart_hud.BASE_STRINGS, **chart_hud.TRANSLATIONS.get(lang, {}))
+            texts = [t for t, _ in self.list_texts("daily", self.d, lang=lang)]
+            self.assertFalse([t for t in texts if "10-29" in t or "10-30" in t], lang)
+            week = [t for t, _ in self.list_texts("week", self.d, lang=lang)]
+            self.assertTrue([t for t in week if "10-29" in t and t.endswith(str(L["future_note"]))], lang)
+        # privacy forces the numeric chart, same hiding, in both list orders
+        for order in ("old", "new"):
+            texts = [t for t, _ in self.list_texts("daily", self.d, lang="zh-TW", privacy=True, list_order=order)]
+            self.assertEqual([t for t in texts if re.fullmatch(r"D\d", t)], [f"D{n}" for n in range(1, 6)], order)
+            self.assertFalse([t for t in texts if "10-29" in t or "10-30" in t], order)
+
+    def test_default_selection_is_always_a_day_with_data(self):
+        """Today is day 5. With no reading yet for today, the chart opens on the latest reading, never on a pending day.
+        An explicit sel_day past that reading is clamped the same way. A gap that is today, while a later day was recorded,
+        is not the default either."""
+        out = os.path.join(self.d, "early.png")
+        early = [r for r in DAILY_ROWS if int(r["day"]) <= 3]
+        with pinned_clock():
+            meta = chart_hud.render(early, out, "2026-10-24", {"lang": "en", "view": "daily", "tz": "UTC", "sel_sprites": True})
+        self.assertEqual(meta["sel"]["i"], 2)  # day 3, the latest reading; days 4..7 are still pending
+        self.assertEqual(meta["sel"]["pending"], [3, 4, 5, 6])
+        self.assertEqual([r is not None for r in meta["sel"]["rows"]], [True] * 3 + [False] * 4)
+        with pinned_clock():
+            clamped = chart_hud.render(DAILY_ROWS, os.path.join(self.d, "clamp.png"), "2026-10-24",
+                                       {"lang": "en", "view": "daily", "tz": "UTC", "sel_day": 7})
+        self.assertEqual(clamped["sel"]["i"], 4)  # day 7 has no record yet: the selection stays on day 5
+        later = DAILY_ROWS[:2] + [{"day": "6", "date": "2026-10-29", "pct": "80", "note": ""},
+                                  {"day": "7", "date": "2026-10-30", "pct": "90", "note": ""}]
+        with pinned_clock():
+            gap_today = chart_hud.render(later, os.path.join(self.d, "gap.png"), "2026-10-24",
+                                         {"lang": "en", "view": "daily", "tz": "UTC"})
+        self.assertEqual(gap_today["sel"]["i"], 1)  # today (day 5) is a gap inside the span: open on day 2, which has a reading
+        self.assertIn(5, [d + 1 for d, r in enumerate(gap_today["sel"]["rows"]) if r])  # day 5 keeps its row
+
+    def test_a_gap_inside_the_span_can_still_be_selected(self):
+        gap = [r for r in DAILY_ROWS if r["day"] != "3"]
+        out = os.path.join(self.d, "gap-sel.png")
+        with pinned_clock():
+            meta = chart_hud.render(gap, out, "2026-10-24", {"lang": "en", "view": "daily", "tz": "UTC", "sel_day": 3})
+        self.assertEqual(meta["sel"]["i"], 2)
+        self.assertIsNotNone(meta["sel"]["rows"][2])
 
     def test_mask_sits_behind_the_bars_and_does_not_recolour_them(self):
         made = []
@@ -280,7 +361,7 @@ class MaskIsDrawnTests(unittest.TestCase):
     def test_moved_selection_shows_the_band_on_the_clicked_day_only(self):
         _, meta = render("daily", self.d, sel_sprites=True)
         sel = meta["sel"]
-        for k in (1, 6):  # a recorded day and a pending one
+        for k in (1, 3):  # two recorded days (a pending day cannot be selected)
             img = composite(self.d, "daily", meta, k)
             same = [j for j in range(7) if j != k and j % 2 == k % 2]
             for j in same:
@@ -426,7 +507,8 @@ class PageTests(unittest.TestCase):
         write_samples(self.data)
         d0 = (datetime.now(timezone.utc) - timedelta(days=3)).strftime("%Y-%m-%d")  # the week began 3 days ago: today is day 4
         with open(os.path.join(self.data, f"week-{d0}.csv"), "w", encoding="utf-8") as fh:
-            fh.write("day,date,pct,note\n1,%s,9,\n" % d0)
+            fh.write("day,date,pct,note\n" + "".join("%d,%s,%d,\n" % (n + 1, (datetime.now(timezone.utc) - timedelta(days=3 - n)).strftime("%Y-%m-%d"), p)
+                                                   for n, p in enumerate((9, 21, 33, 46))))  # days 1..4 recorded, today = day 4: days 5..7 are still pending
         uh.render_history(make_ctx(self.data, **kw))
         self.hist = os.path.join(self.data, "history")
         return read_text(os.path.join(self.hist, "index.html"))
@@ -448,6 +530,8 @@ class PageTests(unittest.TestCase):
         meta = json.loads(read_text(os.path.join(self.hist, "week-current.json")))
         self.assertEqual(meta["sel"]["daily"]["i"], 3)
         self.assertEqual(len(meta["sel"]["daily"]["cols"]), 7)
+        self.assertEqual(meta["sel"]["daily"]["pending"], [4, 5, 6])
+        self.assertEqual([bool(r) for r in meta["sel"]["daily"]["rows"]], [True] * 4 + [False] * 3)
         self.assertEqual(meta["sel"]["hourly"]["i"], len(meta["sel"]["hourly"]["cols"]) - 1)
 
     def test_every_day_is_clickable_and_today_is_selected(self):
@@ -455,10 +539,10 @@ class PageTests(unittest.TestCase):
         daily = self.wrap(page, "daily")
         cols = re.findall(r"<div class='dsel dcol' data-i='(\d)'", daily)
         cards = re.findall(r"<button type='button' class='dsel dcard' data-i='(\d)' aria-pressed='(true|false)' aria-label='([^']*)'", daily)
-        self.assertEqual(cols, [str(i) for i in range(7)])
-        self.assertEqual([c[0] for c in cards], [str(i) for i in range(7)])  # day 5, 6, 7 (pending) included
+        self.assertEqual(cols, [str(i) for i in range(4)])  # days 1..4 have a reading; 5..7 (pending) have no click area
+        self.assertEqual([c[0] for c in cards], [str(i) for i in range(4)])  # ... and no card
         self.assertEqual([c[0] for c in cards if c[1] == "true"], ["3"])  # today = day 4
-        self.assertEqual([c[2] for c in cards], [f"Day {i}" for i in range(1, 8)])
+        self.assertEqual([c[2] for c in cards], [f"Day {i}" for i in range(1, 5)])
         self.assertIn("data-sel='3'", daily)
         for bad in ("disabled", "aria-disabled", "tabindex='-1'", "pointer-events:none;'"):
             self.assertNotIn(bad, re.sub(r"<img class='ssprite'[^>]*>", "", daily), bad)
@@ -532,7 +616,7 @@ class PageTests(unittest.TestCase):
     def test_privacy_labels_are_symbols(self):
         page = self.page(privacy=True)
         labels = re.findall(r"class='dsel dcard' data-i='\d+' aria-pressed='\w+' aria-label='([^']*)'", self.wrap(page, "daily"))
-        self.assertEqual(len(labels), 7)
+        self.assertEqual(len(labels), 4)
         for t in labels:
             self.assertIsNone(re.search(r"[A-Za-z]{2,}", t), t)
 
@@ -610,13 +694,26 @@ class ClickLogicTests(unittest.TestCase):
         self.assertEqual(out["a"]["clip"][1], "inset(10% 58% 40% 28%)")
         self.assertEqual(out["a"]["pressed"][2], "true")
 
-    def test_pending_days_are_selectable_like_any_other(self):
-        out = self.run_js("click(5,'dcol'); out.a = state(); click(6,'dcard'); out.b = state();")
-        for k in ("a", "b"):
-            self.assertEqual(out[k]["hidden"], [False, False, False], k)
-        self.assertEqual(out["a"]["pressed"][5], "true")
-        self.assertEqual(out["b"]["pressed"][6], "true")
-        self.assertEqual(out["b"]["clip"][1], "inset(10% 2% 40% 84%)")
+    def test_pending_days_do_nothing_when_clicked(self):
+        """The page has no click area for a day with no record (select_html leaves it out), so nothing links to the list."""
+        sel = {"i": 4, "cols": [[i * 14, 10, 14, 50] for i in range(7)], "pending": [5, 6],
+               "rows": [[70, 10 + i * 8, 25, 8] for i in range(5)] + [None, None]}
+        html_, _ = uh.select_html(sel, lambda k: f"Day {k + 1}")
+        self.assertEqual(re.findall(r"class='dsel dcol' data-i='(\d)'", html_), ["0", "1", "2", "3", "4"])
+        self.assertEqual(re.findall(r"class='dsel dcard' data-i='(\d)'", html_), ["0", "1", "2", "3", "4"])
+        areas = [{"i": int(i), "c": "dcol", "s": {}} for i in re.findall(r"class='dsel dcol' data-i='(\d)'", html_)] \
+            + [{"i": int(i), "c": "dcard", "s": {}} for i in re.findall(r"class='dsel dcard' data-i='(\d)'", html_)]
+        out = self.run_js("click(5,'dcol'); out.a = state(); click(6,'dcol'); out.b = state(); click(6,'dcard'); out.c = state();"
+                          " click(2,'dcol'); out.d = state();", areas=areas)
+        for k in ("a", "b", "c"):
+            self.assertEqual(out[k]["hidden"], [True, True, True], k)  # nothing selected, nothing re-shown
+            self.assertEqual(out[k]["pressed"], out["start"]["pressed"], k)
+        self.assertEqual(out["d"]["hidden"], [False, False, False])  # a day with data still links both ways
+        self.assertEqual(out["events"], ["click"])  # (no hover handler either)
+
+    def test_hover_has_no_handler_at_all(self):
+        for word in ("mouseover", "mouseenter", "mousemove", "pointerover", "pointerenter", "hover"):
+            self.assertNotIn(word, uh.SEL_JS)
 
     def test_hourly_band_uses_the_wider_clip(self):
         areas = ([{"i": i, "c": "dcol", "s": {"left": f"{i}%", "top": "10%", "width": "0.3%", "height": "50%"}, "clip": f"{i - 0.2},10,0.7,50"} for i in range(1, 6)]

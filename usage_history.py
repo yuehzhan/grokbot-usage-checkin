@@ -2450,7 +2450,10 @@ def select_html(sel, label_of, strip_src=None):
         return None, None
     box = lambda r: f"left:{r[0]}%;top:{r[1]}%;width:{r[2]}%;height:{r[3]}%"
     out = [f"<img class='ssprite' alt='' hidden data-sel='{i0}'><img class='ssprite' alt='' hidden><img class='ssprite' alt='' hidden>"]
+    pending = {int(k) for k in (sel.get("pending") or [])}  # days with no record yet: no click area, so nothing links to the list
     for k, r in enumerate(cols):
+        if k in pending:
+            continue
         clip = f" data-clip='{','.join(str(v) for v in clips[k])}'" if clips[k] and clips[k] != r else ""
         out.append(f"<div class='dsel dcol' data-i='{k}' aria-hidden='true' style='{box(r)}'{clip}></div>")
     strip = sel.get("strip")

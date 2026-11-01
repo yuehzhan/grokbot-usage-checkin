@@ -2311,7 +2311,10 @@ def draw_daily_bars_panel(fig, ax_hud, data, cfg, L, pal, card=None, axes=None, 
         spine.set_visible(False)
 
 
-def draw_daily_log_panel(ax_hud, data, cfg, L, pal, t_info):
+def draw_daily_log_panel(ax_hud, data, cfg, L, pal, t_info, hide_pending=False):
+    """The 每日紀錄 list. hide_pending (the 每日增量 view): days after the latest recorded one (nothing read yet, "待紀錄" / "--")
+    get no row at all, the rows that remain are packed at the top of the card in the list's order; days inside the recorded span
+    that have no reading of their own still show their "no data" row. The 本週總覽 list keeps all seven rows."""
     is_num = bool(cfg.get("privacy")) or (cfg.get("_eff_lang") == "numeric")
     pace = cfg["pace"]
     inc_map = data["inc_map"]
@@ -2340,7 +2343,8 @@ def draw_daily_log_panel(ax_hud, data, cfg, L, pal, t_info):
     sel = data.get("sel")
 
     newest_first = data.get("order") == "new"
-    pos_of = (lambda d: 7 - d) if newest_first else (lambda d: d - 1)  # row position (0 = top) of day d
+    n_rows = min(max(int(latest_day), 1), 7) if hide_pending else 7  # rows that are listed (the rest of the card stays empty)
+    pos_of = (lambda d: n_rows - d) if newest_first else (lambda d: d - 1)  # row position (0 = top) of day d
 
     def highlight(d, col):
         """The highlighted card (box in the day's colour). With a day selection every day gets one, hidden until selected
@@ -2356,7 +2360,7 @@ def draw_daily_log_panel(ax_hud, data, cfg, L, pal, t_info):
         if sel is not None:
             sel_add(sel, hl, cur=(d - 1 == sel["id"]), every=True)
 
-    for d in range(1, 8):
+    for d in range(1, n_rows + 1):
         ry_top = top_y - pos_of(d) * row_h
         ry_mid = (ry_top - row_h * 0.5) * FIG_H
         ry_bot = (ry_top - row_h) * FIG_H
@@ -2401,13 +2405,13 @@ def draw_daily_log_panel(ax_hud, data, cfg, L, pal, t_info):
             alpha_val = 0.55 if is_missing else 0.35
             note_lbl = str(L["no_data"] if is_missing else L["future_note"])
             if sel is not None:
-                highlight(d, pal["accent"])  # a day with no record can be selected too; its card keeps its text
+                highlight(d, pal["accent"])  # a gap inside the recorded span can be selected; its "no data" text stays
             ax_hud.text(x_day, ry_mid + 12.0, sfmt(L["day_fmt"], d=d, day=d), color=pal["text_dim"], alpha=alpha_val, fontsize=11.5, fontweight="bold", va="center", zorder=4)
             ax_hud.text(x_day, ry_mid - 9.5, f"{d_date_str}  {note_lbl}", color=pal["text_dim"], alpha=alpha_val, fontsize=9.5, va="center", zorder=4)
             ax_hud.text(x_cum, ry_mid + 1.0, "--", color=pal["text_dim"], alpha=alpha_val, fontsize=12, fontweight="bold", ha="right", va="center", zorder=4)
             ax_hud.text(x_inc, ry_mid + 1.0, "--", color=pal["text_dim"], alpha=alpha_val, fontsize=12, fontweight="bold", ha="right", va="center", zorder=4)
 
-        if pos_of(d) < 6:
+        if pos_of(d) < n_rows - 1:
             ax_hud.plot([(lx + 0.015) * FIG_W, (lx + lw - 0.015) * FIG_W], [ry_bot, ry_bot], color=pal["card_border"], alpha=0.65, lw=0.8, zorder=3)
 
 
@@ -2823,9 +2827,10 @@ def sel_mask_style(pal):
     return (pal["text"], SEL_MASK_ALPHA_LIGHT) if pal["is_light"] else ("#FFFFFF", SEL_MASK_ALPHA)
 
 
-def sel_geometry(i, order="new"):
+def sel_geometry(i, order="new", latest_day=7):
     """Clickable areas of the daily view for the page, in % of the image (left, top, width, height; y down): the seven
-    bar columns (with their day labels) and the seven log cards, plus the selected index when the chart is drawn."""
+    bar columns (with their day labels) and the log cards, plus the selected index when the chart is drawn.
+    Days after the latest recorded one have no card (rows[k] is None) and are listed in "pending"."""
     ax_l, ax_b, ax_w, ax_h = INC_AXES
     cpos = (lambda d: 6 - d) if order == "new" else (lambda d: d)  # day index -> column position (0 = left): newest first puts the latest day at the left
     cols = [[round((ax_l + cpos(d) * ax_w / 7.0) * 100, 3), round((1 - ax_b - ax_h) * 100, 3),
@@ -2833,10 +2838,11 @@ def sel_geometry(i, order="new"):
     lx, ly, lw, lh = DAY_LOG_CARD
     row_h = (lh - 0.095) / 7.0
     top_y = ly + lh - 0.080
-    pos = (lambda d: 6 - d) if order == "new" else (lambda d: d)  # day index -> row position (0 = top of the list)
+    n = min(max(int(latest_day), 1), 7)  # days after the latest recorded one have no card in the list and no click area at all
+    pos = (lambda d: n - 1 - d) if order == "new" else (lambda d: d)  # day index -> row position (0 = top of the list)
     rows = [[round((lx + 0.010) * 100, 3), round((1 - (top_y - pos(d) * row_h)) * 100, 3),
-             round((lw - 0.020) * 100, 3), round(row_h * 100, 3)] for d in range(7)]
-    return {"i": int(i), "cols": cols, "rows": rows, "order": order}
+             round((lw - 0.020) * 100, 3), round(row_h * 100, 3)] if d < n else None for d in range(7)]
+    return {"i": int(i), "cols": cols, "rows": rows, "order": order, "pending": list(range(n, 7))}
 
 
 def write_sel_sprites(fig, sel, out_png):
@@ -2872,7 +2878,7 @@ def draw_increments_view(fig, ax_hud, data, cfg, L, pal, t_info, view):
     unit = "hour" if view == "hourly" else "day"
     if unit == "day":
         draw_daily_bars_panel(fig, ax_hud, data, cfg, L, pal, card=INC_CARD, axes=INC_AXES, title=L["inc_title"])
-        draw_daily_log_panel(ax_hud, data, cfg, L, pal, t_info)
+        draw_daily_log_panel(ax_hud, data, cfg, L, pal, t_info, hide_pending=True)  # days with no record yet are not listed
     else:
         draw_hourly_panel(fig, ax_hud, data, cfg, L, pal, t_info, INC_CARD, INC_AXES)
         draw_hourly_log_panel(ax_hud, data, cfg, L, pal, t_info)
@@ -3116,11 +3122,22 @@ def render(rows, out_png, week_start, cfg=None):
     for y_scan in np.linspace(10, FIG_H - 10, 165):
         ax_hud.axhline(y_scan, color=accent_col, alpha=0.016 if is_light else 0.012, lw=0.6, zorder=1)
 
-    if view in ("daily", "hourly"):  # linked selection: drawn hidden, shown for the default (daily: today; hourly: the newest hour)
+    if view in ("daily", "hourly"):  # linked selection: drawn hidden, shown for the default (daily: a day with a reading; hourly: the newest hour)
         data["sel"] = {"id": None, "arts": [], "meta": None}
         if view == "daily":
-            data["sel"]["id"] = min(max(int(cfg.get("sel_day") or day_now), 1), 7) - 1
-            data["sel"]["meta"] = sel_geometry(data["sel"]["id"], data["order"])
+            # a day with no record yet is never the one selected when the chart opens, and an explicit sel_day past the
+            # latest reading is clamped to that reading; a gap inside the recorded span can still be selected on purpose
+            cap = min(max(int(latest_day), 1), 7)
+            explicit = cfg.get("sel_day")
+            if explicit:
+                chosen = int(explicit)
+            else:
+                chosen = int(day_now)
+                if chosen not in data["row_map"]:
+                    have = [d for d in data["days"] if d <= chosen]
+                    chosen = have[-1] if have else cap
+            data["sel"]["id"] = min(max(chosen, 1), cap) - 1
+            data["sel"]["meta"] = sel_geometry(data["sel"]["id"], data["order"], latest_day)
 
     draw_header(ax_hud, cfg, L, pal, t_info, view)
     draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info)
