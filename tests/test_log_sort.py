@@ -68,12 +68,13 @@ class PictureOrderTests(unittest.TestCase):
         _, new = render("daily", self.d, name="c", sel_sprites=True, list_order="new")
         _, old = render("daily", self.d, name="b", sel_sprites=True, list_order="old")
         self.assertEqual(default["sel"]["rows"], new["sel"]["rows"])
-        a, b = ys(old), ys(new)
+        a, b = ys(old)[:5], ys(new)[:5]  # the five recorded days (days 6 and 7 are pending: no row)
         self.assertEqual(a, sorted(a))  # day 1 at the top
-        self.assertEqual(b, sorted(b, reverse=True))  # the last day at the top
-        self.assertEqual(sorted(a), sorted(b))  # the same seven slots
+        self.assertEqual(b, sorted(b, reverse=True))  # the last recorded day at the top
+        self.assertEqual(sorted(a), sorted(b))  # the same five slots, packed at the top of the card
+        self.assertEqual(ys(old)[5:] + ys(new)[5:], [None] * 4)
         self.assertEqual(new["sel"]["i"], old["sel"]["i"])  # today is the same day in both
-        self.assertEqual(len(set(map(tuple, new["sel"]["rows"]))), 7)
+        self.assertEqual(len(set(map(tuple, new["sel"]["rows"][:5]))), 5)
         self.assertEqual((default["sel"]["order"], new["sel"]["order"], old["sel"]["order"]), ("new", "new", "old"))
         self.assertEqual(np.abs(px(os.path.join(self.d, "a-daily.png")) - px(os.path.join(self.d, "c-daily.png"))).max(), 0)
         self.assertGreater(np.abs(px(os.path.join(self.d, "b-daily.png")) - px(os.path.join(self.d, "c-daily.png"))).max(), 0)
@@ -120,7 +121,7 @@ class PictureOrderTests(unittest.TestCase):
     def test_selection_mask_follows_the_rows_in_newest_first(self):
         """default picture + sprites clipped to column k and card k == the picture drawn with day k selected (daily, reversed)."""
         _, meta = render("daily", self.d, sel_sprites=True, list_order="new")
-        for k in (0, 3, 6):
+        for k in (0, 2, 4):  # recorded days (6 and 7 have no row and no click area)
             d2 = scratch()
             self.addCleanup(shutil.rmtree, d2)
             want, m = render("daily", d2, sel_day=k + 1, list_order="new")
@@ -136,7 +137,7 @@ class PictureOrderTests(unittest.TestCase):
             _, meta = render("daily", d, sel_sprites=True, list_order=order)
             i = meta["sel"]["i"]
             plain = px(render("daily", d, name="x", list_order=order)[0])
-            marked = px(render("daily", d, name="y", sel_day=(i + 2 if i < 6 else 1), list_order=order)[0])
+            marked = px(render("daily", d, name="y", sel_day=(1 if i else 2), list_order=order)[0])
             h, w = plain.shape[:2]
             r = meta["sel"]["rows"][i]
             box = (slice(int(h * r[1] / 100), int(h * (r[1] + r[3]) / 100)), slice(int(w * r[0] / 100), int(w * (r[0] + r[2]) / 100)))
@@ -316,7 +317,8 @@ class PageTests(unittest.TestCase):
         write_samples(self.data)
         d0 = (datetime.now(timezone.utc) - timedelta(days=3)).strftime("%Y-%m-%d")
         with open(os.path.join(self.data, f"week-{d0}.csv"), "w", encoding="utf-8") as fh:
-            fh.write("day,date,pct,note\n1,%s,9,\n" % d0)
+            fh.write("day,date,pct,note\n" + "".join("%d,%s,%d,\n" % (n + 1, (datetime.now(timezone.utc) - timedelta(days=3 - n)).strftime("%Y-%m-%d"), p)
+                                                   for n, p in enumerate((9, 21, 33, 46))))  # days 1..4 recorded, today = day 4: days 5..7 are still pending
         self.ctx = make_ctx(self.data, **kw)
         uh.render_history(self.ctx)
         self.hist = os.path.join(self.data, "history")
@@ -352,7 +354,7 @@ class PageTests(unittest.TestCase):
         self.assertEqual(sorted(sel), ["daily", "daily-new", "hourly", "hourly-new"])
         for v in ("daily", "hourly"):
             self.assertEqual(sel[v]["i"], sel[v + "-new"]["i"])
-            a, b = [r[1] for r in sel[v]["rows"]], [r[1] for r in sel[v + "-new"]["rows"]]
+            a, b = [r[1] for r in sel[v]["rows"] if r], [r[1] for r in sel[v + "-new"]["rows"] if r]
             self.assertEqual(a, sorted(a))
             self.assertEqual(b, sorted(b, reverse=True))
 
@@ -361,7 +363,7 @@ class PageTests(unittest.TestCase):
         for v, cls in (("daily", "dcard"), ("daily-new", "dcard"), ("hourly", "hrow"), ("hourly-new", "hrow")):
             w = self.wrap(page, v)
             tops = [float(t) for t in re.findall(r"class='dsel %s' [^>]*style='[^']*top:([\d.]+)%%" % cls, w)]
-            self.assertTrue(len(tops) >= 5, v)
+            self.assertTrue(len(tops) >= 4, v)  # (the daily list has no card for the pending days)
             self.assertEqual(tops, sorted(tops), v)  # Tab order = what is seen, top to bottom
 
     def test_labels_follow_the_page_language_and_privacy_has_none(self):

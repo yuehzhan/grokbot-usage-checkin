@@ -6,6 +6,11 @@ MAJOR for changes that need you to do something, MINOR for new features, PATCH f
 The current version is in the `VERSION` file and shown small at the top of the page.
 The changelog is kept in English only; [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md) is no longer updated.
 
+## [1.12.1] - 2026-11-01
+
+### Fixed
+- **Daily increments: days with no record yet are not listed.** In the per-day 每日增量 view the 每日紀錄 list stops at the latest recorded day (no "scheduled" / "--" row for a later day), in both list orders and in every language, including the numeric privacy view. Those later columns stay on the bar chart, and clicking one does nothing. The day selected when the view opens is always one that has a reading. A day inside the recorded span that has no reading of its own still shows its "no data" row. The 本週總覽 list is unchanged.
+
 ## [1.12.0] - 2026-10-31
 
 ### Added
