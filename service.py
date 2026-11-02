@@ -19,6 +19,7 @@ supervisor runs in its own session (like ``nohup``).
 import argparse
 import json
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -246,14 +247,80 @@ def _flags_child():
     return _flags() if os.name == "nt" else {}
 
 
+_SAFE_URL = re.compile(r"^http://(127\.0\.0\.1|localhost|\[::1\]):\d{1,5}(/[A-Za-z0-9._~/?=%-]*)?$")
+
+
+def wait_http(url, timeout=15):
+    """True once the viewer answers HTTP (any status counts: it is up). Never raises."""
+    import urllib.error
+    import urllib.request
+    t0 = time.time()
+    while True:
+        try:
+            urllib.request.urlopen(url, timeout=2).close()
+            return True
+        except urllib.error.HTTPError:
+            return True
+        except Exception:
+            pass
+        if time.time() - t0 >= timeout:
+            return False
+        time.sleep(0.4)
+
+
+def open_page(url, wait=15):
+    """Open ``url`` in the default browser; never raises.
+
+    Waits until the viewer answers, then tries ``webbrowser`` and, when that fails (it returns False
+    quietly when no browser is registered, e.g. under a hidden / service-like session), the platform
+    opener: ``os.startfile`` then ``cmd /c start`` (Windows), ``open`` (macOS), ``xdg-open`` (Linux).
+    Only a plain loopback http URL is ever handed to an opener.
+    Returns {"opened": bool, "method": str|None, "ready": bool}.
+    """
+    if not url or not _SAFE_URL.match(str(url)):
+        return {"opened": False, "method": None, "ready": False}
+    ready = wait_http(url, wait)  # open anyway when it is slow: the tab keeps retrying / can be reloaded
+    attempts = []
+    try:
+        import webbrowser
+        attempts.append(("webbrowser", lambda: bool(webbrowser.open(url))))
+    except Exception:
+        pass
+    if os.name == "nt":
+        attempts.append(("startfile", lambda: (os.startfile(url), True)[1]))
+        attempts.append(("cmd-start", lambda: subprocess.Popen(
+            ["cmd", "/c", "start", "", url], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)) is not None))
+    else:
+        exe = "open" if sys.platform == "darwin" else "xdg-open"
+        attempts.append((exe, lambda: subprocess.Popen(
+            [exe, url], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) is not None))
+    for name, fn in attempts:
+        try:
+            if fn():
+                return {"opened": True, "method": name, "ready": ready}
+        except Exception:
+            continue
+    return {"opened": False, "method": None, "ready": ready}
+
+
+def _wait_url(cfg, data_dir, st, wait):
+    t0 = time.time()
+    while not st["url"] and time.time() - t0 < wait:
+        time.sleep(0.5)
+        st = status(cfg, data_dir)
+    return st
+
+
 def start(cfg, data_dir, with_sampler=True, open_browser=False, wait=60):
     st = status(cfg, data_dir)
     if st["running"]:
         # Still open the page: the shortcut / start.ps1 should always show it,
         # even when the logon task (or an earlier start) already launched it.
-        if st.get("url") and open_browser:
-            import webbrowser
-            webbrowser.open(st["url"])
+        if open_browser:
+            st = _wait_url(cfg, data_dir, st, 15)  # the logon task may have started it a moment ago
+            if st["url"]:
+                st.update(open_page(st["url"]))
         return dict(st, ok=True, note="already running")
     cleanup(data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -264,15 +331,9 @@ def start(cfg, data_dir, with_sampler=True, open_browser=False, wait=60):
         cmd.append("--no-sampler")
     subprocess.Popen(cmd, cwd=str(HERE), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                      stderr=subprocess.DEVNULL, close_fds=True, env=dict(os.environ, PYTHONUTF8="1"), **_flags())
-    t0 = time.time()
-    while time.time() - t0 < wait:
-        st = status(cfg, data_dir)
-        if st["url"]:
-            break
-        time.sleep(0.5)
+    st = _wait_url(cfg, data_dir, st, wait)
     if st["url"] and open_browser:
-        import webbrowser
-        webbrowser.open(st["url"])
+        st.update(open_page(st["url"]))
     if not st["url"]:
         st["ok"] = False
         st["error"] = f"viewer did not start within {wait}s; see {data_dir / 'server.log'}"
@@ -285,7 +346,7 @@ def main(argv=None):
     p.add_argument("--config")
     p.add_argument("--data-dir", dest="data_dir")
     p.add_argument("--no-sampler", action="store_true", help="viewer only (e.g. pct_source manual)")
-    p.add_argument("--open", action="store_true", help="start: open the page in the browser")
+    p.add_argument("--open", action="store_true", help="start: open the page in the browser (also when it is already running)")
     a = p.parse_args(argv)
     cfg, data_dir = resolve(a)
     if a.cmd == "run":

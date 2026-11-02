@@ -216,6 +216,8 @@ class ViewerState:
             mw = raw.get("mw") or raw.get("midweek_reset")
             if isinstance(mw, dict):  # mid-week reset: only the two numbers the cards need, no times
                 sanitized["mw"] = {"days": mw.get("days", mw.get("days_since")), "left": mw.get("left", mw.get("days_left"))}
+            if isinstance(raw.get("proj_k"), (int, float)) and not isinstance(raw.get("proj_k"), bool):
+                sanitized["proj_k"] = raw["proj_k"]
             if "trend" in raw:
                 sanitized["trend"] = raw["trend"]
             elif "status" in raw:
@@ -663,7 +665,10 @@ def render_html_page(state: ViewerState) -> str:
     const avg = avg0 != null ? r1(+avg0 + sh / (mw ? mwDays : dayN)) : avg0;
     const proj0 = d.projected != null ? d.projected : d.projected_end_pct;
     const pace = (d.step != null ? d.step : d.pace) || 14;
-    const proj = proj0 != null ? r1(+proj0 + sh * (mw ? (1 + mwLeft / mwDays) : ((d.days != null ? d.days : d.days_total) || 7) / dayN)) : proj0;
+    // the server computes the projection (blended pace, usage_rate.py) and how a display offset moves it (proj_k);
+    // without proj_k (an older summary) the previous day-index / since-reset formula is used
+    const projK = (d.proj_k != null && isFinite(+d.proj_k)) ? +d.proj_k : null;
+    const proj = proj0 != null ? r1(+proj0 + sh * (projK != null ? projK : (mw ? (1 + mwLeft / mwDays) : ((d.days != null ? d.days : d.days_total) || 7) / dayN))) : proj0;
     const otag = OFFS.tag ? ' <span class="otag">' + OFFS.tag + '</span>' : '';
     const over = delta != null ? delta > 0 : false;
     const projOver = proj != null ? proj > (pace * days) : false;

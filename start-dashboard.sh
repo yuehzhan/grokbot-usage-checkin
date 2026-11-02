@@ -17,7 +17,13 @@ if [ -z "$PY" ]; then
   exit 1
 fi
 if out="$("$PY" service.py start --open 2>&1)"; then
-  echo "Grok Usage Dashboard is running; your browser opens it. You can close this window."
+  url="$(printf '%s\n' "$out" | sed -n 's/.*"url": *"\([^"]*\)".*/\1/p' | tail -n 1)"
+  echo "Grok Usage Dashboard is running. Your browser opens it."
+  if [ -n "$url" ]; then
+    echo "If no browser window appears, open this address yourself:  $url"
+    echo "(The number after the colon changes every time it starts; do not bookmark it.)"
+  fi
+  [ -t 0 ] && sleep 5
   exit 0
 fi
 echo "Could not start the dashboard:"; echo "$out"

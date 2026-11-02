@@ -827,6 +827,7 @@ def main(argv: Optional[List[str]] = None):
     avg_per_day = round(pct_val / max(1, day_idx), 2)
     projected_end_pct = round((pct_val / max(1, day_idx)) * period_days, 1)
     midweek_reset = None
+    proj_k = None  # how the page's display offset moves the projection (None: the page's own day-index formula)
     # Mid-week reset (cumulative % dropped, e.g. a plan upgrade reset the pool to ~0%): the average, projection and
     # baseline count from the estimated reset time, as on the dashboard (usage_rate.py). Normal weeks: unchanged.
     try:
@@ -835,10 +836,15 @@ def main(argv: Optional[List[str]] = None):
             rm = usage_rate.rate_model(rows, [float(r["pct"]) for r in rows], period_start_dt, shown_reset_dt,
                                        pace_val, period_days, latest_day=day_idx,
                                        samples=_reset_samples(data_dir))
+            if rm.get("proj_rate") is not None:
+                # the blended pace (usage_rate.blend_rate): the same projection as the chart's label / dashed line / cards
+                projected_end_pct = round(rm["proj_rate"], 1)
+                proj_k = round(rm["rate_info"]["proj_k"], 4)
             if rm["reset"] is not None:
                 baseline_val = round(rm["baseline"], 4)
                 avg_per_day = round(rm["avg_day"], 2)
-                projected_end_pct = round(rm["proj"], 1)
+                if proj_k is None:  # no blended pace (no reading time): the plain since-reset projection
+                    projected_end_pct = round(rm["proj"], 1)
                 midweek_reset = {"at": rm["reset_at"].isoformat(timespec="minutes"),
                                  "days_since": round(rm["elapsed_days"], 4), "days_left": round(rm["rem_days"], 4),
                                  "before_pct": rm["reset"]["before_pct"], "after_pct": rm["reset"]["after_pct"]}
@@ -883,6 +889,8 @@ def main(argv: Optional[List[str]] = None):
         }
         if midweek_reset is not None:
             summary_payload["mw"] = {"days": midweek_reset["days_since"], "left": midweek_reset["days_left"]}
+        if proj_k is not None:
+            summary_payload["proj_k"] = proj_k
         out_text = priv_text
     else:
         status_phrase = "ahead of pace" if status_str == "ahead" else "on pace"
@@ -917,6 +925,8 @@ def main(argv: Optional[List[str]] = None):
         }
         if midweek_reset is not None:
             summary_payload["midweek_reset"] = midweek_reset
+        if proj_k is not None:
+            summary_payload["proj_k"] = proj_k
         out_text = summary_text
 
     if getattr(args, "date", None) is None and getattr(args, "time", None) is None:  # live reading, not a backfill

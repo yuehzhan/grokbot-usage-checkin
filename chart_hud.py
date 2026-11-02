@@ -1531,13 +1531,15 @@ def exhaust_days(latest_pct, avg_day):
 
 
 def run_out(latest_day, latest_pct, rate=None):
-    """The one projection model shared by the stat cards and the cumulative chart: the average rate so far
-    (latest % / days elapsed), the 7-day projection, and, when it passes 100%, the days left until 100% and the
+    """The one projection model shared by the stat cards and the cumulative chart: the pace (``rate_day``, see
+    below), the end-of-week projection, and, when it passes 100%, the days left until 100% and the
     chart x where the dashed line crosses the cap (readings sit at x = day - 0.5).
 
     ``rate``: the usage_rate.rate_model() result. After a mid-week reset (``rate["reset"]``) its average (% since
-    the reset / time since the reset) and end-of-week projection (latest % + rate x time left) are used instead;
-    in a normal week it is ignored, so the numbers stay exactly latest % / day and x 7."""
+    the reset / time since the reset) is the displayed average. When it carries the blended pace
+    (``rate["rate_day"]`` / ``rate["proj_rate"]``: hours since the reset / week start, last-24h rate weighted in)
+    that pace drives the projection, the days left and the crossing point; without it (``rate`` None, e.g. no
+    reading times) the plain model is used: latest % / day index, x 7."""
     d = max(1, int(latest_day))
     if rate and rate.get("reset"):
         avg = float(rate["avg_day"])
@@ -1545,9 +1547,15 @@ def run_out(latest_day, latest_pct, rate=None):
     else:
         avg = float(latest_pct) / d
         proj = avg * 7.0
-    left = exhaust_days(latest_pct, avg)
-    out = avg > 0 and proj > 100.0
-    return {"avg_day": avg, "proj_7d": proj, "exhausts": out, "left": left if out else None,
+    pace_rate = avg
+    if rate and rate.get("rate_day") is not None:
+        # the blended pace (hours since the reset / week start, last-24h rate weighted in; usage_rate.blend_rate):
+        # the run-out label, the dashed line and the projection all use it, so they always agree
+        pace_rate = float(rate["rate_day"])
+        proj = float(rate["proj_rate"])
+    left = exhaust_days(latest_pct, pace_rate)
+    out = pace_rate > 0 and proj > 100.0
+    return {"avg_day": avg, "rate_day": pace_rate, "proj_7d": proj, "exhausts": out, "left": left if out else None,
             "cross_x": (d - 0.5 + left) if out else None}
 
 
@@ -1795,8 +1803,8 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
     proj_over = proj_7d > base7
     d_rem = max(1, t_info["days_rem_stat"])
     daily_budget = rem_pct / d_rem
-    eta_day = (100.0 / avg_day) if avg_day > 0 else 7.0
-    left_days = ro["left"] if ro["exhausts"] else exhaust_days(latest_pct, avg_day)
+    eta_day = (100.0 / ro["rate_day"]) if ro["rate_day"] > 0 else 7.0
+    left_days = ro["left"] if ro["exhausts"] else exhaust_days(latest_pct, ro["rate_day"])
     t_info.setdefault("meta", {})["card_left_days"] = ro["left"]
 
     fmt_ctx = {
@@ -1811,7 +1819,7 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
         "base7": base7,
         "rem": rem_pct,
         "over": over_val,
-        "rate": avg_day,
+        "rate": ro["rate_day"],  # the pace the projection uses (the Avg / Day card keeps the plain average)
         "proj": proj_7d,
         "val": proj_7d,
         "d_rem": d_rem,
@@ -1886,7 +1894,7 @@ def draw_hero_and_stats(fig, ax_hud, data, cfg, L, pal, t_info):
         zorder=5,
     )
 
-    if avg_day > 0 and proj_7d > 100.0:
+    if ro["rate_day"] > 0 and proj_7d > 100.0:
         # projection beyond 100%: say when the quota runs out instead of a 392%-style number
         key = "exhausted_now" if latest_pct >= 100.0 else "exhaust_main"
         _fit_text(ax_hud.text(rx, (hy + 0.036) * FIG_H, run_out_text(L, key, left_days, **fmt_ctx), color=pal["purple"], fontsize=9.2, fontweight="bold", va="center",

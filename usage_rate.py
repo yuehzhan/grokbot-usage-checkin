@@ -24,6 +24,15 @@ window: when the drop shows up between two samples inside the row gap, the midpo
 instead (with hourly samples the estimate is then within ~30 minutes of the real reset even when the week CSV has
 only one row per day).
 
+Pace for the projection (``rate_day`` / ``proj_rate``, used by the run-out label and the dashed line of the
+cumulative chart): the plain average above divides by whole day indexes, so a day that has only just started
+counts as a full day and the estimate is sluggish. ``blend_rate`` instead measures the elapsed time in hours since
+the week start (or the mid-week reset) and blends that week-to-date rate with the rate of the last ~24 hours
+(from the hourly samples, or the daily readings when there are no samples), the more the better the last 24 hours
+are covered by real readings; it falls back to the week-to-date rate with fewer than three readings in the window (and to the plain
+day-index model when the latest row has no ``HH:MM`` reading time),
+and it is clamped so it never jumps wildly (see the constants below). ``avg_day`` / ``proj`` keep their old meaning.
+
 Each reading's time comes from its row: ``date`` (YYYY-MM-DD) + the ``HH:MM`` at the start of ``note``
 (what usage_record.py writes); without a usable time the middle of that week day is used.
 """
@@ -32,6 +41,13 @@ import re
 
 MIDWEEK_RESET_MIN_DROP = 5.0  # percentage points
 MIN_ELAPSED_DAYS = 1.0 / 24.0  # never divide by less than one hour since the reset
+
+MIN_RATE_ELAPSED_H = 12.0   # week-to-date rate: never divide by less than 12 hours (a first reading soon after the reset)
+RECENT_WINDOW_H = 24.0      # the "recent pace" window
+RECENT_MIN_SPAN_H = 6.0     # ... needs readings that span at least this long ...
+RECENT_MIN_POINTS = 3       # ... and at least this many real readings
+RECENT_MAX_WEIGHT = 0.5     # share of the recent rate in the blend when the last 24 h are fully covered
+RATE_CLAMP = (0.5, 2.0)     # blended rate stays within 0.5x .. 2x the week-to-date rate
 
 _HM = re.compile(r"^\s*(\d{1,2}):(\d{2})")
 
@@ -91,6 +107,52 @@ def find_midweek_reset(rows, pcts, week_start, min_drop=MIDWEEK_RESET_MIN_DROP, 
     return {"index": found, "at": at, "before_pct": float(pcts[found - 1]), "after_pct": float(pcts[found])}
 
 
+def _naive(t):
+    return t.replace(tzinfo=None) if getattr(t, "tzinfo", None) is not None else t
+
+
+def blend_rate(points, t_now, pct_now, t_from, window_h=RECENT_WINDOW_H):
+    """Rate in % per day from the week-to-date rate (``pct_now`` over the hours since ``t_from``, at least
+    ``MIN_RATE_ELAPSED_H``) blended with the last-``window_h``-hours rate.
+
+    ``points``: real readings [(datetime, %), ...] from ``t_from`` on (any order, None values and anything after
+    ``t_now`` ignored). Returns {"rate", "wtd", "recent", "weight", "elapsed_h"}; ``recent`` is None (and
+    ``weight`` 0) when the window holds fewer than ``RECENT_MIN_POINTS`` readings or spans under
+    ``RECENT_MIN_SPAN_H`` hours: the result is then exactly the week-to-date rate."""
+    t_now, t_from = _naive(t_now), _naive(t_from)
+    elapsed_h = max(MIN_RATE_ELAPSED_H, (t_now - t_from).total_seconds() / 3600.0)
+    wtd = max(0.0, float(pct_now)) / (elapsed_h / 24.0)
+    pts = []
+    for t, v in points or ():
+        try:
+            tt = _naive(t)
+            if v is not None and t_from <= tt <= t_now:
+                pts.append((tt, float(v)))
+        except (TypeError, ValueError):
+            continue
+    pts.sort(key=lambda x: x[0])
+    out = {"rate": wtd, "wtd": wtd, "recent": None, "weight": 0.0, "elapsed_h": elapsed_h}
+    if not pts:
+        return out
+    ws = t_now - timedelta(hours=window_h)
+    before = [p for p in pts if p[0] <= ws]
+    inside = [p for p in pts if p[0] > ws]
+    base = before[-1] if before else (inside[0] if inside else None)
+    win = ([base] if before else []) + inside
+    if base is None or len(win) < RECENT_MIN_POINTS:
+        return out
+    span_h = (t_now - base[0]).total_seconds() / 3600.0
+    if span_h < RECENT_MIN_SPAN_H:
+        return out
+    recent = max(0.0, float(pct_now) - base[1]) / (span_h / 24.0)
+    weight = RECENT_MAX_WEIGHT * min(1.0, span_h / window_h)
+    rate = weight * recent + (1.0 - weight) * wtd
+    lo, hi = RATE_CLAMP
+    rate = min(max(rate, lo * wtd), hi * wtd)
+    out.update({"rate": rate, "recent": recent, "weight": weight})
+    return out
+
+
 def rate_model(rows, pcts, week_start, week_end, pace, period_days=7, latest_day=None, min_drop=MIDWEEK_RESET_MIN_DROP,
                samples=None):
     """Rate / projection / baseline for the latest reading.
@@ -111,6 +173,10 @@ def rate_model(rows, pcts, week_start, week_end, pace, period_days=7, latest_day
     if week_start is None or not rows:
         return out
     reset = find_midweek_reset(rows, pcts, week_start, min_drop, samples)
+    try:
+        _pace_rate(out, rows, pcts, week_start, week_end, period_days, samples, reset, latest_pct)
+    except Exception:  # never let the refined pace break the chart: the plain average stays
+        pass
     if reset is None:
         return out
     now = row_time(rows[-1], week_start)
@@ -124,6 +190,34 @@ def rate_model(rows, pcts, week_start, week_end, pace, period_days=7, latest_day
     out.update({"avg_day": avg, "proj": latest_pct + avg * rem, "baseline": pace * elapsed, "reset": reset,
                 "elapsed_days": elapsed, "rem_days": rem, "reset_at": reset["at"]})
     return out
+
+
+def _pace_rate(out, rows, pcts, week_start, week_end, period_days, samples, reset, latest_pct):
+    """Add ``rate_day`` / ``proj_rate`` / ``rate_info`` (the blended pace, see ``blend_rate``) to ``out``."""
+    if not _HM.match(str(rows[-1].get("note") or "")):
+        return  # no real reading time on the latest row: elapsed hours are unknown, keep the plain day-index model
+    t_now = row_time(rows[-1], week_start)
+    pts = [(row_time(r, week_start), float(p)) for r, p in zip(rows, pcts)]
+    for t, v in samples or ():
+        if v is not None:
+            pts.append((t, float(v)))  # blend_rate ignores anything outside [start, latest reading]
+    if reset is not None:
+        t_from = reset["at"]
+        pts = [(t, v) for t, v in pts if _naive(t) >= _naive(t_from)]
+        pts.append((t_from, 0.0))  # the pool restarts at ~0%
+    else:
+        t_from = week_start
+        pts.append((t_from, 0.0))
+    info = blend_rate(pts, t_now, latest_pct, t_from)
+    end = week_end if week_end is not None else week_start + timedelta(days=period_days)
+    rem = max(0.0, (_naive(end) - _naive(t_now)).total_seconds() / 86400.0)
+    out["rate_day"] = info["rate"]
+    out["proj_rate"] = latest_pct + info["rate"] * rem
+    # How far the projection moves when the page's display offset adds ``sh`` points to every cumulative %:
+    # the latest % moves by sh and the week-to-date part of the rate by sh / elapsed days (the recent rate does not
+    # move: both its end points shift). The page multiplies its offset by this instead of redoing the rate maths.
+    k = 1.0 + (1.0 - info["weight"]) * rem / (info["elapsed_h"] / 24.0)
+    out["rate_info"] = dict(info, rem_days=rem, latest_pct=latest_pct, proj_k=k)
 
 
 def baseline_at(row, pace, week_start, reset):

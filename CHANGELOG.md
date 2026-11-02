@@ -6,6 +6,29 @@ MAJOR for changes that need you to do something, MINOR for new features, PATCH f
 The current version is in the `VERSION` file and shown small at the top of the page.
 The changelog is kept in English only; [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md) is no longer updated.
 
+## [1.12.2] - 2026-11-02
+
+### Fixed
+- **The desktop shortcut / `start.ps1` / `start-dashboard.sh` always open the page, and always show where it is.** `service.py start --open`
+  now waits until the viewer answers, then opens the page in the default browser, also when the service was already running (it opens the
+  existing address, and waits a moment for the address if the service had only just been started, for example by the logon task). If
+  `webbrowser` fails quietly it falls back to `os.startfile`, then `cmd /c start` (Windows), `open` (macOS) or `xdg-open` (Linux); only a plain
+  `http://127.0.0.1:<port>` address is ever handed to them. The JSON result has new `opened` / `method` fields.
+- `start.ps1` prints the address in large text (the port changes on every start), tries `Start-Process` itself if `service.py` could not open
+  the page, shows a small toast with the address (unless `desktop_notify` is `false` in `usage_config.json`) and keeps its window open for a few
+  seconds (new `-NoWait` switch to skip that). `-NoBrowser` (used by the page's Update button) still does none of this. `start-dashboard.sh`
+  prints the address too. No data or settings change.
+- **The "runs out in ~X days" label and the dashed projection on the weekly cumulative chart react faster.** The pace is now measured in
+  hours since the week start (or the mid-week reset), not whole days, so a day that has only just begun is no longer counted as a full day;
+  and the pace of the last ~24 hours (from the hourly readings, or the daily readings when there are none) is blended in with up to half
+  the weight. With fewer than three readings in that window, or no `HH:MM` on the latest reading, it falls back to the week-to-date rate
+  (or the old day-index average). It is clamped to 0.5x - 2x the week-to-date rate, with at least 12 hours counted as elapsed, so it
+  cannot jump wildly. The label, the dashed line, the 「burn rate」 line and the projected total all use this one rate; the Avg / Day card
+  still shows the plain average. Example (22% / 46% / 54% on days 1-3, the third day 6 hours in): about 2.1 days left instead of 2.6.
+- **The page's Projected card and the summary (`projected_end_pct`, privacy key `projected`) use the same rate.** `usage_record.py` now
+  writes the blended projection, and a new `proj_k` field tells the page how much a display offset moves it, so the page no longer
+  redoes the maths (an older `latest.json` without `proj_k` still uses the previous formula). The gauge already follows the chart.
+
 ## [1.12.1] - 2026-11-01
 
 ### Fixed
