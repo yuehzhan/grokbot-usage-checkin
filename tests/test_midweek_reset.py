@@ -35,7 +35,11 @@ NOW = datetime(2026, 10, 26, 3, 5, tzinfo=TPE)
 ELAPSED = (NOW - RESET_AT).total_seconds() / 86400.0  # ~0.46 d (11 h 02 m)
 LEFT = (END - NOW).total_seconds() / 86400.0  # ~4.94 d
 AVG = 6.0 / ELAPSED  # ~13.0 %/day (pool restarted at 0% at the reset)
-PROJ = 6.0 + AVG * LEFT  # ~70.4 %
+PROJ = 6.0 + AVG * LEFT  # ~70.4 %  (the plain model: usage_record's summary and m["proj"])
+# the pace used by the chart's cards / dashed line (usage_rate.blend_rate): the pool restarted 11 h ago, so the rate is
+# 6% over max(12 h, elapsed) = 12 h = 12 %/day (too few readings in the window for a recent-rate share)
+RATE = 6.0 / 0.5
+PROJ_RATE = 6.0 + RATE * LEFT  # ~65.3 %
 CFG = {"pace": 14, "tz": "Asia/Taipei", "reset_hm": "01:41", "reset_at": "2026-10-31T01:41+08:00"}
 
 
@@ -65,7 +69,10 @@ class ModelTests(unittest.TestCase):
         self.assertAlmostEqual(m["baseline"], 14 * ELAPSED)  # ~6.4%, not 3 x 14 = 42%
         ro = chart_hud.run_out(3, 6.0, m)
         self.assertAlmostEqual(ro["avg_day"], AVG)
-        self.assertAlmostEqual(ro["proj_7d"], PROJ)
+        self.assertAlmostEqual(m["rate_day"], RATE)
+        self.assertAlmostEqual(m["proj_rate"], PROJ_RATE)
+        self.assertAlmostEqual(ro["rate_day"], RATE)
+        self.assertAlmostEqual(ro["proj_7d"], PROJ_RATE)  # the card and the dashed line use the blended pace
         self.assertFalse(ro["exhausts"])
 
     def test_hourly_samples_narrow_the_reset_time(self):
@@ -79,6 +86,13 @@ class ModelTests(unittest.TestCase):
         el = (NOW - at).total_seconds() / 86400.0
         self.assertAlmostEqual(m["avg_day"], 6.0 / el)  # ~14.4 %/day
         self.assertEqual(round(m["proj"]), 77)
+        # reset 10 h ago: week-to-date pace uses the 12 h floor (12 %/day); the readings since the reset (4 incl. the
+        # restart at ~0%) span 10.03 h, so the recent rate (14.4 %/day) gets weight 0.5 x 10.03 / 24
+        span_h = (NOW - at).total_seconds() / 3600.0
+        w = 0.5 * span_h / 24.0
+        self.assertAlmostEqual(m["rate_info"]["weight"], w)
+        self.assertAlmostEqual(m["rate_day"], w * (6.0 / (span_h / 24.0)) + (1 - w) * 12.0)
+        self.assertAlmostEqual(m["rate_day"], 12.49, places=2)
         # only a pre-drop sample (88% at 09:00) in the gap: the window shrinks to 09:00 -> 03:05, midpoint 18:02:30
         self.assertEqual(usage_rate.find_midweek_reset(ROWS, PCTS, START, samples=samples[:2])["at"],
                          datetime(2026, 10, 25, 18, 2, 30, tzinfo=TPE))
@@ -100,14 +114,18 @@ class ModelTests(unittest.TestCase):
         self.assertAlmostEqual(m["avg_day"], 62 / 3)
         self.assertAlmostEqual(m["proj"], 62 / 3 * 7)
         self.assertEqual(m["baseline"], 42)
-        self.assertEqual(chart_hud.run_out(3, 62.0, m), chart_hud.run_out(3, 62.0))
+        plain = chart_hud.run_out(3, 62.0)  # no rate info (no reading times): the old day-index model
+        self.assertEqual((plain["avg_day"], plain["proj_7d"]), (62 / 3, 62 / 3 * 7))
+        self.assertAlmostEqual(chart_hud.run_out(3, 62.0, m)["avg_day"], 62 / 3)  # the displayed average is unchanged
+        # the pace is measured in hours: 62% in 58.3 h (not 3 whole days) = 25.5 %/day
+        self.assertAlmostEqual(m["rate_day"], 62.0 / ((datetime(2026, 10, 26, 12, 0, tzinfo=TPE) - START).total_seconds() / 86400.0))
 
     def test_exhausts_after_reset(self):
         rows = ROWS[:2] + [{"day": "3", "date": "2026-10-26", "pct": "40", "note": "03:05"}]
         m = usage_rate.rate_model(rows, [75.0, 84.0, 40.0], START, END, 14)
         ro = chart_hud.run_out(3, 40.0, m)
         self.assertTrue(ro["exhausts"])
-        self.assertAlmostEqual(ro["left"], 60.0 / m["avg_day"])
+        self.assertAlmostEqual(ro["left"], 60.0 / m["rate_day"])
         self.assertAlmostEqual(ro["cross_x"], 2.5 + ro["left"])
 
     def test_row_time_fallback(self):
@@ -130,7 +148,7 @@ class DashboardTests(unittest.TestCase):
             seen, _ = render_week(ROWS, os.path.join(self.d, f"{lang}.png"), dict(CFG, lang=lang))
             val = {g: t for t, g in seen if g}
             self.assertEqual(val["stat_val_2"], "13%", lang)  # avg/day, was 2%
-            self.assertEqual(val["stat_val_3"], "70%", lang)  # projection, was 14%
+            self.assertEqual(val["stat_val_3"], "65%", lang)  # projection (blended pace), was 14% before mid-week handling
             self.assertEqual(val["stat_val_0"], vs, lang)  # vs baseline: ~6.4% since the reset, was 「落後基準 36%」
             self.assertIn(label, val["stat_sub_2"], lang)
             self.assertIn(label, val["stat_sub_3"], lang)
@@ -143,7 +161,7 @@ class DashboardTests(unittest.TestCase):
         seen, _ = render_week(ROWS, os.path.join(self.d, "s.png"), dict(CFG, lang="en", samples=samples))
         val = {g: t for t, g in seen if g}
         self.assertEqual(val["stat_val_2"], "14.4%")  # reset at ~17:03 instead of the 16:02 row midpoint
-        self.assertEqual(val["stat_val_3"], "77%")
+        self.assertEqual(val["stat_val_3"], "68%")  # blended pace 12.49 %/day: 6% + 12.49 x 4.94 d
 
     def test_projection_line_starts_at_current_point(self):
         import matplotlib.axes
@@ -160,7 +178,7 @@ class DashboardTests(unittest.TestCase):
         xd, yd = lines[0].get_xdata(), lines[0].get_ydata()
         self.assertAlmostEqual(xd[0], 2.5)
         self.assertAlmostEqual(yd[0], 6.0)
-        self.assertAlmostEqual(yd[-1], PROJ)
+        self.assertAlmostEqual(yd[-1], PROJ_RATE)  # same pace as the card
         self.assertAlmostEqual(xd[-1], 6.5)  # ends at the day-7 point like in a normal week
 
     @unittest.skipUnless(has_cjk_font(), NEEDS_CJK)
@@ -203,7 +221,8 @@ class RecordSummaryTests(unittest.TestCase):
         p = self._record(6, "2026-10-26", "03:05")
         self.assertEqual(p["day"], 3)
         self.assertAlmostEqual(p["avg_per_day"], round(AVG, 2))
-        self.assertAlmostEqual(p["projected_end_pct"], round(PROJ, 1))
+        self.assertAlmostEqual(p["projected_end_pct"], round(PROJ_RATE, 1))  # same pace as the chart (usage_rate.blend_rate)
+        self.assertAlmostEqual(p["proj_k"], round(1 + (LEFT / 0.5), 4))  # offset factor: 1 + rem days / 12 h floor, no recent share
         self.assertAlmostEqual(p["baseline"], round(14 * ELAPSED, 4))
         self.assertEqual(p["status"], "on_pace")
         self.assertEqual(p["midweek_reset"]["at"], "2026-10-25T16:02+08:00")
