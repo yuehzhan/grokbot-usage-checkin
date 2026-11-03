@@ -41,7 +41,8 @@ class ValueTests(unittest.TestCase):
         self.assertEqual(set(uh.LANG_NAMES), set(uh.PAGE_LANGS) - {"auto"})
         for lang in ("zh-TW", "zh-CN", "en", "ja", "ko", "numeric"):
             self.assertEqual(set(uh.PICK_STR[lang]), {"lang", "tz", "auto", "locked", "anim", "off", "once", "continuous", "applying",
-                                                  "interval", "minutes", "manual_only"}, lang)
+                                                  "interval", "minutes", "manual_only", "sens", "sens_standard", "sens_sensitive",
+                                                  "sens_very_sensitive", "sens_tip"}, lang)
 
     def test_zone_values(self):
         for z in uh.PAGE_ZONES:
