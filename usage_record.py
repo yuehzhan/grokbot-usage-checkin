@@ -353,6 +353,13 @@ def _display_offset(cfg_data, data_dir):
     return usage_offset.from_settings(cfg_data, data_dir)
 
 
+def _forecast_sensitivity(cfg_data, data_dir):
+    """Forecast sensitivity preset (usage_sensitivity.py): config key, else <data_dir>/page_settings.json, else standard."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import usage_sensitivity
+    return usage_sensitivity.from_settings(cfg_data, data_dir)
+
+
 def _ledger_hook(data_dir, cfg_data, tz, lang, pct, reset_at, source, error=None):
     """Shared ledger (usage_ledger.py). Never affects the exit code of usage_record.py."""
     try:
@@ -787,6 +794,7 @@ def main(argv: Optional[List[str]] = None):
                 "palette": resolve(getattr(args, "palette", None), "palette"),
                 "custom_colors": cfg_file_data.get("custom_colors"),  # used with "palette": "custom"
                 "display_offset": _display_offset(cfg_file_data, data_dir),  # shown % only; the CSV row stays raw
+                "forecast_sensitivity": _forecast_sensitivity(cfg_file_data, data_dir),  # how fast the projection follows recent use
             }
             chart_hud.render(rows, str(out_png), period_start_str, render_cfg)
             # Other palettes for the viewer's palette menu (<data_dir>/pal/<name>/<file>): usage_view.py draws one
@@ -835,7 +843,8 @@ def main(argv: Optional[List[str]] = None):
         if rows and int(rows[-1]["day"]) == day_idx:
             rm = usage_rate.rate_model(rows, [float(r["pct"]) for r in rows], period_start_dt, shown_reset_dt,
                                        pace_val, period_days, latest_day=day_idx,
-                                       samples=_reset_samples(data_dir))
+                                       samples=_reset_samples(data_dir),
+                                       sensitivity=_forecast_sensitivity(cfg_file_data, data_dir))
             if rm.get("proj_rate") is not None:
                 # the blended pace (usage_rate.blend_rate): the same projection as the chart's label / dashed line / cards
                 projected_end_pct = round(rm["proj_rate"], 1)

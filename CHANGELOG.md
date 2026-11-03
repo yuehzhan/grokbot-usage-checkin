@@ -6,6 +6,25 @@ MAJOR for changes that need you to do something, MINOR for new features, PATCH f
 The current version is in the `VERSION` file and shown small at the top of the page.
 The changelog is kept in English only; [CHANGELOG.zh-TW.md](CHANGELOG.zh-TW.md) is no longer updated.
 
+## [1.13.0] - 2026-11-03
+
+### Added
+- **Forecast sensitivity menu.** A new **Forecast sensitivity** menu in the page's settings row (after **Time zone**; zh-TW 「預估靈敏度」,
+  translated into every page language) chooses how quickly the projection follows recent usage. The projection already blended the
+  week-to-date rate with the rate of a recent window; the presets set that window:
+  - **Standard** (default): last 24 h, recent rate weighs up to 0.5, readings must span at least 6 h. This is exactly the behaviour of
+    1.12.2: the same numbers, bit for bit.
+  - **Sensitive**: last 12 h, up to 0.5, at least 3 h.
+  - **Very sensitive**: last 6 h, up to 0.6, at least 2 h.
+
+  The 0.5x - 2x clamp around the week-to-date rate and the three-readings minimum are the same for every preset. The choice drives
+  the gauge, the Projected card, the "runs out in ~X days" label, the dashed projection and the summary (`projected_end_pct`, `proj_k`)
+  consistently, is saved as `forecast_sensitivity` (`standard` / `sensitive` / `very_sensitive`) in `usage_config.json` or
+  `<data_dir>/page_settings.json` like the other page menus, and changing it redraws the charts (it is part of the image cache key,
+  e.g. `-Fsensitive`; the default adds nothing). `usage_rate.blend_rate()` takes `window_h`, `max_weight` and `min_span_h`
+  (defaults = standard) and `rate_model()` takes `sensitivity`. New endpoint `POST /api/forecast-sensitivity` (same token and
+  Host/Origin checks as `/api/lang`). Stored data is never touched.
+
 ## [1.12.2] - 2026-11-02
 
 ### Fixed

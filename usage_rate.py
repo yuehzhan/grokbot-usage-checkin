@@ -31,13 +31,17 @@ the week start (or the mid-week reset) and blends that week-to-date rate with th
 (from the hourly samples, or the daily readings when there are no samples), the more the better the last 24 hours
 are covered by real readings; it falls back to the week-to-date rate with fewer than three readings in the window (and to the plain
 day-index model when the latest row has no ``HH:MM`` reading time),
-and it is clamped so it never jumps wildly (see the constants below). ``avg_day`` / ``proj`` keep their old meaning.
+and it is clamped so it never jumps wildly (see the constants below). The 24 h window, the 0.5 weight and the 6 h span are
+the ``standard`` preset of the user-selectable forecast sensitivity (usage_sensitivity.py: ``sensitive`` 12 h / 0.5 / 3 h,
+``very_sensitive`` 6 h / 0.6 / 2 h; same clamp). ``avg_day`` / ``proj`` keep their old meaning.
 
 Each reading's time comes from its row: ``date`` (YYYY-MM-DD) + the ``HH:MM`` at the start of ``note``
 (what usage_record.py writes); without a usable time the middle of that week day is used.
 """
 from datetime import datetime, timedelta
 import re
+
+import usage_sensitivity
 
 MIDWEEK_RESET_MIN_DROP = 5.0  # percentage points
 MIN_ELAPSED_DAYS = 1.0 / 24.0  # never divide by less than one hour since the reset
@@ -111,14 +115,18 @@ def _naive(t):
     return t.replace(tzinfo=None) if getattr(t, "tzinfo", None) is not None else t
 
 
-def blend_rate(points, t_now, pct_now, t_from, window_h=RECENT_WINDOW_H):
+def blend_rate(points, t_now, pct_now, t_from, window_h=RECENT_WINDOW_H, max_weight=RECENT_MAX_WEIGHT,
+               min_span_h=RECENT_MIN_SPAN_H):
     """Rate in % per day from the week-to-date rate (``pct_now`` over the hours since ``t_from``, at least
     ``MIN_RATE_ELAPSED_H``) blended with the last-``window_h``-hours rate.
+
+    ``window_h`` / ``max_weight`` / ``min_span_h`` are the forecast-sensitivity preset (usage_sensitivity.py); the
+    defaults are the ``standard`` preset, i.e. exactly the numbers from before presets existed.
 
     ``points``: real readings [(datetime, %), ...] from ``t_from`` on (any order, None values and anything after
     ``t_now`` ignored). Returns {"rate", "wtd", "recent", "weight", "elapsed_h"}; ``recent`` is None (and
     ``weight`` 0) when the window holds fewer than ``RECENT_MIN_POINTS`` readings or spans under
-    ``RECENT_MIN_SPAN_H`` hours: the result is then exactly the week-to-date rate."""
+    ``min_span_h`` hours: the result is then exactly the week-to-date rate."""
     t_now, t_from = _naive(t_now), _naive(t_from)
     elapsed_h = max(MIN_RATE_ELAPSED_H, (t_now - t_from).total_seconds() / 3600.0)
     wtd = max(0.0, float(pct_now)) / (elapsed_h / 24.0)
@@ -142,10 +150,10 @@ def blend_rate(points, t_now, pct_now, t_from, window_h=RECENT_WINDOW_H):
     if base is None or len(win) < RECENT_MIN_POINTS:
         return out
     span_h = (t_now - base[0]).total_seconds() / 3600.0
-    if span_h < RECENT_MIN_SPAN_H:
+    if span_h < min_span_h:
         return out
     recent = max(0.0, float(pct_now) - base[1]) / (span_h / 24.0)
-    weight = RECENT_MAX_WEIGHT * min(1.0, span_h / window_h)
+    weight = max_weight * min(1.0, span_h / window_h)
     rate = weight * recent + (1.0 - weight) * wtd
     lo, hi = RATE_CLAMP
     rate = min(max(rate, lo * wtd), hi * wtd)
@@ -154,13 +162,14 @@ def blend_rate(points, t_now, pct_now, t_from, window_h=RECENT_WINDOW_H):
 
 
 def rate_model(rows, pcts, week_start, week_end, pace, period_days=7, latest_day=None, min_drop=MIDWEEK_RESET_MIN_DROP,
-               samples=None):
+               samples=None, sensitivity=None):
     """Rate / projection / baseline for the latest reading.
 
     Returns a dict: ``avg_day``, ``proj`` (end-of-week total), ``baseline`` (where the pace says usage should be
     now), ``reset`` (None in a normal week) and, after a reset, ``elapsed_days`` (reset -> latest reading),
     ``rem_days`` (latest reading -> week end) and ``reset_at``. ``samples``: optional finer readings that narrow
-    the reset-time estimate (see the module docstring)."""
+    the reset-time estimate (see the module docstring). ``sensitivity``: forecast-sensitivity preset key
+    (``standard`` / ``sensitive`` / ``very_sensitive``, see usage_sensitivity.py); None = ``standard``."""
     latest_pct = float(pcts[-1]) if pcts else 0.0
     if latest_day is None:
         try:
@@ -174,7 +183,7 @@ def rate_model(rows, pcts, week_start, week_end, pace, period_days=7, latest_day
         return out
     reset = find_midweek_reset(rows, pcts, week_start, min_drop, samples)
     try:
-        _pace_rate(out, rows, pcts, week_start, week_end, period_days, samples, reset, latest_pct)
+        _pace_rate(out, rows, pcts, week_start, week_end, period_days, samples, reset, latest_pct, sensitivity)
     except Exception:  # never let the refined pace break the chart: the plain average stays
         pass
     if reset is None:
@@ -192,7 +201,7 @@ def rate_model(rows, pcts, week_start, week_end, pace, period_days=7, latest_day
     return out
 
 
-def _pace_rate(out, rows, pcts, week_start, week_end, period_days, samples, reset, latest_pct):
+def _pace_rate(out, rows, pcts, week_start, week_end, period_days, samples, reset, latest_pct, sensitivity):
     """Add ``rate_day`` / ``proj_rate`` / ``rate_info`` (the blended pace, see ``blend_rate``) to ``out``."""
     if not _HM.match(str(rows[-1].get("note") or "")):
         return  # no real reading time on the latest row: elapsed hours are unknown, keep the plain day-index model
@@ -208,7 +217,7 @@ def _pace_rate(out, rows, pcts, week_start, week_end, period_days, samples, rese
     else:
         t_from = week_start
         pts.append((t_from, 0.0))
-    info = blend_rate(pts, t_now, latest_pct, t_from)
+    info = blend_rate(pts, t_now, latest_pct, t_from, **usage_sensitivity.params(sensitivity))
     end = week_end if week_end is not None else week_start + timedelta(days=period_days)
     rem = max(0.0, (_naive(end) - _naive(t_now)).total_seconds() / 86400.0)
     out["rate_day"] = info["rate"]

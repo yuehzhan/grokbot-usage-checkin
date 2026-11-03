@@ -35,6 +35,7 @@ import usage_lock  # noqa: E402  (one shared write lock per data dir)
 import usage_palette  # noqa: E402  (orange = over, cool colour = under, grey baseline)
 import usage_dates  # noqa: E402  (explicit next-reset date, e.g. Sat, Oct 31, 01:41)
 import usage_offset  # noqa: E402  (display offset -2..+2 for the shown weekly %; stored values stay raw)
+import usage_sensitivity  # noqa: E402  (forecast sensitivity presets: how fast the projection follows recent use)
 import usage_categories  # noqa: E402  (check-in categories; unknown -> other)
 import usage_checkins  # noqa: E402  (check-in points and start/end sessions)
 import usage_checkins_ui  # noqa: E402  (check-in tab: HTML/CSS/JS)
@@ -254,6 +255,8 @@ class Ctx:
         if ov is None:
             ov = _read_page_setting(self.data_dir, "display_offset")
         self.display_offset = usage_offset.clamp(ov)
+        # forecast sensitivity preset (config "forecast_sensitivity", or page_settings.json): standard / sensitive / very_sensitive
+        self.forecast_sensitivity = usage_sensitivity.from_settings(cfg, self.data_dir)
         self.theme = self.theme_for(self.pal_key)
 
     @property
@@ -268,12 +271,13 @@ class Ctx:
     @property
     def key_suffix(self):
         """Image cache key part for the page settings that change the drawing: display offset ('-o+1'), a chosen
-        language ('-Lzh_tw') and a chosen time zone ('-Zasia_taipei'); empty for the defaults. A value fixed by a CLI
+        language ('-Lzh_tw'), a chosen time zone ('-Zasia_taipei') and a non-default forecast sensitivity
+        ('-Fsensitive'); empty for the defaults. A value fixed by a CLI
         flag stays out of the key: it cannot change while the service runs, and a restart redraws everything anyway."""
         lang = "auto" if self.lang_locked else self.lang_setting
         tz = "auto" if self.tz_locked else self.tz_setting
         return (usage_offset.suffix(self.display_offset) + ("" if lang == "auto" else "-L" + _slug(lang))
-                + ("" if tz == "auto" else "-Z" + _slug(tz)))
+                + ("" if tz == "auto" else "-Z" + _slug(tz)) + usage_sensitivity.suffix(self.forecast_sensitivity))
 
     def show(self, pct):
         """Weekly % as shown: raw + display offset (never below 0)."""
@@ -379,22 +383,33 @@ PAGE_ZONES = ("Asia/Taipei", "Asia/Shanghai", "Asia/Hong_Kong", "Asia/Tokyo", "A
 PICK_STR = {  # labels of the language / time zone menus and their "auto" option, in every page language
     "zh-TW": {"lang": "語言", "tz": "時區", "auto": "自動（跟系統）", "locked": "已由啟動參數指定",
               "anim": "儀表動畫", "off": "關", "once": "只跑一次", "continuous": "持續", "applying": "套用中…",
-              "interval": "讀取間隔", "minutes": "{n} 分鐘", "manual_only": "手動輸入模式：不會自動讀取"},
+              "interval": "讀取間隔", "minutes": "{n} 分鐘", "manual_only": "手動輸入模式：不會自動讀取",
+              "sens": "預估靈敏度", "sens_standard": "標準（近 24 小時）", "sens_sensitive": "靈敏（近 12 小時）",
+              "sens_very_sensitive": "非常靈敏（近 6 小時）", "sens_tip": "預估要多快反應最近的用量：越靈敏，越看重最近的使用速度"},
     "zh-CN": {"lang": "语言", "tz": "时区", "auto": "自动（跟随系统）", "locked": "已由启动参数指定",
               "anim": "仪表动画", "off": "关", "once": "只跑一次", "continuous": "持续", "applying": "应用中…",
-              "interval": "读取间隔", "minutes": "{n} 分钟", "manual_only": "手动输入模式：不会自动读取"},
+              "interval": "读取间隔", "minutes": "{n} 分钟", "manual_only": "手动输入模式：不会自动读取",
+              "sens": "预估灵敏度", "sens_standard": "标准（近 24 小时）", "sens_sensitive": "灵敏（近 12 小时）",
+              "sens_very_sensitive": "非常灵敏（近 6 小时）", "sens_tip": "预估要多快反应最近的用量：越灵敏，越看重最近的使用速度"},
     "en": {"lang": "Language", "tz": "Time zone", "auto": "Auto (system)", "locked": "Set by a command-line flag",
            "anim": "Gauge animation", "off": "Off", "once": "Once", "continuous": "Continuous", "applying": "Applying…",
-           "interval": "Read interval", "minutes": "{n} min", "manual_only": "Manual entry mode: no automatic reads"},
+           "interval": "Read interval", "minutes": "{n} min", "manual_only": "Manual entry mode: no automatic reads",
+           "sens": "Forecast sensitivity", "sens_standard": "Standard (last 24 h)", "sens_sensitive": "Sensitive (last 12 h)",
+           "sens_very_sensitive": "Very sensitive (last 6 h)", "sens_tip": "How quickly the forecast reacts to recent usage: the more sensitive, the more the latest pace counts"},
     "ja": {"lang": "言語", "tz": "タイムゾーン", "auto": "自動（システム）", "locked": "起動オプションで指定済み",
            "anim": "ゲージ演出", "off": "オフ", "once": "1回だけ", "continuous": "連続", "applying": "適用中…",
-           "interval": "読み取り間隔", "minutes": "{n} 分", "manual_only": "手動入力モード：自動読み取りなし"},
+           "interval": "読み取り間隔", "minutes": "{n} 分", "manual_only": "手動入力モード：自動読み取りなし",
+           "sens": "予測の感度", "sens_standard": "標準（直近 24 時間）", "sens_sensitive": "高感度（直近 12 時間）",
+           "sens_very_sensitive": "超高感度（直近 6 時間）", "sens_tip": "予測が直近の使用量にどれだけ素早く反応するか：感度が高いほど直近のペースを重視します"},
     "ko": {"lang": "언어", "tz": "시간대", "auto": "자동(시스템)", "locked": "실행 옵션으로 지정됨",
            "anim": "게이지 애니메이션", "off": "끄기", "once": "한 번만", "continuous": "계속", "applying": "적용 중…",
-           "interval": "읽기 간격", "minutes": "{n}분", "manual_only": "수동 입력 모드: 자동 읽기 없음"},
+           "interval": "읽기 간격", "minutes": "{n}분", "manual_only": "수동 입력 모드: 자동 읽기 없음",
+           "sens": "예측 민감도", "sens_standard": "표준(최근 24시간)", "sens_sensitive": "민감(최근 12시간)",
+           "sens_very_sensitive": "매우 민감(최근 6시간)", "sens_tip": "예측이 최근 사용량에 얼마나 빨리 반응하는지: 민감할수록 최근 속도를 더 반영합니다"},
     "numeric": {"lang": "Aa", "tz": "◷", "auto": "auto", "locked": "CLI",
                 "anim": "◔", "off": "0", "once": "1", "continuous": "∞", "applying": "…",
-                "interval": "Δt", "minutes": "{n}′", "manual_only": "M"},
+                "interval": "Δt", "minutes": "{n}′", "manual_only": "M",
+                "sens": "∿", "sens_standard": "1", "sens_sensitive": "2", "sens_very_sensitive": "3", "sens_tip": "∿"},
 }
 
 # Title mascot menu: label, button name and the option names (same order as MASCOT_CHOICES; 'custom' is listed
@@ -775,12 +790,12 @@ def tz_option_label(zone, now=None):
     return f"UTC{sgn}{m // 60}" + (f":{m % 60:02d}" if m % 60 else "")
 
 
-_KEY_SFX = __import__("re").compile(r"(-o[+-][12])?(-L[a-z0-9_]+)?(-Z[a-z0-9_]+)?$")
+_KEY_SFX = __import__("re").compile(r"(-o[+-][12])?(-L[a-z0-9_]+)?(-Z[a-z0-9_]+)?(-F(?:sensitive|very_sensitive))?$")
 
 
 def strip_offset(k):
     """'gold-sky-pat-o+1-Lja-Zasia_tokyo' -> 'gold-sky-pat' (image folder key without the page-settings part:
-    display offset, language, time zone)."""
+    display offset, language, time zone, forecast sensitivity)."""
     k = str(k or "")
     m = _KEY_SFX.search(k)
     return k[: m.start()] if m else k
@@ -1662,7 +1677,7 @@ def render_current_week(ctx, nowa, names=None):
                     "accent_color": _theme_explicit_value(ctx.theme_path, "accent"),
                     "patterns": pat or bool(_theme_file(ctx.theme_path).get("patterns")),
                     "display_offset": ctx.display_offset, "reset_at": shown_reset(ctx), "tz": ctx.tz_spec,
-                    "samples": samples}
+                    "forecast_sensitivity": ctx.forecast_sensitivity, "samples": samples}
             # 本週總覽 (default) + 每日增量 per day / per hour: same header and cards, the page switches between them
             sels = {}
             for view, fn, order in INC_VIEWS:
@@ -2644,6 +2659,8 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
                + "".join(f"<option value='{html.escape(z)}'{' selected' if z == ctx.tz_setting else ''}>{html.escape(z)} ({tz_option_label(z) if valid_zone(z) else '?'})</option>"
                          for z in zones))
     anim_opts = "".join(f"<option value='{m}'{' selected' if m == ctx.anim_setting else ''}>{html.escape(PK[m])}</option>" for m in ANIM_MODES)
+    fc_opts = "".join(f"<option value='{k}'{' selected' if k == ctx.forecast_sensitivity else ''}>{html.escape(PK['sens_' + k])}</option>"
+                      for k in usage_sensitivity.KEYS)
     lock_attr = lambda on: f" data-locked='1' title='{html.escape(PK['locked'])}'" if on else ""
     # Read interval: how often the sampler reads /usage (next cycle); disabled in manual-entry mode (nothing is read)
     iv_opts = "".join(f"<option value='{m}'{' selected' if m == ctx.interval else ''}>{html.escape(PK['minutes'].format(n=m))}</option>"
@@ -2651,7 +2668,8 @@ def write_html(ctx, sums, now, nowa, zl, gen=""):
     iv_lock = f" data-locked='1' title='{html.escape(PK['manual_only'])}'" if manual_mode(ctx) else ""
     # toolbar row 1 (settings) gets language + time zone; row 2 (actions) gets the animation menu + Applying status
     pick_html = (f"<label class=\"pal\" id=\"langl\">{html.escape(PK['lang'])} <select id=\"langsel\" class=\"offsel\" data-api=\"/api/lang\" data-k=\"usage.lang\" data-f=\"lang\"{lock_attr(ctx.lang_locked)}>{lang_opts}</select></label>"
-                 f"<label class=\"pal\" id=\"tzl\">{html.escape(PK['tz'])} <select id=\"tzsel\" class=\"offsel\" data-api=\"/api/tz\" data-k=\"usage.tz\" data-f=\"tz\"{lock_attr(ctx.tz_locked)}>{tz_opts}</select></label>")
+                 f"<label class=\"pal\" id=\"tzl\">{html.escape(PK['tz'])} <select id=\"tzsel\" class=\"offsel\" data-api=\"/api/tz\" data-k=\"usage.tz\" data-f=\"tz\"{lock_attr(ctx.tz_locked)}>{tz_opts}</select></label>"
+                 f"<label class=\"pal\" id=\"fcl\" title=\"{html.escape(PK['sens_tip'])}\">{html.escape(PK['sens'])} <select id=\"fcsel\" class=\"offsel\" data-api=\"/api/forecast-sensitivity\" data-k=\"usage.forecastSensitivity\" data-f=\"sensitivity\">{fc_opts}</select></label>")
     # Mascot menu (row 2, after Read interval, next to the other page-only display menu): applied at once; not in privacy mode
     MSK = MASCOT_STR.get(ctx.lang if ctx.lang in MASCOT_STR else plang) or MASCOT_STR["en"]
     m_opts = "".join(f"<option value='{m}'{' selected' if m == ctx.mascot_setting else ''}>{html.escape(MSK['opts'][m])}</option>" for m in mascot_choices(ctx))
@@ -3179,7 +3197,7 @@ def serve(ctx, allow_remote=False):
         return 200, {"ok": True, "checkin": r}
 
     WRITE_PATHS = ("/api/checkin", "/api/refresh", "/api/manual", "/api/update/check", "/api/update/apply", "/api/update/settings",
-                   "/api/update/rollback", "/api/palette/render", "/api/patterns", "/api/display-offset", "/api/lang", "/api/tz", "/api/anim", "/api/mascot", "/api/seasonal", "/api/interval")
+                   "/api/update/rollback", "/api/palette/render", "/api/patterns", "/api/display-offset", "/api/forecast-sensitivity", "/api/lang", "/api/tz", "/api/anim", "/api/mascot", "/api/seasonal", "/api/interval")
 
     def pick_setting(key, d):
         """POST /api/lang {"lang": "auto"|"zh-TW"|"zh-CN"|"en"|"ja"|"ko"|"numeric"|"id"|"de"|"es"|"fr"|"pt"} or /api/tz {"tz": "auto"|<IANA zone>}:
@@ -3254,6 +3272,23 @@ def serve(ctx, allow_remote=False):
             return 500, {"ok": False, "error": "write failed" if ctx.privacy else f"could not save the setting: {exc}"}
         regen()
         return 200, {"ok": True, "display_offset": v}
+
+    def forecast_setting(d):
+        """POST /api/forecast-sensitivity {"sensitivity": "standard"|"sensitive"|"very_sensitive"}: saved as
+        "forecast_sensitivity" in usage_config.json (or <data_dir>/page_settings.json); the charts (gauge, cards, dashed
+        projection) are redrawn with the new preset before this returns."""
+        v = d.get("sensitivity")
+        if not isinstance(v, str) or v not in usage_sensitivity.KEYS:
+            return 400, {"ok": False, "error": "sensitivity must be standard, sensitive or very_sensitive"}
+        try:
+            with usage_lock.write_lock(ctx.data_dir):
+                save_page_setting(ctx.cfg_path, ctx.data_dir, "forecast_sensitivity", v)
+            with draw_lock:
+                ctx.reload()
+        except Exception as exc:
+            return 500, {"ok": False, "error": "write failed" if ctx.privacy else f"could not save the setting: {exc}"}
+        regen()
+        return 200, {"ok": True, "sensitivity": ctx.forecast_sensitivity}
 
     def patterns_setting(d):
         """POST /api/patterns {"on": true|false}: the page's "Add patterns" switch, saved as "patterns" in
@@ -3548,6 +3583,15 @@ def serve(ctx, allow_remote=False):
                 if not isinstance(d, dict):
                     return self._send(400, {"ok": False, "error": "bad json"})
                 return self._send(*interval_setting(d))
+            if u.path == "/api/forecast-sensitivity":
+                try:
+                    n = local_guard.content_length(self.headers); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""
+                    d = json.loads(raw or "{}")
+                except Exception:
+                    return self._send(400, {"ok": False, "error": "bad json"})
+                if not isinstance(d, dict):
+                    return self._send(400, {"ok": False, "error": "bad json"})
+                return self._send(*forecast_setting(d))
             if u.path == "/api/display-offset":
                 try:
                     n = local_guard.content_length(self.headers); raw = self.rfile.read(min(n, 1000)).decode("utf-8") if n else ""

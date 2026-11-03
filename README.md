@@ -374,6 +374,11 @@ is on. The choice is saved in `usage_config.json` (or `<data_dir>/page_settings.
 (`usage.displayOffset`); changing it redraws the charts (the offset is part of the image cache key, e.g.
 `history/pal/orange-teal-o+1/`).
 
+**Forecast sensitivity** (`forecast_sensitivity`, menu after **Time zone**; zh-TW 「預估靈敏度」): how quickly the projection (gauge, Projected card,
+"runs out in" label, dashed line, summary) follows your recent pace. **Standard** (default, last 24 h, up to half weight; identical to earlier
+versions), **Sensitive** (last 12 h) or **Very sensitive** (last 6 h, up to 0.6 weight); the 0.5x - 2x clamp is the same for all. Saved as
+`"standard"` / `"sensitive"` / `"very_sensitive"` in `usage_config.json` (or `<data_dir>/page_settings.json`) and redraws the charts.
+
 **Language** and **Time zone** menus (next to **Display offset**). Language: Auto (system), 繁體中文, 简体中文,
 English, 日本語, 한국어, Bahasa Indonesia, Deutsch, Español, Français, Português (each by its native name) or, last, `123456` (numeric-only); time zone: Auto (system) or a common IANA zone, each shown with its current UTC
 offset. They use the existing `lang` / `tz` keys (saved in `usage_config.json`, or `<data_dir>/page_settings.json`
@@ -1190,6 +1195,7 @@ python3 -m unittest discover -s tests -p "test_security.py" -v
 | `custom_colors` | (none) | With `"palette": "custom"`: `{"under": "#RRGGBB", "over": "#RRGGBB"}`. |
 | `patterns` | `false` | **Add patterns**: hatching, dashed over-line and ▲/▼ on charts and badges, for any palette. Set by the page checkbox too. |
 | `display_offset` | `0` | Whole number −2…+2 added to the shown weekly % (clamped; `1` matches the desktop app's rounding). Stored data stays raw. Set by the page menu too. |
+| `forecast_sensitivity` | `"standard"` | `"standard"` (last 24 h), `"sensitive"` (last 12 h) or `"very_sensitive"` (last 6 h): how quickly the projection follows recent usage. Set by the page menu too. |
 | `over_color`, `under_color`, `baseline_color` | `null` | Optional single-colour overrides for `chart_hud.py` (hex); `null` = take it from the palette. |
 | `render_all_palettes` | `false` | `true` = draw every palette's history/clock PNGs on every refresh (instant switching, slower refreshes). `false` = draw other palettes only when the page asks, then reuse them until the next refresh. |
 | `checkin_categories` | 14 defaults | Category ids in page order; `id:Label` sets a custom label. Unknown ids become `other`. |

@@ -103,6 +103,7 @@ DEFAULT_CFG = {
     "reset_at": None,  # exact next reset to show (ISO, e.g. the 'Resets:' value from /usage); else start + 7 days
     "patterns": None,  # non-colour cues (hatching, dashed over-line, ▲/▼); off unless asked for ("Add patterns")
     "display_offset": 0,  # -2..+2 added to the shown weekly % (see usage_offset.py); the CSV stays raw
+    "forecast_sensitivity": "standard",  # standard | sensitive | very_sensitive: how fast the projection follows recent use
 }
 
 BASE_STRINGS = {
@@ -1422,6 +1423,7 @@ def normalize_cfg(cfg=None, theme_path=None):
     pace_val = merged["pace"]
     merged["pace"] = int(pace_val) if float(pace_val).is_integer() else float(pace_val)
     merged["display_offset"] = _offset_mod().clamp(merged.get("display_offset"))
+    merged["forecast_sensitivity"] = _sibling("usage_sensitivity").clamp(merged.get("forecast_sensitivity"))
     return merged
 
 
@@ -3092,7 +3094,8 @@ def render(rows, out_png, week_start, cfg=None):
     # Mid-week reset (e.g. a plan upgrade resets the pool to ~0% while the week window stays): average, projection
     # and baselines count from the estimated reset time instead of the week start (see usage_rate.py).
     rate = _sibling("usage_rate").rate_model(sorted_rows, pcts, start_dt, shown_reset, cfg["pace"],
-                                             latest_day=latest_day, samples=cfg.get("samples"))
+                                             latest_day=latest_day, samples=cfg.get("samples"),
+                                             sensitivity=cfg.get("forecast_sensitivity"))
     data["rate"] = rate
     _ur = _sibling("usage_rate")
     data["bases"] = [_ur.baseline_at(r, cfg["pace"], start_dt, rate["reset"]) for r in sorted_rows]

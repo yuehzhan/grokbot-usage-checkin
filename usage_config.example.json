@@ -26,6 +26,7 @@
   "stale_after_hours": 6,
   "desktop_notify": true,
   "palette": "orange-teal",
+  "forecast_sensitivity": "standard",
   "render_all_palettes": false,
   "checkin_categories": [
     "web",
